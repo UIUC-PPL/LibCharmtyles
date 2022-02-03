@@ -156,12 +156,12 @@ namespace aum {
 
         void exit() const
         {
-            proxy_.exit(read_tag_);
+            proxy_[0].exit(read_tag_);
         }
 
         void exit(double start) const
         {
-            proxy_.exit(read_tag_, start);
+            proxy_[0].exit(read_tag_, start);
         }
 
     private:
