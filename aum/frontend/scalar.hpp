@@ -26,18 +26,60 @@ namespace aum {
     class scalar
     {
     public:
-        scalar()
+        explicit scalar()
           : read_tag_(0)
           , write_tag_(0)
         {
             proxy_ = CProxy_Scalar::ckNew();
         }
 
-        scalar(double value)
+        explicit scalar(double value)
           : read_tag_(0)
           , write_tag_(0)
         {
             proxy_ = CProxy_Scalar::ckNew(value);
+        }
+
+        scalar(scalar const& other)
+        {
+            proxy_ = other.proxy();
+
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
+        }
+
+        scalar(scalar&& other)
+        {
+            proxy_ = other.proxy();
+
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
+        }
+
+        scalar& operator=(scalar const& other)
+        {
+            if (this == &other)
+                return *this;
+
+            proxy_ = other.proxy();
+
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
+
+            return *this;
+        }
+
+        scalar& operator=(scalar&& other)
+        {
+            if (this == &other)
+                return *this;
+
+            proxy_ = other.proxy();
+
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
+
+            return *this;
         }
 
         void print_value() const

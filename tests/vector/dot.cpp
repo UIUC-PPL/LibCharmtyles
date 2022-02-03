@@ -22,10 +22,23 @@ public:
     Main(CkArgMsg* msg)
     {
         double start = CkWallTimer();
-        aum::vector A{1000000, 1.1};
-        aum::vector B{1000000, 2.2};
+        aum::vector A{1000000, 1.};
+        aum::vector B{1000000, 2.};
 
+        // No temporaries
         aum::scalar s = aum::dot(A, B);
+        s.print_value();
+
+        // 2 temporaries
+        s = aum::dot(A + B, B - A);
+        s.print_value();
+
+        // left temporary
+        s = aum::dot(A + B, A);
+        s.print_value();
+
+        // right temporary
+        s = aum::dot(A, B - A);
         s.print_value();
 
         aum::wait_and_exit(s, start);
