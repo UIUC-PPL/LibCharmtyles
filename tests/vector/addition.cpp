@@ -23,10 +23,17 @@ public:
     {
         aum::vector A{1000000, 1.1};
         aum::vector B{1000000, 2.2};
+        aum::vector C{1000000, 3.3};
+        aum::vector D{1000000, 4.4};
 
-        aum::vector C = A + B;
-        A = B + C;
-        B = C + A;
+        // Force 2 temporaries
+        aum::vector E = (A + D) + (B + C);
+
+        // 1 temp to the left
+        A = B + C + D;
+
+        // 1 temp to the right
+        B = C + (A + D);
 
         aum::synchronize(B);
     }

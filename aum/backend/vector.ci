@@ -55,6 +55,31 @@ module Vector
                             
                             // Operation is now complete - set up read facility
                             // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation Add:
+                    // The generalized addition operation takes one vector
+                    // as argument and updates the current vector.
+                    when
+                        plus_add[WRITE_TAG](int write_tag),
+                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr1[size1])
+                    {
+                        serial "vector_single_addition"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, size1);
+
+                            evec_t e(vec.data(), vec.size());
+
+                            e += e1;
+                            
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
                         }
                     }
@@ -124,6 +149,7 @@ module Vector
         }
 
         entry void add(int);
+        entry void plus_add(int);
         entry void input_vector_1(int, int size, double arr[size]);
         entry void input_vector_2(int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Vector);

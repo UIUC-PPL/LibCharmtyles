@@ -22,8 +22,6 @@
 class Vector : public CBase_Vector
 {
 private:
-    Vector_SDAG_CODE;
-
     int size;
     std::vector<double> vec;
 
@@ -31,6 +29,8 @@ private:
     int WRITE_TAG;
 
 public:
+    Vector_SDAG_CODE;
+
     Vector(int size_)
       : size(size_)
       , vec(size)

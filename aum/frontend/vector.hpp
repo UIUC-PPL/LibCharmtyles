@@ -22,30 +22,6 @@
 
 namespace aum {
 
-    class vector;
-
-    namespace detail {
-
-        template <typename Callable>
-        struct vector_op
-        {
-            aum::vector const& v1;
-            aum::vector const& v2;
-
-            // Callable to handle the operation
-            Callable&& c;
-
-            explicit vector_op(
-                aum::vector const& v1_, aum::vector const& v2_, Callable&& c_)
-              : v1(v1_)
-              , v2(v2_)
-              , c(std::move(c_))
-            {
-            }
-        };
-
-    }    // namespace detail
-
     // User facing aum::vector class
     class vector
     {
@@ -76,31 +52,52 @@ namespace aum {
                 aum::sizes::array_size::value, value, num_chares_);
         }
 
-        template <typename Callable>
-        vector(detail::vector_op<Callable> const& vop)
+        vector(vector const& other)
         {
-            // Construct the proxy
-            size_ = vop.v1.size();
-            num_chares_ = vop.v1.num_chares();
-            read_tag_ = 0;
-            write_tag_ = 0;
+            size_ = other.size();
+            num_chares_ = other.num_chares();
+            proxy_ = other.proxy();
 
-            proxy_ = CProxy_Vector::ckNew(
-                aum::sizes::array_size::value, num_chares_);
-
-            vector const& v1 = vop.v1;
-            vector const& v2 = vop.v2;
-
-            vop.c(*this, v1, v2);
+            read_tag_ = other.reads();
+            write_tag_ = other.writes();
         }
 
-        template <typename Callable>
-        vector operator=(detail::vector_op<Callable> const& vop)
+        vector(vector&& other)
         {
-            vector const& v1 = vop.v1;
-            vector const& v2 = vop.v2;
+            size_ = other.size();
+            num_chares_ = other.num_chares();
+            proxy_ = other.proxy();
 
-            vop.c(*this, v1, v2);
+            read_tag_ = other.reads();
+            write_tag_ = other.writes();
+        }
+
+        vector& operator=(vector const& other)
+        {
+            if (this == &other)
+                return *this;
+
+            size_ = other.size();
+            num_chares_ = other.num_chares();
+            proxy_ = other.proxy();
+
+            read_tag_ = other.reads();
+            write_tag_ = other.writes();
+
+            return *this;
+        }
+
+        vector& operator=(vector&& other)
+        {
+            if (this == &other)
+                return *this;
+
+            size_ = other.size();
+            num_chares_ = other.num_chares();
+            proxy_ = other.proxy();
+
+            read_tag_ = other.reads();
+            write_tag_ = other.writes();
 
             return *this;
         }
@@ -127,17 +124,30 @@ namespace aum {
 
         void update_tags()
         {
+            ++write_tag_;
             read_tag_ = write_tag_ + 1;
         }
 
-        void send_to_1(int result_tag, vector& result) const
+        int reads() const
+        {
+            return read_tag_;
+        }
+
+        int writes() const
+        {
+            return write_tag_;
+        }
+
+        template <typename Vector>
+        void send_to_1(int result_tag, Vector&& result) const
         {
             ++write_tag_;
 
             proxy_.send_to_1(read_tag_, result_tag, result.proxy());
         }
 
-        void send_to_2(int result_tag, vector& result) const
+        template <typename Vector>
+        void send_to_2(int result_tag, Vector&& result) const
         {
             ++write_tag_;
 
@@ -159,19 +169,59 @@ namespace aum {
         mutable int write_tag_;
     };
 
-    auto operator+(vector const& v1, vector const& v2)
+    vector operator+(vector const& v1, vector const& v2)
     {
         assert((v1.size() == v2.size()) &&
             "Vectors provided with incompatible sizes");
 
-        return detail::vector_op{
-            v1, v2, [](vector& result, vector const& v1, vector const& v2) {
-                int w_tag = result.write_tag();
-                v1.send_to_1(w_tag, result);
-                v2.send_to_2(w_tag, result);
-                result.proxy().add(w_tag);
-                result.update_tags();
-            }};
+        vector result{v1.size()};
+
+        int w_tag = result.write_tag();
+        v1.send_to_1(w_tag, result);
+        v2.send_to_2(w_tag, result);
+        result.proxy().add(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    vector operator+(vector&& v1, vector const& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        int w_tag = v1.write_tag();
+        v2.send_to_1(w_tag, v1);
+        v1.proxy().plus_add(w_tag);
+        v1.update_tags();
+
+        return std::move(v1);
+    }
+
+    vector operator+(vector const& v1, vector&& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        int w_tag = v2.write_tag();
+        v1.send_to_1(w_tag, v2);
+        v2.proxy().plus_add(w_tag);
+        v2.update_tags();
+
+        return std::move(v2);
+    }
+
+    vector operator+(vector&& v1, vector&& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        int w_tag = v2.write_tag();
+        v1.send_to_1(w_tag, v2);
+        v2.proxy().plus_add(w_tag);
+        v2.update_tags();
+
+        return std::move(v2);
     }
 
 }    // namespace aum
