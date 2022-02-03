@@ -17,11 +17,15 @@ include ../../Makefile.common
 TEST_DIR=$(BASE_DIR)/../tests
 LIBS_DIR=$(BASE_DIR)
 
-all: addition subtraction
+all: addition dot subtraction
 
 .PHONY: clean
 
 addition: addition.cpp addition.ci
+	$(CHARMC) -E $(word 2,$^)
+	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
+
+dot: dot.cpp dot.ci
 	$(CHARMC) -E $(word 2,$^)
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 

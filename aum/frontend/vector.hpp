@@ -58,8 +58,8 @@ namespace aum {
             num_chares_ = other.num_chares();
             proxy_ = other.proxy();
 
-            read_tag_ = other.reads();
-            write_tag_ = other.writes();
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
         }
 
         vector(vector&& other)
@@ -68,8 +68,8 @@ namespace aum {
             num_chares_ = other.num_chares();
             proxy_ = other.proxy();
 
-            read_tag_ = other.reads();
-            write_tag_ = other.writes();
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
         }
 
         vector& operator=(vector const& other)
@@ -81,8 +81,8 @@ namespace aum {
             num_chares_ = other.num_chares();
             proxy_ = other.proxy();
 
-            read_tag_ = other.reads();
-            write_tag_ = other.writes();
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
 
             return *this;
         }
@@ -96,8 +96,8 @@ namespace aum {
             num_chares_ = other.num_chares();
             proxy_ = other.proxy();
 
-            read_tag_ = other.reads();
-            write_tag_ = other.writes();
+            read_tag_ = other.read_tag();
+            write_tag_ = other.write_tag();
 
             return *this;
         }
@@ -110,6 +110,11 @@ namespace aum {
         int write_tag() const
         {
             return write_tag_;
+        }
+
+        int read_tag() const
+        {
+            return read_tag_;
         }
 
         int size() const
@@ -128,16 +133,6 @@ namespace aum {
             read_tag_ = write_tag_ + 1;
         }
 
-        int reads() const
-        {
-            return read_tag_;
-        }
-
-        int writes() const
-        {
-            return write_tag_;
-        }
-
         template <typename Vector>
         void send_to_1(int result_tag, Vector&& result) const
         {
@@ -152,6 +147,11 @@ namespace aum {
             ++write_tag_;
 
             proxy_.send_to_2(read_tag_, result_tag, result.proxy());
+        }
+
+        void inc_reads() const
+        {
+            ++write_tag_;
         }
 
         void exit() const

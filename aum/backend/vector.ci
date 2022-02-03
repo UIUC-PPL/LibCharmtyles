@@ -16,6 +16,8 @@ module Vector
 {
     include "eigen3/Eigen/Core";
 
+    extern module Scalar;
+
     array[1D] Vector
     {
         ////////////////////////////////////////////////////////////////////////
@@ -138,6 +140,31 @@ module Vector
                         }
                     }
 
+                    // Operation dot:
+                    // The generalized index wise multiply then reduce
+                    when
+                        dot[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy),
+                        input_vector_1[READ_TAG](int read_tag, int size, double arr[size])
+                    {
+                        serial "dot_product"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e1(arr, size);
+                            evec_t e(vec.data(), vec.size());
+
+                            double val = e.dot(e1);
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_reduced_value), proxy);
+                            contribute(sizeof(double), &val, CkReduction::sum_double, cb, scalar_tag);
+
+                            // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     // Operation send_to_1:
                     // Helper function to send the value of underlying vector
                     // to the site where an operation is to be performed.
@@ -206,6 +233,7 @@ module Vector
         entry void plus_add(int);
         entry void subtract(int);
         entry void minus_subtract(int, bool);
+        entry void dot(int, int, CProxy_Scalar);
         entry void input_vector_1(int, int size, double arr[size]);
         entry void input_vector_2(int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Vector);

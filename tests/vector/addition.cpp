@@ -36,7 +36,7 @@ public:
         // 1 temp to the right
         B = C + (A + D);
 
-        aum::synchronize(B, start);
+        aum::wait_and_exit(B, start);
     }
 };
 

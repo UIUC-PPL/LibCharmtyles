@@ -12,32 +12,36 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "addition.decl.h"
+#pragma once
 
-#include <aum/aum.hpp>
+#include "Scalar.decl.h"
 
-class Main : public CBase_Main
+#include <stdlib.h>
+
+class Scalar : public CBase_Scalar
 {
+private:
+    double value;
+
+    int READ_TAG;
+    int WRITE_TAG;
+
 public:
-    Main(CkArgMsg* msg)
+    Scalar_SDAG_CODE;
+
+    Scalar(double value_)
+      : value(value_)
+      , READ_TAG(0)
+      , WRITE_TAG(0)
     {
-        double start = CkWallTimer();
-        aum::vector A{1000000, 1.1};
-        aum::vector B{1000000, 2.2};
-        aum::vector C{1000000, 3.3};
-        aum::vector D{1000000, 4.4};
+        thisProxy.initialize_operation();
+    }
 
-        // Force 2 temporaries
-        aum::vector E = (A - D) - (B - C);
-
-        // 1 temp to the left
-        A = B - C - D;
-
-        // 1 temp to the right
-        B = C - (A - D);
-
-        aum::wait_and_exit(B, start);
+    Scalar()
+      : value(0.0)
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+    {
+        thisProxy.initialize_operation();
     }
 };
-
-#include "addition.def.h"

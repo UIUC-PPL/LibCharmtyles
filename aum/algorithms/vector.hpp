@@ -12,32 +12,28 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "addition.decl.h"
+#pragma once
 
-#include <aum/aum.hpp>
+#include <aum/frontend/scalar.hpp>
+#include <aum/frontend/vector.hpp>
 
-class Main : public CBase_Main
-{
-public:
-    Main(CkArgMsg* msg)
+namespace aum {
+
+    aum::scalar dot(aum::vector const& v1, aum::vector const& v2)
     {
-        double start = CkWallTimer();
-        aum::vector A{1000000, 1.1};
-        aum::vector B{1000000, 2.2};
-        aum::vector C{1000000, 3.3};
-        aum::vector D{1000000, 4.4};
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
 
-        // Force 2 temporaries
-        aum::vector E = (A - D) - (B - C);
+        aum::scalar result;
+        int scalar_tag = result.write_tag();
 
-        // 1 temp to the left
-        A = B - C - D;
+        int read_tag = v1.read_tag();
+        v2.send_to_1(read_tag, v1);
+        v1.proxy().dot(read_tag, scalar_tag, result.proxy());
+        v1.inc_reads();
 
-        // 1 temp to the right
-        B = C - (A - D);
-
-        aum::wait_and_exit(B, start);
+        result.update_tags();
+        return result;
     }
-};
 
-#include "addition.def.h"
+}    // namespace aum

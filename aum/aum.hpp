@@ -14,23 +14,27 @@
 
 #pragma once
 
+#include <aum/frontend/scalar.hpp>
 #include <aum/frontend/vector.hpp>
+
+#include <aum/algorithms/vector.hpp>
 
 namespace aum {
 
     template <typename T>
-    void synchronize(T&& t)
+    void wait_and_exit(T&& t)
     {
         t.exit();
     }
 
     template <typename T>
-    void synchronize(T&& t, double start)
+    void wait_and_exit(T&& t, double start)
     {
         t.exit(start);
     }
 
 }    // namespace aum
 
+#include <aum/backend/Scalar.def.h>
 #include <aum/backend/Vector.def.h>
 #include <aum/backend/libaum.def.h>

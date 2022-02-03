@@ -19,5 +19,6 @@ module libaum
 {
     include "cstdint";
 
+    extern module Scalar;
     extern module Vector;
 }

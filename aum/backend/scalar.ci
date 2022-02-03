@@ -1,0 +1,100 @@
+// Copyright (C) 2022 Nikunj Gupta
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+//  Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <https://www.gnu.org/licenses/>.
+
+module Scalar
+{
+    chare Scalar
+    {
+        ////////////////////////////////////////////////////////////////////////
+        // Basic Constructors                                                 //
+        ////////////////////////////////////////////////////////////////////////
+        entry Scalar(); // Initialize
+        entry Scalar(double);   // Value
+
+        ////////////////////////////////////////////////////////////////////////
+        // Operation over Scalar                                              //
+        ////////////////////////////////////////////////////////////////////////
+        entry void initialize_operation()
+        {
+            for (; WRITE_TAG > -1;)
+            {
+                case
+                {
+                    // Reduction target
+                    when
+                        set_reduced_value[WRITE_TAG](double val)
+                    {
+                        serial "set_reduced_value"
+                        {
+                            value = val;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Printer
+                    when
+                        print_value[READ_TAG](int read_tag)
+                    {
+                        serial "print_value"
+                        {
+                            ckout << "Value in Scalar: " << value << endl;
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation exit
+                    // Helper function that exits the program when called.
+                    when exit[READ_TAG](int read_tag)
+                    {
+                        serial "exit"
+                        {
+                            ckout << "Exiting..." << endl;
+
+                            CkExit();
+                        }
+                    }
+
+                    // Operation exit
+                    // Helper function that prints the time taken to execute
+                    // up to this point in the program and then exits.
+                    when exit[READ_TAG](int read_tag, double start)
+                    {
+                        serial "exit_with_timer"
+                        {
+                            double end = CkWallTimer();
+
+                            ckout << "Execution Time: " << end - start << endl;
+                            ckout << "Exiting..." << endl;
+                            CkExit();
+                        }
+                    }
+                }
+            }
+        }
+
+        entry [reductiontarget] void set_reduced_value(double);
+        entry void print_value(int);
+        entry void exit(int);
+        entry void exit(int, double);
+    }
+}
