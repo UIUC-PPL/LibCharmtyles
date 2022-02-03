@@ -28,13 +28,13 @@ public:
         aum::vector D{1000000, 4.4};
 
         // Force 2 temporaries
-        aum::vector E = (A + D) + (B + C);
+        aum::vector E = (A - D) - (B - C);
 
         // 1 temp to the left
-        A = B + C + D;
+        A = B - C - D;
 
         // 1 temp to the right
-        B = C + (A + D);
+        B = C - (A - D);
 
         aum::synchronize(B, start);
     }
