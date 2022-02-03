@@ -21,6 +21,7 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
+        double start = CkWallTimer();
         aum::vector A{1000000, 1.1};
         aum::vector B{1000000, 2.2};
         aum::vector C{1000000, 3.3};
@@ -35,7 +36,7 @@ public:
         // 1 temp to the right
         B = C + (A + D);
 
-        aum::synchronize(B);
+        aum::synchronize(B, start);
     }
 };
 

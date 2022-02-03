@@ -159,6 +159,11 @@ namespace aum {
             proxy_.exit(read_tag_);
         }
 
+        void exit(double start) const
+        {
+            proxy_.exit(read_tag_, start);
+        }
+
     private:
         int size_;
         int num_chares_;

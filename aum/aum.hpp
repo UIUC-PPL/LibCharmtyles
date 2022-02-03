@@ -24,6 +24,12 @@ namespace aum {
         t.exit();
     }
 
+    template <typename T>
+    void synchronize(T&& t, double start)
+    {
+        t.exit(start);
+    }
+
 }    // namespace aum
 
 #include <aum/backend/Vector.def.h>
