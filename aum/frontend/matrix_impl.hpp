@@ -14,14 +14,15 @@
 
 #pragma once
 
-#include <aum/frontend/vector.hpp>
+#include <aum/frontend/matrix.hpp>
 
+#include <aum/frontend/matrix.hpp>
 #include <aum/frontend/scalar.hpp>
 
 namespace aum {
 
     template <typename Container>
-    void vector::send_to_1(int result_tag, Container&& result) const
+    void matrix::send_to_1(int result_tag, Container&& result) const
     {
         ++write_tag_;
 
@@ -29,19 +30,19 @@ namespace aum {
     }
 
     template <typename Container>
-    void vector::send_to_2(int result_tag, Container&& result) const
+    void matrix::send_to_2(int result_tag, Container&& result) const
     {
         ++write_tag_;
 
         proxy_.send_to_2(read_tag_, result_tag, result.proxy());
     }
 
-    vector operator+(vector const& v1, vector const& v2)
+    matrix operator+(matrix const& v1, matrix const& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
-        vector result{v1.size()};
+        matrix result{v1.rows(), v1.cols()};
 
         int w_tag = result.write_tag();
         v1.send_to_1(w_tag, result);
@@ -52,10 +53,10 @@ namespace aum {
         return result;
     }
 
-    vector operator+(vector&& v1, vector const& v2)
+    matrix operator+(matrix&& v1, matrix const& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v1.write_tag();
         v2.send_to_1(w_tag, v1);
@@ -65,10 +66,10 @@ namespace aum {
         return std::move(v1);
     }
 
-    vector operator+(vector const& v1, vector&& v2)
+    matrix operator+(matrix const& v1, matrix&& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v2.write_tag();
         v1.send_to_1(w_tag, v2);
@@ -78,10 +79,10 @@ namespace aum {
         return std::move(v2);
     }
 
-    vector operator+(vector&& v1, vector&& v2)
+    matrix operator+(matrix&& v1, matrix&& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v2.write_tag();
         v1.send_to_1(w_tag, v2);
@@ -91,12 +92,12 @@ namespace aum {
         return std::move(v2);
     }
 
-    vector operator-(vector const& v1, vector const& v2)
+    matrix operator-(matrix const& v1, matrix const& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
-        vector result{v1.size()};
+        matrix result{v1.rows(), v1.cols()};
 
         int w_tag = result.write_tag();
         v1.send_to_1(w_tag, result);
@@ -107,10 +108,10 @@ namespace aum {
         return result;
     }
 
-    vector operator-(vector&& v1, vector const& v2)
+    matrix operator-(matrix&& v1, matrix const& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v1.write_tag();
         v2.send_to_1(w_tag, v1);
@@ -120,10 +121,10 @@ namespace aum {
         return std::move(v1);
     }
 
-    vector operator-(vector const& v1, vector&& v2)
+    matrix operator-(matrix const& v1, matrix&& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v2.write_tag();
         v1.send_to_1(w_tag, v2);
@@ -133,10 +134,10 @@ namespace aum {
         return std::move(v2);
     }
 
-    vector operator-(vector&& v1, vector&& v2)
+    matrix operator-(matrix&& v1, matrix&& v2)
     {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
+        assert((v1.rows() == v2.rows() && v1.cols() == v2.cols()) &&
+            "Matrices provided with incompatible sizes");
 
         int w_tag = v2.write_tag();
         v1.send_to_1(w_tag, v2);
@@ -146,9 +147,9 @@ namespace aum {
         return std::move(v2);
     }
 
-    vector operator*(double value, vector const& v1)
+    matrix operator*(double value, matrix const& v1)
     {
-        vector result{v1.size()};
+        matrix result{v1.rows(), v1.cols()};
 
         int w_tag = result.write_tag();
         v1.send_to_1(w_tag, result);
@@ -158,13 +159,13 @@ namespace aum {
         return result;
     }
 
-    vector operator*(scalar const& s, vector const& v1)
+    matrix operator*(scalar const& s, matrix const& v1)
     {
-        vector result{v1.size()};
+        matrix result{v1.rows(), v1.cols()};
 
         int w_tag = result.write_tag();
         v1.send_to_1(w_tag, result);
-        s.send_to_vector(w_tag, result);
+        s.send_to_matrix(w_tag, result);
         result.proxy().aum_scalar_multiply(w_tag);
         result.update_tags();
 

@@ -12,26 +12,32 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#pragma once
+#include <aum/aum.hpp>
 
-#include <aum/frontend/scalar.hpp>
+#include "addition.decl.h"
 
-namespace aum {
-
-    template <typename Container>
-    void scalar::send_to_vector(int result_tag, Container&& result) const
+class Main : public CBase_Main
+{
+public:
+    Main(CkArgMsg* msg)
     {
-        ++write_tag_;
+        double start = CkWallTimer();
+        aum::matrix A{1000, 1000, 1.1};
+        aum::matrix B{1000, 1000, 1.1};
+        aum::matrix C{1000, 1000, 1.1};
+        aum::matrix D{1000, 1000, 1.1};
 
-        proxy_.send_to_vector(read_tag_, result_tag, result.proxy());
+        // Force 2 temporaries
+        aum::matrix E = (A + D) + (B + C);
+
+        // 1 temp to the left
+        A = B + C + D;
+
+        // 1 temp to the right
+        B = C + (A + D);
+
+        aum::wait_and_exit(B, start);
     }
+};
 
-    template <typename Container>
-    void scalar::send_to_matrix(int result_tag, Container&& result) const
-    {
-        ++write_tag_;
-
-        proxy_.send_to_matrix(read_tag_, result_tag, result.proxy());
-    }
-
-}    // namespace aum
+#include "addition.def.h"

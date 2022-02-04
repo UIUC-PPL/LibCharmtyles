@@ -39,15 +39,15 @@ module Matrix
                 case
                 {
                     // Operation Add:
-                    // The generalized addition operation takes two vectors
+                    // The generalized addition operation takes two matrices
                     // as arguments and updates the current vector with the
-                    // sum of the two vectors.
+                    // sum of the two matrices.
                     when
                         add[WRITE_TAG](int write_tag),
                         input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
                         input_matrix_2[WRITE_TAG](int write_tag, int dimx2, int dimy2, int size2, double arr2[size2])
                     {
-                        serial "vector_addition"
+                        serial "matrix_addition"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
@@ -65,6 +65,131 @@ module Matrix
                         }
                     }
 
+                    // Operation Add:
+                    // The generalized addition operation takes one matrix
+                    // as argument and updates the current matrix.
+                    when
+                        plus_add[WRITE_TAG](int write_tag),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                    {
+                        serial "matrix_single_addition"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            e += e1;
+                            
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation Subtract:
+                    // The generalized subtraction operation takes two matrices
+                    // as arguments and updates the current vector with the
+                    // sum of the two matrices.
+                    when
+                        subtract[WRITE_TAG](int write_tag),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
+                        input_matrix_2[WRITE_TAG](int write_tag, int dimx2, int dimy2, int size2, double arr2[size2])
+                    {
+                        serial "matrix_subtraction"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+                            evec_t e2(arr2, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            e = e1 - e2;
+                            
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation Add:
+                    // The generalized addition operation takes one vector
+                    // as argument and updates the current vector.
+                    when
+                        minus_subtract[WRITE_TAG](int write_tag, bool inverted),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                    {
+                        serial "matrix_single_subtraction"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            if (inverted)
+                                e = e1 - e;
+                            else
+                                e -= e1;
+                            
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation scalar multiply:
+                    // The generalized index wise scalar multiply
+                    when
+                        scalar_multiply[WRITE_TAG](int write_tag, double value),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                    {
+                        serial "scalar_multiply"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            e = value * e1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation scalar multiply:
+                    // The generalized index wise scalar multiply
+                    when
+                        aum_scalar_multiply[WRITE_TAG](int write_tag),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
+                        input_matrix_1[WRITE_TAG](int write_tag, double value)
+                    {
+                        serial "aum_scalar_multiply"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            e = value * e1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }  
+
                     // Operation send_to_1:
                     // Helper function to send the value of underlying vector
                     // to the site where an operation is to be performed.
@@ -72,7 +197,7 @@ module Matrix
                     {
                         serial "send_to_1"
                         {
-                            pv[thisIndex].input_matrix_1(write_tag, dimx, dimy, mat.size(), mat.data());
+                            pv(thisIndex.x, thisIndex.y).input_matrix_1(write_tag, dimx, dimy, mat.size(), mat.data());
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -89,7 +214,7 @@ module Matrix
                     {
                         serial "send_to_2"
                         {
-                            pv[thisIndex].input_matrix_2(write_tag, dimx, dimy, mat.size(), mat.data());
+                            pv(thisIndex.x, thisIndex.y).input_matrix_2(write_tag, dimx, dimy, mat.size(), mat.data());
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -130,6 +255,12 @@ module Matrix
         }
 
         entry void add(int);
+        entry void plus_add(int);
+        entry void subtract(int);
+        entry void minus_subtract(int, bool);
+        entry void scalar_multiply(int, double);
+        entry void aum_scalar_multiply(int);
+        entry void input_matrix_1(int, double);
         entry void input_matrix_1(int, int, int, int size, double arr[size]);
         entry void input_matrix_2(int, int, int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Matrix);

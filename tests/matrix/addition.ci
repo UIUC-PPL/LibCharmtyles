@@ -12,26 +12,13 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#pragma once
+mainmodule addition
+{
 
-#include <aum/frontend/scalar.hpp>
+    extern module libaum;
 
-namespace aum {
-
-    template <typename Container>
-    void scalar::send_to_vector(int result_tag, Container&& result) const
+    mainchare Main
     {
-        ++write_tag_;
-
-        proxy_.send_to_vector(read_tag_, result_tag, result.proxy());
-    }
-
-    template <typename Container>
-    void scalar::send_to_matrix(int result_tag, Container&& result) const
-    {
-        ++write_tag_;
-
-        proxy_.send_to_matrix(read_tag_, result_tag, result.proxy());
-    }
-
-}    // namespace aum
+        entry Main(CkArgMsg*);
+    };
+}

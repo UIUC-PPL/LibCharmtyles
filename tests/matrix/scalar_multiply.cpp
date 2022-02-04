@@ -12,26 +12,30 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#pragma once
+#include <aum/aum.hpp>
 
-#include <aum/frontend/scalar.hpp>
+#include "scalar_multiply.decl.h"
 
-namespace aum {
-
-    template <typename Container>
-    void scalar::send_to_vector(int result_tag, Container&& result) const
+class Main : public CBase_Main
+{
+public:
+    Main(CkArgMsg* msg)
     {
-        ++write_tag_;
+        double start = CkWallTimer();
+        aum::matrix A{1000, 1000, 1.};
+        aum::matrix B{1000, 1000, 2.};
 
-        proxy_.send_to_vector(read_tag_, result_tag, result.proxy());
+        // No temporaries
+        aum::scalar s{5.0};
+
+        B = 5 * A;
+
+        B = s * A;
+
+        A = 5 * (A - B);
+
+        aum::wait_and_exit(A, start);
     }
+};
 
-    template <typename Container>
-    void scalar::send_to_matrix(int result_tag, Container&& result) const
-    {
-        ++write_tag_;
-
-        proxy_.send_to_matrix(read_tag_, result_tag, result.proxy());
-    }
-
-}    // namespace aum
+#include "scalar_multiply.def.h"

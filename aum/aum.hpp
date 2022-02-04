@@ -16,6 +16,7 @@
 
 class CProxy_Scalar;
 class CProxy_Vector;
+class CProxy_Matrix;
 
 #include <aum/backend/libaum.decl.h>
 
@@ -23,6 +24,7 @@ class CProxy_Vector;
 #include <aum/frontend/scalar.hpp>
 #include <aum/frontend/vector.hpp>
 
+#include <aum/frontend/matrix_impl.hpp>
 #include <aum/frontend/scalar_impl.hpp>
 #include <aum/frontend/vector_impl.hpp>
 

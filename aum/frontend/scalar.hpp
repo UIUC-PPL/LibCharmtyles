@@ -111,7 +111,10 @@ namespace aum {
         }
 
         template <typename Container>
-        void send_to_1(int result_tag, Container&& result) const;
+        void send_to_vector(int result_tag, Container&& result) const;
+
+        template <typename Container>
+        void send_to_matrix(int result_tag, Container&& result) const;
 
         void exit() const
         {
