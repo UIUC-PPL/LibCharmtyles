@@ -21,4 +21,5 @@ module libaum
 
     extern module Scalar;
     extern module Vector;
+    extern module Matrix;
 }

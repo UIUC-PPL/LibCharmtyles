@@ -23,8 +23,8 @@ module Vector
         ////////////////////////////////////////////////////////////////////////
         // Basic Constructors                                                 //
         ////////////////////////////////////////////////////////////////////////
-        entry Vector(int);  // Size, Should construct?
-        entry Vector(int, double);  // Size, Value
+        entry Vector(int, int);  // Size
+        entry Vector(int, double, int);  // Size, Value
 
         ////////////////////////////////////////////////////////////////////////
         // Operation over vector                                              //

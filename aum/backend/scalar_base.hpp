@@ -16,8 +16,6 @@
 
 #include "Scalar.decl.h"
 
-#include <stdlib.h>
-
 class Scalar : public CBase_Scalar
 {
 private:

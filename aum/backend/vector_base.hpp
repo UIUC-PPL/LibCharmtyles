@@ -16,13 +16,13 @@
 
 #include "Vector.decl.h"
 
-#include <stdlib.h>
 #include <vector>
 
 class Vector : public CBase_Vector
 {
 private:
     int size;
+    int num_chares;
     std::vector<double> vec;
 
     int READ_TAG;
@@ -31,21 +31,39 @@ private:
 public:
     Vector_SDAG_CODE;
 
-    Vector(int size_)
+    Vector(int size_, int num_chares_)
       : size(size_)
-      , vec(size)
+      , num_chares(num_chares_)
+      , vec()
       , READ_TAG(0)
       , WRITE_TAG(0)
     {
+        size = aum::sizes::array_size::value;
+
+        if (size_ % aum::sizes::array_size::value != 0 &&
+            thisIndex == num_chares - 1)
+            size = size_ % aum::sizes::array_size::value;
+
+        vec = std::vector<double>(size);
+
         thisProxy[thisIndex].initialize_operation();
     }
 
-    Vector(int size_, double value)
+    Vector(int size_, double value, int num_chares_)
       : size(size_)
-      , vec(size, value)
+      , num_chares(num_chares_)
+      , vec()
       , READ_TAG(0)
       , WRITE_TAG(0)
     {
+        size = aum::sizes::array_size::value;
+
+        if (size_ % aum::sizes::array_size::value != 0 &&
+            thisIndex == num_chares - 1)
+            size = size_ % aum::sizes::array_size::value;
+
+        vec = std::vector<double>(size, value);
+
         thisProxy[thisIndex].initialize_operation();
     }
 };

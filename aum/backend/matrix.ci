@@ -1,0 +1,140 @@
+// Copyright (C) 2022 Nikunj Gupta
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+//  Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <https://www.gnu.org/licenses/>.
+
+module Matrix
+{
+    include "eigen3/Eigen/Core";
+
+    extern module Scalar;
+    extern module Vector;
+
+    array[2D] Matrix
+    {
+        ////////////////////////////////////////////////////////////////////////
+        // Basic Constructors                                                 //
+        ////////////////////////////////////////////////////////////////////////
+        entry Matrix(int, int, int, int);     // DimX, DimY, NumX, NumY
+        
+        // Constructor Args: DimX, DimY, Value, NumX, NumY
+        entry Matrix(int, int, double, int, int);
+
+        ////////////////////////////////////////////////////////////////////////
+        // Operation over Matrix                                              //
+        ////////////////////////////////////////////////////////////////////////
+        entry void initialize_operation()
+        {
+            for (; WRITE_TAG > -1;)
+            {
+                case
+                {
+                    // Operation Add:
+                    // The generalized addition operation takes two vectors
+                    // as arguments and updates the current vector with the
+                    // sum of the two vectors.
+                    when
+                        add[WRITE_TAG](int write_tag),
+                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
+                        input_matrix_2[WRITE_TAG](int write_tag, int dimx2, int dimy2, int size2, double arr2[size2])
+                    {
+                        serial "vector_addition"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e1(arr1, dimy1, dimx1);
+                            evec_t e2(arr2, dimy1, dimx1);
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            e = e1 + e2;
+                            
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation send_to_1:
+                    // Helper function to send the value of underlying vector
+                    // to the site where an operation is to be performed.
+                    when send_to_1[READ_TAG](int read_tag, int write_tag, CProxy_Matrix pv)
+                    {
+                        serial "send_to_1"
+                        {
+                            pv[thisIndex].input_matrix_1(write_tag, dimx, dimy, mat.size(), mat.data());
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation send_to_2:
+                    // Helper function to send the value of underlying vector
+                    // to the site where an operation is to be performed.
+                    when send_to_2[READ_TAG](int read_tag, int write_tag, CProxy_Matrix pv)
+                    {
+                        serial "send_to_2"
+                        {
+                            pv[thisIndex].input_matrix_2(write_tag, dimx, dimy, mat.size(), mat.data());
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation exit
+                    // Helper function that exits the program when called.
+                    when exit[READ_TAG](int read_tag)
+                    {
+                        serial "exit"
+                        {
+                            ckout << "Exiting..." << endl;
+
+                            CkExit();
+                        }
+                    }
+
+                    // Operation exit
+                    // Helper function that prints the time taken to execute
+                    // up to this point in the program and then exits.
+                    when exit[READ_TAG](int read_tag, double start)
+                    {
+                        serial "exit_with_timer"
+                        {
+                            double end = CkWallTimer();
+
+                            ckout << "Execution Time: " << end - start << endl;
+                            ckout << "Exiting..." << endl;
+                            CkExit();
+                        }
+                    }
+                }
+            }
+        }
+
+        entry void add(int);
+        entry void input_matrix_1(int, int, int, int size, double arr[size]);
+        entry void input_matrix_2(int, int, int, int size, double arr[size]);
+        entry void send_to_1(int, int, CProxy_Matrix);
+        entry void send_to_2(int, int, CProxy_Matrix);
+        entry void exit(int);
+        entry void exit(int, double);
+    }
+}

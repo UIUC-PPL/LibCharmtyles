@@ -35,8 +35,7 @@ namespace aum {
             if (size_ % aum::sizes::array_size::value)
                 ++num_chares_;
 
-            proxy_ = CProxy_Vector::ckNew(
-                aum::sizes::array_size::value, num_chares_);
+            proxy_ = CProxy_Vector::ckNew(size_, num_chares_, num_chares_);
         }
 
         explicit vector(int size, double value)
@@ -48,8 +47,8 @@ namespace aum {
             if (size_ % aum::sizes::array_size::value)
                 ++num_chares_;
 
-            proxy_ = CProxy_Vector::ckNew(
-                aum::sizes::array_size::value, value, num_chares_);
+            proxy_ =
+                CProxy_Vector::ckNew(size_, value, num_chares_, num_chares_);
         }
 
         vector(vector const& other)
