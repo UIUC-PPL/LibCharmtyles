@@ -110,6 +110,9 @@ namespace aum {
             read_tag_ = write_tag_ + 1;
         }
 
+        template <typename Container>
+        void send_to_1(int result_tag, Container&& result) const;
+
         void exit() const
         {
             proxy_.exit(read_tag_);

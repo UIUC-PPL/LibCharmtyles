@@ -14,35 +14,16 @@
 
 #pragma once
 
-class CProxy_Scalar;
-class CProxy_Vector;
-
-#include <aum/backend/libaum.decl.h>
-
 #include <aum/frontend/scalar.hpp>
-#include <aum/frontend/vector.hpp>
-
-#include <aum/frontend/scalar_impl.hpp>
-#include <aum/frontend/vector_impl.hpp>
-
-#include <aum/algorithms/algorithms.hpp>
 
 namespace aum {
 
-    template <typename T>
-    void wait_and_exit(T&& t)
+    template <typename Container>
+    void scalar::send_to_1(int result_tag, Container&& result) const
     {
-        t.exit();
-    }
+        ++write_tag_;
 
-    template <typename T>
-    void wait_and_exit(T&& t, double start)
-    {
-        t.exit(start);
+        proxy_.send_to_1(read_tag_, result_tag, result.proxy());
     }
 
 }    // namespace aum
-
-#include <aum/backend/Scalar.def.h>
-#include <aum/backend/Vector.def.h>
-#include <aum/backend/libaum.def.h>

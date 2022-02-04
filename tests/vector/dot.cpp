@@ -12,9 +12,9 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "dot.decl.h"
-
 #include <aum/aum.hpp>
+
+#include "dot.decl.h"
 
 class Main : public CBase_Main
 {
@@ -41,7 +41,13 @@ public:
         s = aum::dot(A, B - A);
         s.print_value();
 
-        aum::wait_and_exit(s, start);
+        B = 5 * A;
+
+        B = s * A;
+
+        A = 5 * (A - B);
+
+        aum::wait_and_exit(A, start);
     }
 };
 

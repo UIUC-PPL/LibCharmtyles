@@ -165,6 +165,51 @@ module Vector
                         }
                     }
 
+                    // Operation scalar multiply:
+                    // The generalized index wise scalar multiply
+                    when
+                        scalar_multiply[WRITE_TAG](int write_tag, double value),
+                        input_vector_1[WRITE_TAG](int write_tag, int size, double arr[size])
+                    {
+                        serial "scalar_multiply"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+                        
+                            evec_t e(vec.data(), vec.size());
+                            evec_t e1(arr, size);
+
+                            e = value * e1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation scalar multiply:
+                    // The generalized index wise scalar multiply
+                    when
+                        aum_scalar_multiply[WRITE_TAG](int write_tag),
+                        input_vector_1[WRITE_TAG](int write_tag, int size, double arr[size]),
+                        input_vector_1[WRITE_TAG](int write_tag, double value)
+                    {
+                        serial "aum_scalar_multiply"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+                        
+                            evec_t e(vec.data(), vec.size());
+                            evec_t e1(arr, size);
+
+                            e = value * e1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }                    
+
                     // Operation send_to_1:
                     // Helper function to send the value of underlying vector
                     // to the site where an operation is to be performed.
@@ -234,6 +279,9 @@ module Vector
         entry void subtract(int);
         entry void minus_subtract(int, bool);
         entry void dot(int, int, CProxy_Scalar);
+        entry void scalar_multiply(int, double);
+        entry void aum_scalar_multiply(int);
+        entry void input_vector_1(int, double);
         entry void input_vector_1(int, int size, double arr[size]);
         entry void input_vector_2(int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Vector);

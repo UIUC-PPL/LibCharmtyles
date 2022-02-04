@@ -62,6 +62,23 @@ module Scalar
                         }
                     }
 
+                    // Operation send_to_1:
+                    // Helper function to send the value of underlying vector
+                    // to the site where an operation is to be performed.
+                    when send_to_1[READ_TAG](int read_tag, int write_tag, CProxy_Vector pv)
+                    {
+                        serial "send_to_1"
+                        {
+                            pv.input_vector_1(write_tag, value);
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     // Operation exit
                     // Helper function that exits the program when called.
                     when exit[READ_TAG](int read_tag)
@@ -92,6 +109,7 @@ module Scalar
             }
         }
 
+        entry void send_to_1(int, int, CProxy_Vector);
         entry [reductiontarget] void set_reduced_value(double);
         entry void print_value(int);
         entry void exit(int);

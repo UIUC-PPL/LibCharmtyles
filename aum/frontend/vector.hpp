@@ -133,21 +133,11 @@ namespace aum {
             read_tag_ = write_tag_ + 1;
         }
 
-        template <typename Vector>
-        void send_to_1(int result_tag, Vector&& result) const
-        {
-            ++write_tag_;
+        template <typename Container>
+        void send_to_1(int result_tag, Container&& result) const;
 
-            proxy_.send_to_1(read_tag_, result_tag, result.proxy());
-        }
-
-        template <typename Vector>
-        void send_to_2(int result_tag, Vector&& result) const
-        {
-            ++write_tag_;
-
-            proxy_.send_to_2(read_tag_, result_tag, result.proxy());
-        }
+        template <typename Container>
+        void send_to_2(int result_tag, Container&& result) const;
 
         void inc_reads() const
         {
@@ -173,115 +163,5 @@ namespace aum {
         mutable int read_tag_;
         mutable int write_tag_;
     };
-
-    vector operator+(vector const& v1, vector const& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        vector result{v1.size()};
-
-        int w_tag = result.write_tag();
-        v1.send_to_1(w_tag, result);
-        v2.send_to_2(w_tag, result);
-        result.proxy().add(w_tag);
-        result.update_tags();
-
-        return result;
-    }
-
-    vector operator+(vector&& v1, vector const& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v1.write_tag();
-        v2.send_to_1(w_tag, v1);
-        v1.proxy().plus_add(w_tag);
-        v1.update_tags();
-
-        return std::move(v1);
-    }
-
-    vector operator+(vector const& v1, vector&& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v2.write_tag();
-        v1.send_to_1(w_tag, v2);
-        v2.proxy().plus_add(w_tag);
-        v2.update_tags();
-
-        return std::move(v2);
-    }
-
-    vector operator+(vector&& v1, vector&& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v2.write_tag();
-        v1.send_to_1(w_tag, v2);
-        v2.proxy().plus_add(w_tag);
-        v2.update_tags();
-
-        return std::move(v2);
-    }
-
-    vector operator-(vector const& v1, vector const& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        vector result{v1.size()};
-
-        int w_tag = result.write_tag();
-        v1.send_to_1(w_tag, result);
-        v2.send_to_2(w_tag, result);
-        result.proxy().subtract(w_tag);
-        result.update_tags();
-
-        return result;
-    }
-
-    vector operator-(vector&& v1, vector const& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v1.write_tag();
-        v2.send_to_1(w_tag, v1);
-        v1.proxy().minus_subtract(w_tag, false);
-        v1.update_tags();
-
-        return std::move(v1);
-    }
-
-    vector operator-(vector const& v1, vector&& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v2.write_tag();
-        v1.send_to_1(w_tag, v2);
-        v2.proxy().minus_subtract(w_tag, true);
-        v2.update_tags();
-
-        return std::move(v2);
-    }
-
-    vector operator-(vector&& v1, vector&& v2)
-    {
-        assert((v1.size() == v2.size()) &&
-            "Vectors provided with incompatible sizes");
-
-        int w_tag = v2.write_tag();
-        v1.send_to_1(w_tag, v2);
-        v2.proxy().minus_subtract(w_tag, true);
-        v2.update_tags();
-
-        return std::move(v2);
-    }
 
 }    // namespace aum
