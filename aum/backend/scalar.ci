@@ -197,6 +197,43 @@ module Scalar
                         }
                     }
 
+                    // Division over scalars
+                    when
+                        divide_immediate[WRITE_TAG](int write_tag, bool inverted),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "divide_immediate"
+                        {
+                            if (inverted)
+                                value = v1 / value;
+                            else
+                                value /= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Division over scalars
+                    when
+                        divide_double[WRITE_TAG](int write_tag, double v1, bool inverted)
+                    {
+                        serial "divide_double"
+                        {
+                            if (inverted)
+                                value = v1 / value;
+                            else
+                                value /= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Reduction target
                     when
                         set_reduced_value[WRITE_TAG](double val)
@@ -330,6 +367,8 @@ module Scalar
         entry void multiply_immediate(int);
         entry void multiply_double(int, double);
         entry void divide(int);
+        entry void divide_immediate(int, bool);
+        entry void divide_double(int, double, bool);
         entry void input_scalar_1(int, double);
         entry void input_scalar_2(int, double);
         entry void send_to_1(int, int, CProxy_Scalar);
