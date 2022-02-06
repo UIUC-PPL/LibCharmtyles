@@ -149,6 +149,37 @@ module Scalar
                         }
                     }
 
+                    // Multiplication over scalars
+                    when
+                        multiply_immediate[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "multiply_immediate"
+                        {
+                            value *= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Multiplication over scalars
+                    when
+                        multiply_double[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "multiply_double"
+                        {
+                            value *= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Division over scalars
                     when
                         divide[WRITE_TAG](int write_tag),
@@ -296,6 +327,8 @@ module Scalar
         entry void minus_subtract(int, bool);
         entry void subtract_double(int, double, bool);
         entry void multiply(int);
+        entry void multiply_immediate(int);
+        entry void multiply_double(int, double);
         entry void divide(int);
         entry void input_scalar_1(int, double);
         entry void input_scalar_2(int, double);

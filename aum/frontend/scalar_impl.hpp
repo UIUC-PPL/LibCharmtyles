@@ -220,4 +220,89 @@ namespace aum {
         return std::move(v2);
     }
 
+    scalar operator*(scalar const& s1, double s2)
+    {
+        scalar result{s2};
+
+        int w_tag = result.write_tag();
+        s1.send_to_1(w_tag, result);
+        result.proxy().multiply_immediate(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator*(double s2, scalar const& s1)
+    {
+        scalar result{s2};
+
+        int w_tag = result.write_tag();
+        s1.send_to_1(w_tag, result);
+        result.proxy().multiply_immediate(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator*(scalar&& s1, double s2)
+    {
+        int w_tag = s1.write_tag();
+        s1.proxy().multiply_double(w_tag, s2);
+        s1.update_tags();
+
+        return std::move(s1);
+    }
+
+    scalar operator*(double s2, scalar&& s1)
+    {
+        int w_tag = s1.write_tag();
+        s1.proxy().multiply_double(w_tag, s2);
+        s1.update_tags();
+
+        return std::move(s1);
+    }
+
+    scalar operator*(scalar const& s1, scalar const& s2)
+    {
+        scalar result{};
+
+        int w_tag = result.write_tag();
+        s1.send_to_1(w_tag, result);
+        s2.send_to_2(w_tag, result);
+        result.proxy().multiply(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator*(scalar&& s1, scalar const& s2)
+    {
+        int w_tag = s1.write_tag();
+        s2.send_to_1(w_tag, s1);
+        s1.proxy().multiply_immediate(w_tag);
+        s1.update_tags();
+
+        return std::move(s1);
+    }
+
+    scalar operator*(scalar const& s2, scalar&& s1)
+    {
+        int w_tag = s1.write_tag();
+        s2.send_to_1(w_tag, s1);
+        s1.proxy().multiply_immediate(w_tag);
+        s1.update_tags();
+
+        return std::move(s1);
+    }
+
+    scalar operator*(scalar&& s1, scalar&& s2)
+    {
+        int w_tag = s1.write_tag();
+        s2.send_to_1(w_tag, s1);
+        s1.proxy().multiply_immediate(w_tag);
+        s1.update_tags();
+
+        return std::move(s1);
+    }
+
 }    // namespace aum
