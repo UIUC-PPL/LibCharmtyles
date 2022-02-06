@@ -31,6 +31,74 @@ module Scalar
             {
                 case
                 {
+                    // Addition over scalars
+                    when
+                        add[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1),
+                        input_scalar_2[WRITE_TAG](int write_tag, double v2)
+                    {
+                        serial "add"
+                        {
+                            value = v1 + v2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Subtraction over scalars
+                    when
+                        subtract[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1),
+                        input_scalar_2[WRITE_TAG](int write_tag, double v2)
+                    {
+                        serial "subtract"
+                        {
+                            value = v1 - v2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Multiplication over scalars
+                    when
+                        multiply[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1),
+                        input_scalar_2[WRITE_TAG](int write_tag, double v2)
+                    {
+                        serial "multiply"
+                        {
+                            value = v1 * v2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Division over scalars
+                    when
+                        divide[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1),
+                        input_scalar_2[WRITE_TAG](int write_tag, double v2)
+                    {
+                        serial "divide"
+                        {
+                            value = v1 / v2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Reduction target
                     when
                         set_reduced_value[WRITE_TAG](double val)
@@ -53,6 +121,34 @@ module Scalar
                         serial "print_value"
                         {
                             ckout << "Value in Scalar: " << value << endl;
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    when send_to_1[READ_TAG](int read_tag, int write_tag, CProxy_Scalar ps)
+                    {
+                        serial "send_to_1"
+                        {
+                            ps.input_scalar_1(write_tag, value);
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    when send_to_2[READ_TAG](int read_tag, int write_tag, CProxy_Scalar ps)
+                    {
+                        serial "send_to_2"
+                        {
+                            ps.input_scalar_2(write_tag, value);
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -126,6 +222,14 @@ module Scalar
             }
         }
 
+        entry void add(int);
+        entry void subtract(int);
+        entry void multiply(int);
+        entry void divide(int);
+        entry void input_scalar_1(int, double);
+        entry void input_scalar_2(int, double);
+        entry void send_to_1(int, int, CProxy_Scalar);
+        entry void send_to_2(int, int, CProxy_Scalar);
         entry void send_to_vector(int, int, CProxy_Vector);
         entry void send_to_matrix(int, int, CProxy_Matrix);
         entry [reductiontarget] void set_reduced_value(double);
