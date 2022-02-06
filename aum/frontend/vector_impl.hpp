@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <aum/frontend/vector.hpp>
-
+#include <aum/frontend/matrix.hpp>
 #include <aum/frontend/scalar.hpp>
+#include <aum/frontend/vector.hpp>
 
 namespace aum {
 
@@ -34,6 +34,15 @@ namespace aum {
         ++write_tag_;
 
         proxy_.send_to_2(read_tag_, result_tag, result.proxy());
+    }
+
+    template <typename Container>
+    void vector::send_part_vector(int result_tag, Container&& result) const
+    {
+        ++write_tag_;
+
+        proxy_.send_to_section_matrix(read_tag_, result_tag,
+            result.num_chares_x(), result.num_chares_y(), result.proxy());
     }
 
     vector operator+(vector const& v1, vector const& v2)

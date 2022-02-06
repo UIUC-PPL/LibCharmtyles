@@ -138,6 +138,9 @@ namespace aum {
         template <typename Container>
         void send_to_2(int result_tag, Container&& result) const;
 
+        template <typename Container>
+        void send_part_vector(int result_tag, Container&& result) const;
+
         void inc_reads() const
         {
             ++write_tag_;

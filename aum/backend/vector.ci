@@ -16,7 +16,13 @@ module Vector
 {
     include "eigen3/Eigen/Core";
 
+    include "aum/util/sizes.hpp";
+
+    include "cmath";
+
     extern module Scalar;
+
+    message part_vector_msg;
 
     array[1D] Vector
     {
@@ -208,7 +214,34 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
                         }
-                    }                    
+                    }
+
+                    // Reduction target
+                    when
+                        assemble_reduced[WRITE_TAG](int write_tag, int offset, int size, double arr[size])
+                    {
+                        serial "assemble_reduced"
+                        {
+                            std::memcpy(arr, vec.data() + offset, size);
+
+                            int num_of_divisions = 
+                                size / aum::sizes::block_size::value_c;
+                            
+                            if (size % aum::sizes::block_size::value_c != 0)
+                                ++num_of_divisions;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            if (++reduction_counter == num_of_divisions)
+                            {
+                                // All possible reductions have submitted
+                                // results. Move to next operation!
+                                reduction_counter = 0;
+                                ++WRITE_TAG;
+                                READ_TAG = WRITE_TAG + 1;
+                            }
+                        }
+                    }
 
                     // Operation send_to_1:
                     // Helper function to send the value of underlying vector
@@ -235,6 +268,65 @@ module Vector
                         serial "send_to_2"
                         {
                             pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation send to certain section of matrix
+                    // Helper function to multicast the value to the
+                    // destination matrix.
+                    when send_to_section_matrix[READ_TAG](
+                        int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
+                    {
+                        serial "send_to_section_matrix"
+                        {
+                            int num_of_divisions = 
+                                size / aum::sizes::block_size::value_c;
+                            
+                            if (size % aum::sizes::block_size::value_c != 0)
+                                ++num_of_divisions;
+                            
+                            // Initial dimx
+                            int initial_dimx = thisIndex * num_of_divisions;
+
+                            int offset = 0;
+
+                            for (int i = 0; i != num_of_divisions; ++i)
+                            {
+                                std::vector<CkArrayIndex2D> elems;
+                                elems.reserve(dimy);
+                                for (int section_dimy = 0; section_dimy != dimy; ++section_dimy)
+                                    elems.emplace_back(initial_dimx, section_dimy);
+                                
+                                CProxySection_Matrix sec =
+                                    CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
+                                
+
+                                // Is this the very last element and it's not
+                                // fully aligned with the offset?
+                                if ((size - offset) / aum::sizes::block_size::value_c == 0)
+                                {
+                                    part_vector_msg* msg =
+                                        new part_vector_msg(sec, (size - offset), vec.data() + offset);
+                                    CkSetRefNum(msg, matrix_tag);
+                                    sec.part_vector(msg);
+                                }
+                                else
+                                {
+                                    part_vector_msg* msg =
+                                        new part_vector_msg(sec, aum::sizes::block_size::value_c, vec.data() + offset);
+                                    CkSetRefNum(msg, matrix_tag);
+                                    sec.part_vector(msg);
+                                }
+                                
+                                offset += aum::sizes::block_size::value_c;
+                                ++initial_dimx;
+                            }
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -281,11 +373,13 @@ module Vector
         entry void dot(int, int, CProxy_Scalar);
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
+        entry void assemble_reduced(int, int, int size, double arr[size]);
         entry void input_vector_1(int, double);
         entry void input_vector_1(int, int size, double arr[size]);
         entry void input_vector_2(int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Vector);
         entry void send_to_2(int, int, CProxy_Vector);
+        entry void send_to_section_matrix(int, int, int, int, CProxy_Matrix);
         entry void exit(int);
         entry void exit(int, double);
     }

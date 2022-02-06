@@ -16,8 +16,13 @@ module Matrix
 {
     include "eigen3/Eigen/Core";
 
+    include "aum/util/sizes.hpp";
+
     extern module Scalar;
     extern module Vector;
+
+    extern message part_vector_msg;
+
 
     array[2D] Matrix
     {
@@ -49,12 +54,12 @@ module Matrix
                     {
                         serial "matrix_addition"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
-                            evec_t e2(arr2, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e2(arr2, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             e = e1 + e2;
                             
@@ -74,11 +79,11 @@ module Matrix
                     {
                         serial "matrix_single_addition"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             e += e1;
                             
@@ -100,12 +105,12 @@ module Matrix
                     {
                         serial "matrix_subtraction"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
-                            evec_t e2(arr2, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e2(arr2, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             e = e1 - e2;
                             
@@ -125,11 +130,11 @@ module Matrix
                     {
                         serial "matrix_single_subtraction"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             if (inverted)
                                 e = e1 - e;
@@ -151,11 +156,11 @@ module Matrix
                     {
                         serial "scalar_multiply"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             e = value * e1;
 
@@ -175,11 +180,11 @@ module Matrix
                     {
                         serial "aum_scalar_multiply"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(arr1, dimy1, dimx1);
 
-                            evec_t e(mat.data(), dimy, dimx);
+                            emat_t e(mat.data(), dimy, dimx);
 
                             e = value * e1;
 
@@ -189,6 +194,40 @@ module Matrix
                             READ_TAG = WRITE_TAG + 1;
                         }
                     }  
+
+                    // Operation matrix-vector multiply
+                    // The generalized matrix-vector multiply
+                    when
+                        matrix_vector_multiply[READ_TAG](int read_tag, int vector_tag, CProxy_Vector proxy),
+                        part_vector[READ_TAG](part_vector_msg* msg)
+                    {
+                        serial "matrix_vector_multiply"
+                        {
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>;
+
+                            emat_t em(mat.data(), dimy, dimx);
+                            evec_t ev(msg->arr, msg->size);
+
+                            std::vector<double> res(msg->size);
+                            evec_t eres(res.data(), msg->size);
+                            eres = em * ev;
+
+                            // Figure out the offset and send a reduction!
+                            int num_elems_before = thisIndex.x * aum::sizes::block_size::value_c;
+                            int offset = 
+                                (num_elems_before % aum::sizes::array_size::value) / aum::sizes::block_size::value_c;
+                            int send_index = num_elems_before / aum::sizes::array_size::value;
+
+                            proxy(send_index).assemble_reduced(vector_tag, offset, res.size(), res.data());
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
 
                     // Operation send_to_1:
                     // Helper function to send the value of underlying vector
@@ -260,9 +299,11 @@ module Matrix
         entry void minus_subtract(int, bool);
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
+        entry void matrix_vector_multiply(int, int, CProxy_Vector);
         entry void input_matrix_1(int, double);
         entry void input_matrix_1(int, int, int, int size, double arr[size]);
         entry void input_matrix_2(int, int, int, int size, double arr[size]);
+        entry void part_vector(part_vector_msg*);
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
         entry void exit(int);

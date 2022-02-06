@@ -90,4 +90,21 @@ namespace aum {
         return result;
     }
 
+    aum::vector dot(aum::matrix const& m1, aum::vector const& v1)
+    {
+        assert(m1.cols() == v1.size() &&
+            "Incompatible matrix and vector dimensions");
+
+        aum::vector result{m1.cols()};
+        int vector_tag = result.write_tag();
+
+        int read_tag = m1.read_tag();
+        v1.send_part_vector(read_tag, m1);
+        m1.proxy().matrix_vector_multiply(read_tag, vector_tag, result.proxy());
+        m1.inc_reads();
+
+        result.update_tags();
+        return result;
+    }
+
 }    // namespace aum

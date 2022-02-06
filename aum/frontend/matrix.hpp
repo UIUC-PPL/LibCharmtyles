@@ -177,6 +177,11 @@ namespace aum {
             proxy_(0, 0).exit(read_tag_, start);
         }
 
+        void inc_reads() const
+        {
+            ++write_tag_;
+        }
+
     private:
         int rows_;
         int cols_;

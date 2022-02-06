@@ -18,6 +18,32 @@
 
 #include <vector>
 
+struct part_vector_msg
+  : public CkMcastBaseMsg
+  , public CMessage_part_vector_msg
+{
+    CProxySection_Matrix sec;
+    int size;
+    double* arr;
+
+    part_vector_msg(CProxySection_Matrix sec_, int size_, double* arr_)
+      : sec(sec_)
+      , size(size_)
+      , arr(arr_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        CMessage_part_vector_msg::pup(p);
+        p | sec;
+        p | size;
+        if (p.isUnpacking())
+            arr = new double[size];
+        p(arr, size);
+    }
+};
+
 class Vector : public CBase_Vector
 {
 private:
@@ -28,6 +54,8 @@ private:
     int READ_TAG;
     int WRITE_TAG;
 
+    int reduction_counter;
+
 public:
     Vector_SDAG_CODE;
 
@@ -37,6 +65,7 @@ public:
       , vec()
       , READ_TAG(0)
       , WRITE_TAG(0)
+      , reduction_counter(0)
     {
         size = aum::sizes::array_size::value;
 
@@ -55,6 +84,7 @@ public:
       , vec()
       , READ_TAG(0)
       , WRITE_TAG(0)
+      , reduction_counter(0)
     {
         size = aum::sizes::array_size::value;
 
