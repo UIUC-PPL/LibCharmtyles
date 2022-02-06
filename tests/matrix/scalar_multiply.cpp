@@ -37,7 +37,10 @@ public:
         aum::vector a{1001, 2.};
         aum::vector v = aum::dot(A, a);
 
-        aum::wait_and_exit(v, start);
+        aum::vector b{1000, 2.};
+        aum::vector y = aum::dot(b, A);
+
+        aum::wait_and_exit(y, start);
     }
 };
 

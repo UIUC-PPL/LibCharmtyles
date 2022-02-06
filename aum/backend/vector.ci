@@ -280,10 +280,10 @@ module Vector
                     // Operation send to certain section of matrix
                     // Helper function to multicast the value to the
                     // destination matrix.
-                    when send_to_section_matrix[READ_TAG](
+                    when send_for_matrix_vector_multiply[READ_TAG](
                         int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
                     {
-                        serial "send_to_section_matrix"
+                        serial "send_for_matrix_vector_multiply"
                         {
                             int num_of_divisions = 
                                 size / aum::sizes::block_size::value_c;
@@ -296,13 +296,15 @@ module Vector
 
                             int offset = 0;
 
-                            for (int i = 0; i != num_of_divisions; ++i)
+                            for (int section_dimy = 0; section_dimy != dimy; ++section_dimy)
                             {
                                 std::vector<CkArrayIndex2D> elems;
-                                elems.reserve(dimy);
-                                for (int section_dimy = 0; section_dimy != dimy; ++section_dimy)
-                                    elems.emplace_back(initial_dimx, section_dimy);
-                                
+                                elems.reserve(num_of_divisions);
+                                for (int i = 0; i != num_of_divisions; ++i)
+                                {
+                                    elems.emplace_back(initial_dimx + i, section_dimy);
+                                }
+
                                 CProxySection_Matrix sec =
                                     CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
                                 
@@ -314,18 +316,77 @@ module Vector
                                     part_vector_msg* msg =
                                         new part_vector_msg(sec, (size - offset), vec.data() + offset);
                                     CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector(msg);
+                                    sec.part_vector_for_mvm(msg);
                                 }
                                 else
                                 {
                                     part_vector_msg* msg =
                                         new part_vector_msg(sec, aum::sizes::block_size::value_c, vec.data() + offset);
                                     CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector(msg);
+                                    sec.part_vector_for_mvm(msg);
                                 }
                                 
                                 offset += aum::sizes::block_size::value_c;
-                                ++initial_dimx;
+                            }
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation send to certain section of matrix
+                    // Helper function to multicast the value to the
+                    // destination matrix.
+                    when send_for_vector_matrix_multiply[READ_TAG](
+                        int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
+                    {
+                        serial "send_for_vector_matrix_multiply"
+                        {
+                            int num_of_divisions = 
+                                size / aum::sizes::block_size::value_r;
+                            
+                            if (size % aum::sizes::block_size::value_r != 0)
+                                ++num_of_divisions;
+                            
+                            // Initial dimy
+                            int initial_dimy = thisIndex * num_of_divisions;
+
+                            int offset = 0;
+
+                            for (int section_dimx = 0; section_dimx != dimx; ++section_dimx)
+                            {
+                                std::vector<CkArrayIndex2D> elems;
+                                elems.reserve(num_of_divisions);
+                                for (int y = 0; y != num_of_divisions; ++y)
+                                {
+                                    elems.emplace_back(section_dimx, initial_dimy + y);
+                                }
+
+                                CProxySection_Matrix sec =
+                                    CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
+                                
+
+                                // Is this the very last element and it's not
+                                // fully aligned with the offset?
+                                if ((size - offset) / aum::sizes::block_size::value_r == 0)
+                                {
+                                    part_vector_msg* msg =
+                                        new part_vector_msg(sec, (size - offset), vec.data() + offset);
+                                    CkSetRefNum(msg, matrix_tag);
+                                    sec.part_vector_for_vmm(msg);
+                                }
+                                else
+                                {
+                                    part_vector_msg* msg =
+                                        new part_vector_msg(sec, aum::sizes::block_size::value_r, vec.data() + offset);
+                                    CkSetRefNum(msg, matrix_tag);
+                                    sec.part_vector_for_vmm(msg);
+                                }
+                                
+                                offset += aum::sizes::block_size::value_r;
                             }
 
                             // Another read occured. Update write tag by one so
@@ -379,7 +440,8 @@ module Vector
         entry void input_vector_2(int, int size, double arr[size]);
         entry void send_to_1(int, int, CProxy_Vector);
         entry void send_to_2(int, int, CProxy_Vector);
-        entry void send_to_section_matrix(int, int, int, int, CProxy_Matrix);
+        entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
+        entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
         entry void exit(int);
         entry void exit(int, double);
     }

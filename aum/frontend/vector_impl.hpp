@@ -37,11 +37,22 @@ namespace aum {
     }
 
     template <typename Container>
-    void vector::send_part_vector(int result_tag, Container&& result) const
+    void vector::send_for_matrix_vector_multiply(
+        int result_tag, Container&& result) const
     {
         ++write_tag_;
 
-        proxy_.send_to_section_matrix(read_tag_, result_tag,
+        proxy_.send_for_matrix_vector_multiply(read_tag_, result_tag,
+            result.num_chares_x(), result.num_chares_y(), result.proxy());
+    }
+
+    template <typename Container>
+    void vector::send_for_vector_matrix_multiply(
+        int result_tag, Container&& result) const
+    {
+        ++write_tag_;
+
+        proxy_.send_for_vector_matrix_multiply(read_tag_, result_tag,
             result.num_chares_x(), result.num_chares_y(), result.proxy());
     }
 

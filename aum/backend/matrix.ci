@@ -199,7 +199,7 @@ module Matrix
                     // The generalized matrix-vector multiply
                     when
                         matrix_vector_multiply[READ_TAG](int read_tag, int vector_tag, CProxy_Vector proxy),
-                        part_vector[READ_TAG](part_vector_msg* msg)
+                        part_vector_for_mvm[READ_TAG](part_vector_msg* msg)
                     {
                         serial "matrix_vector_multiply"
                         {
@@ -217,6 +217,41 @@ module Matrix
                             int num_elems_before = thisIndex.x * aum::sizes::block_size::value_c;
                             int offset = 
                                 (num_elems_before % aum::sizes::array_size::value) / aum::sizes::block_size::value_c;
+                            int send_index = num_elems_before / aum::sizes::array_size::value;
+
+                            proxy(send_index).assemble_reduced(vector_tag, offset, res.size(), res.data());
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation matrix-vector multiply
+                    // The generalized matrix-vector multiply
+                    when
+                        vector_matrix_multiply[READ_TAG](int read_tag, int vector_tag, CProxy_Vector proxy),
+                        part_vector_for_vmm[READ_TAG](part_vector_msg* msg)
+                    {
+                        serial "vector_matrix_multiply"
+                        {
+                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            emat_t em(mat.data(), dimy, dimx);
+                            evec_t ev(msg->arr, msg->size);
+
+
+                            std::vector<double> res(msg->size);
+                            evec_t eres(res.data(), msg->size);
+                            eres = ev * em;
+
+                            // Figure out the offset and send a reduction!
+                            int num_elems_before = thisIndex.y * aum::sizes::block_size::value_r;
+                            int offset = 
+                                (num_elems_before % aum::sizes::array_size::value) / aum::sizes::block_size::value_r;
                             int send_index = num_elems_before / aum::sizes::array_size::value;
 
                             proxy(send_index).assemble_reduced(vector_tag, offset, res.size(), res.data());
@@ -300,10 +335,12 @@ module Matrix
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
         entry void matrix_vector_multiply(int, int, CProxy_Vector);
+        entry void vector_matrix_multiply(int, int, CProxy_Vector);
         entry void input_matrix_1(int, double);
         entry void input_matrix_1(int, int, int, int size, double arr[size]);
         entry void input_matrix_2(int, int, int, int size, double arr[size]);
-        entry void part_vector(part_vector_msg*);
+        entry void part_vector_for_mvm(part_vector_msg*);
+        entry void part_vector_for_vmm(part_vector_msg*);
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
         entry void exit(int);
