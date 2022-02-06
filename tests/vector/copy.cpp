@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "dot.decl.h"
+#include "addition.decl.h"
 
 class Main : public CBase_Main
 {
@@ -22,36 +22,19 @@ public:
     Main(CkArgMsg* msg)
     {
         double start = CkWallTimer();
-        aum::vector A{1000000, 1.};
-        aum::vector B{1000000, 2.};
+        aum::vector A{1000000, 1.1};
+        aum::vector B{1000000, 2.2};
+        aum::vector C{1000000, 3.3};
+        aum::vector D{1000000, 4.4};
 
-        // No temporaries
-        aum::scalar s = aum::dot(A, B);
-        s.print_value();
+        aum::copy(D, C);
+        aum::copy(D, A + B);
 
-        // 2 temporaries
-        s = aum::dot(A + B, B - A);
-        s.print_value();
+        aum::vector E = aum::copy(D);
+        E = aum::copy(A + B);
 
-        // left temporary
-        s = aum::dot(A + B, A);
-        s.print_value();
-
-        // right temporary
-        s = aum::dot(A, B - A);
-        s.print_value();
-
-        // Same dot
-        s = aum::dot(A, A);
-
-        B = 5 * A;
-
-        B = s * A;
-
-        A = 5 * (A - B);
-
-        aum::wait_and_exit(A, start);
+        aum::wait_and_exit(E, start);
     }
 };
 
-#include "dot.def.h"
+#include "addition.def.h"

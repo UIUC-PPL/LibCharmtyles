@@ -171,6 +171,30 @@ module Vector
                         }
                     }
 
+                    // Operation self dot:
+                    // Optimized kernel for dot product where both vectors 
+                    // are the same. e.g., aum::dot(a, a);
+                    when
+                        self_dot[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy)
+                    {
+                        serial "self_dot"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e(vec.data(), vec.size());
+
+                            double val = e * e.transpose();
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_reduced_value), proxy);
+                            contribute(sizeof(double), &val, CkReduction::sum_double, cb, scalar_tag);
+
+                            // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     // Operation scalar multiply:
                     // The generalized index wise scalar multiply
                     when
@@ -240,6 +264,36 @@ module Vector
                                 ++WRITE_TAG;
                                 READ_TAG = WRITE_TAG + 1;
                             }
+                        }
+                    }
+
+                    // Operation copy_value
+                    // Helper function to copy from one container to the 
+                    // other container.
+                    when
+                        copy_value[WRITE_TAG](int write_tag),
+                        receive_underlying[WRITE_TAG](int write_tag, int size, double arr[size])
+                    {
+                        serial "copy_value"
+                        {
+                            std::memcpy(&vec[0], arr, size);
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation send_underlying:
+                    // Helper function to send the underlying vector
+                    // for copying
+                    when
+                        send_underlying[READ_TAG](int read_tag, int write_tag, CProxy_Vector pv)
+                    {
+                        serial "send_underlying"
+                        {
+                            pv[thisIndex].receive_underlying(write_tag, vec.size(), vec.data());
                         }
                     }
 
@@ -432,9 +486,13 @@ module Vector
         entry void subtract(int);
         entry void minus_subtract(int, bool);
         entry void dot(int, int, CProxy_Scalar);
+        entry void self_dot(int, int, CProxy_Scalar);
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
         entry void assemble_reduced(int, int, int size, double arr[size]);
+        entry void copy_value(int);
+        entry void receive_underlying(int, int size, double arr[size]);
+        entry void send_underlying(int, int, CProxy_Vector);
         entry void input_vector_1(int, double);
         entry void input_vector_1(int, int size, double arr[size]);
         entry void input_vector_2(int, int size, double arr[size]);
