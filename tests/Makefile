@@ -17,12 +17,9 @@ include ../Makefile.common
 TEST_DIR=$(BASE_DIR)/../tests
 LIBS_DIR=$(BASE_DIR)
 
-all: matrix vector scalar
+all: matrix performance vector scalar
 
 .PHONY: complex matrix performance vector scalar clean
-
-complex:
-	cd complex; make
 
 matrix:
 	cd matrix; make
@@ -39,3 +36,5 @@ scalar:
 clean:
 	cd matrix; make clean
 	cd vector; make clean
+	cd performance; make clean
+	cd scalar; make clean

@@ -38,6 +38,19 @@ namespace aum {
             proxy_ = CProxy_Vector::ckNew(size_, num_chares_, num_chares_);
         }
 
+        explicit vector(int size, aum::random)
+          : size_(size)
+          , num_chares_(size_ / aum::sizes::array_size::value)
+          , read_tag_(0)
+          , write_tag_(0)
+        {
+            if (size_ % aum::sizes::array_size::value)
+                ++num_chares_;
+
+            proxy_ = CProxy_Vector::ckNew(
+                size_, num_chares_, aum::random{}, num_chares_);
+        }
+
         explicit vector(int size, double value)
           : size_(size)
           , num_chares_(size_ / aum::sizes::array_size::value)

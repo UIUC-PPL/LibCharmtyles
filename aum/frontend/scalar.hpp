@@ -82,6 +82,26 @@ namespace aum {
             return *this;
         }
 
+        scalar copy() const
+        {
+            scalar dest{};
+
+            int w_tag = dest.write_tag();
+            this->send_to_1(w_tag, dest);
+            dest.proxy().copy_value(w_tag);
+            dest.update_tags();
+
+            return dest;
+        }
+
+        void copy(scalar& dest) const
+        {
+            int w_tag = dest.write_tag();
+            this->send_to_1(w_tag, dest);
+            dest.proxy().copy_value(w_tag);
+            dest.update_tags();
+        }
+
         void print_value() const
         {
             ++write_tag_;

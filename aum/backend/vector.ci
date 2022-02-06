@@ -30,6 +30,7 @@ module Vector
         // Basic Constructors                                                 //
         ////////////////////////////////////////////////////////////////////////
         entry Vector(int, int);  // Size
+        entry Vector(int, int, aum::random); // Size, Random Initialization
         entry Vector(int, double, int);  // Size, Value
 
         ////////////////////////////////////////////////////////////////////////

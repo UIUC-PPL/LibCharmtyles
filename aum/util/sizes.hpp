@@ -26,18 +26,27 @@
 #define AUM_BLOCK_COL_SIZE 100
 #endif
 
-namespace aum { namespace sizes {
+namespace aum {
+    namespace sizes {
 
-    struct array_size
+        struct array_size
+        {
+            constexpr static int value = AUM_ARRAY_SIZE;
+        };
+
+        struct block_size
+        {
+            constexpr static int value_r = AUM_BLOCK_ROW_SIZE;
+            constexpr static int value_c = AUM_BLOCK_COL_SIZE;
+            constexpr static int value =
+                AUM_BLOCK_COL_SIZE * AUM_BLOCK_ROW_SIZE;
+        };
+
+    }    // namespace sizes
+
+    struct random
     {
-        constexpr static int value = AUM_ARRAY_SIZE;
+        void pup(PUP::er&) {}
     };
 
-    struct block_size
-    {
-        constexpr static int value_r = AUM_BLOCK_ROW_SIZE;
-        constexpr static int value_c = AUM_BLOCK_COL_SIZE;
-        constexpr static int value = AUM_BLOCK_COL_SIZE * AUM_BLOCK_ROW_SIZE;
-    };
-
-}}    // namespace aum::sizes
+}    // namespace aum

@@ -34,6 +34,9 @@ module Matrix
         // Constructor Args: DimX, DimY, Value, NumX, NumY
         entry Matrix(int, int, double, int, int);
 
+        // DimX, DimY, NumX, NumY, Random Initialization
+        entry Matrix(int, int, int, int, aum::random);
+
         ////////////////////////////////////////////////////////////////////////
         // Operation over Matrix                                              //
         ////////////////////////////////////////////////////////////////////////

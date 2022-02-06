@@ -78,6 +78,32 @@ public:
         thisProxy[thisIndex].initialize_operation();
     }
 
+    Vector(int size_, int num_chares_, aum::random)
+      : size(size_)
+      , num_chares(num_chares_)
+      , vec()
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+      , reduction_counter(0)
+    {
+        size = aum::sizes::array_size::value;
+
+        if (size_ % aum::sizes::array_size::value != 0 &&
+            thisIndex == num_chares - 1)
+            size = size_ % aum::sizes::array_size::value;
+
+        vec.reserve(size);
+
+        std::random_device rd;
+        std::default_random_engine eng(rd());
+        std::uniform_real_distribution<double> distr(0., 10.);
+
+        for (int i = 0; i != size; ++i)
+            vec.emplace_back(distr(eng));
+
+        thisProxy[thisIndex].initialize_operation();
+    }
+
     Vector(int size_, double value, int num_chares_)
       : size(size_)
       , num_chares(num_chares_)

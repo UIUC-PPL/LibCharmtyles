@@ -30,6 +30,8 @@ class CProxy_Matrix;
 
 #include <aum/algorithms/algorithms.hpp>
 
+#include <aum/util/sizes.hpp>
+
 namespace aum {
 
     template <typename T>

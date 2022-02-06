@@ -10,20 +10,20 @@
 #  more details.
 #
 #  You should have received a copy of the GNU General Public License along
-#  with this program. If not, see <https://www.gnu.org/licenses/>.
+# with this program. If not, see <https://www.gnu.org/licenses/>.
 
-include Makefile.common
+include ../../Makefile.common
 
-all: libs tests
+TEST_DIR=$(BASE_DIR)/../tests
+LIBS_DIR=$(BASE_DIR)
 
-.PHONY: libs tests clean
+all: conjugate_gradient
 
-libs:
-	cd aum; make
+.PHONY: clean
 
-tests: libs
-	cd tests; make
+conjugate_gradient: conjugate_gradient.cpp conjugate_gradient.ci
+	$(CHARMC) -E $(word 2,$^)
+	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 clean:
-	cd aum; make clean
-	cd tests; make clean
+	rm *.decl.h *.def.h *.out

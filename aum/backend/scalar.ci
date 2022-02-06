@@ -234,6 +234,24 @@ module Scalar
                         }
                     }
 
+                    // Operation copy_value
+                    // Helper function to copy from one container to the 
+                    // other container.
+                    when
+                        copy_value[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "copy_value"
+                        {
+                            value = v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Reduction target
                     when
                         set_reduced_value[WRITE_TAG](double val)
@@ -369,6 +387,7 @@ module Scalar
         entry void divide(int);
         entry void divide_immediate(int, bool);
         entry void divide_double(int, double, bool);
+        entry void copy_value(int);
         entry void input_scalar_1(int, double);
         entry void input_scalar_2(int, double);
         entry void send_to_1(int, int, CProxy_Scalar);

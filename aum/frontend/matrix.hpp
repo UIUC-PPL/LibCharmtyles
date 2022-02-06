@@ -44,6 +44,24 @@ namespace aum {
                 num_chares_y_, num_chares_x_, num_chares_y_);
         }
 
+        explicit matrix(int rows, int cols, aum::random)
+          : rows_(rows)
+          , cols_(cols)
+          , num_chares_x_(cols_ / aum::sizes::block_size::value_c)
+          , num_chares_y_(rows_ / aum::sizes::block_size::value_r)
+          , read_tag_(0)
+          , write_tag_(0)
+        {
+            if (rows_ % aum::sizes::block_size::value_r != 0)
+                ++num_chares_y_;
+
+            if (cols_ % aum::sizes::block_size::value_c != 0)
+                ++num_chares_x_;
+
+            proxy_ = CProxy_Matrix::ckNew(cols_, rows_, num_chares_x_,
+                num_chares_y_, aum::random{}, num_chares_x_, num_chares_y_);
+        }
+
         explicit matrix(int rows, int cols, double value)
           : rows_(rows)
           , cols_(cols)

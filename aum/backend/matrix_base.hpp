@@ -16,10 +16,10 @@
 
 #include "Matrix.decl.h"
 
-#include <stdlib.h>
-#include <vector>
-
 #include <aum/util/sizes.hpp>
+
+#include <random>
+#include <vector>
 
 class Matrix : public CBase_Matrix
 {
@@ -55,6 +55,36 @@ public:
             dimy = dimy_ % aum::sizes::block_size::value_r;
 
         mat = std::vector<double>(dimx * dimy);
+
+        thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
+    }
+
+    Matrix(int dimx_, int dimy_, int numx, int numy, aum::random)
+      : num_chares_x(numx)
+      , num_chares_y(numy)
+      , mat()
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+    {
+        dimx = aum::sizes::block_size::value_c;
+        dimy = aum::sizes::block_size::value_r;
+
+        if (dimx_ % aum::sizes::block_size::value_c != 0 &&
+            thisIndex.x == num_chares_x - 1)
+            dimx = dimx_ % aum::sizes::block_size::value_c;
+
+        if (dimy_ % aum::sizes::block_size::value_r != 0 &&
+            thisIndex.y == num_chares_y - 1)
+            dimy = dimy_ % aum::sizes::block_size::value_r;
+
+        mat.reserve(dimx * dimy);
+
+        std::random_device rd;
+        std::default_random_engine eng(rd());
+        std::uniform_real_distribution<double> distr(0., 10.);
+
+        for (int i = 0; i != dimx * dimy; ++i)
+            mat.emplace_back(distr(eng));
 
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
