@@ -95,6 +95,43 @@ module Scalar
                         }
                     }
 
+                    // Subtraction over scalars
+                    when
+                        minus_subtract[WRITE_TAG](int write_tag, bool inverted),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "minus_subtract"
+                        {
+                            if (inverted)
+                                value = v1 - value;
+                            else
+                                value -= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Subtraction over scalars
+                    when
+                        subtract_double[WRITE_TAG](int write_tag, double v1, bool inverted)
+                    {
+                        serial "subtract_double"
+                        {
+                            if (inverted)
+                                value = v1 - value;
+                            else
+                                value -= v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Multiplication over scalars
                     when
                         multiply[WRITE_TAG](int write_tag),
@@ -256,6 +293,8 @@ module Scalar
         entry void plus_add(int);
         entry void add_double(int, double);
         entry void subtract(int);
+        entry void minus_subtract(int, bool);
+        entry void subtract_double(int, double, bool);
         entry void multiply(int);
         entry void divide(int);
         entry void input_scalar_1(int, double);
