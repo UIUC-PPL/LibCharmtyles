@@ -48,6 +48,36 @@ module Scalar
                         }
                     }
 
+                    // Addition over scalars
+                    when
+                        plus_add[WRITE_TAG](int write_tag),
+                        input_scalar_1[WRITE_TAG](int write_tag, double v1)
+                    {
+                        serial "plus_add"
+                        {
+                            value += v1;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Addition using doubles
+                    when add_double[WRITE_TAG](int write_tag, double v)
+                    {
+                        serial "add_double"
+                        {
+                            value += v;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Subtraction over scalars
                     when
                         subtract[WRITE_TAG](int write_tag),
@@ -223,6 +253,8 @@ module Scalar
         }
 
         entry void add(int);
+        entry void plus_add(int);
+        entry void add_double(int, double);
         entry void subtract(int);
         entry void multiply(int);
         entry void divide(int);

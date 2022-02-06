@@ -19,6 +19,22 @@
 namespace aum {
 
     template <typename Container>
+    void scalar::send_to_1(int result_tag, Container&& result) const
+    {
+        ++write_tag_;
+
+        proxy_.send_to_1(read_tag_, result_tag, result.proxy());
+    }
+
+    template <typename Container>
+    void scalar::send_to_2(int result_tag, Container&& result) const
+    {
+        ++write_tag_;
+
+        proxy_.send_to_2(read_tag_, result_tag, result.proxy());
+    }
+
+    template <typename Container>
     void scalar::send_to_vector(int result_tag, Container&& result) const
     {
         ++write_tag_;
@@ -32,6 +48,91 @@ namespace aum {
         ++write_tag_;
 
         proxy_.send_to_matrix(read_tag_, result_tag, result.proxy());
+    }
+
+    scalar operator+(scalar const& v1, double v2)
+    {
+        scalar result{v2};
+
+        int w_tag = result.write_tag();
+        v1.send_to_1(w_tag, result);
+        result.proxy().plus_add(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator+(scalar&& v1, double v2)
+    {
+        int w_tag = v1.write_tag();
+        v1.proxy().add_double(w_tag, v2);
+        v1.update_tags();
+
+        return std::move(v1);
+    }
+
+    scalar operator+(double v2, scalar const& v1)
+    {
+        scalar result{v2};
+
+        int w_tag = result.write_tag();
+        v1.send_to_1(w_tag, result);
+        result.proxy().plus_add(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator+(double v2, scalar&& v1)
+    {
+        int w_tag = v1.write_tag();
+        v1.proxy().add_double(w_tag, v2);
+        v1.update_tags();
+
+        return std::move(v1);
+    }
+
+    scalar operator+(scalar const& v1, scalar const& v2)
+    {
+        scalar result{};
+
+        int w_tag = result.write_tag();
+        v1.send_to_1(w_tag, result);
+        v2.send_to_2(w_tag, result);
+        result.proxy().add(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+
+    scalar operator+(scalar&& v1, scalar const& v2)
+    {
+        int w_tag = v1.write_tag();
+        v2.send_to_1(w_tag, v1);
+        v1.proxy().plus_add(w_tag);
+        v1.update_tags();
+
+        return std::move(v1);
+    }
+
+    scalar operator+(scalar const& v1, scalar&& v2)
+    {
+        int w_tag = v2.write_tag();
+        v1.send_to_1(w_tag, v2);
+        v2.proxy().plus_add(w_tag);
+        v2.update_tags();
+
+        return std::move(v2);
+    }
+
+    scalar operator+(scalar&& v1, scalar&& v2)
+    {
+        int w_tag = v2.write_tag();
+        v1.send_to_1(w_tag, v2);
+        v2.proxy().plus_add(w_tag);
+        v2.update_tags();
+
+        return std::move(v2);
     }
 
 }    // namespace aum
