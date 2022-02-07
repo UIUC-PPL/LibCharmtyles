@@ -16,32 +16,16 @@
 
 #include "Vector.decl.h"
 
+#include <algorithm>
 #include <vector>
 
 struct part_vector_msg
   : public CkMcastBaseMsg
   , public CMessage_part_vector_msg
 {
-    CProxySection_Matrix sec;
+    int red_count;
     int size;
     double* arr;
-
-    part_vector_msg(CProxySection_Matrix sec_, int size_, double* arr_)
-      : sec(sec_)
-      , size(size_)
-      , arr(arr_)
-    {
-    }
-
-    void pup(PUP::er& p)
-    {
-        CMessage_part_vector_msg::pup(p);
-        p | sec;
-        p | size;
-        if (p.isUnpacking())
-            arr = new double[size];
-        p(arr, size);
-    }
 };
 
 class Vector : public CBase_Vector
@@ -58,6 +42,16 @@ private:
 
 public:
     Vector_SDAG_CODE;
+
+    part_vector_msg* make_part_vector_msg(
+        int red_count_, int size_, double* arr_)
+    {
+        auto* msg = new (&size_) part_vector_msg();
+        msg->red_count = red_count_;
+        msg->size = size_;
+        std::copy(arr_, arr_ + size_, msg->arr);
+        return msg;
+    }
 
     Vector(int size_, int num_chares_)
       : size(size_)

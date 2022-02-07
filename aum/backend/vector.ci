@@ -22,7 +22,10 @@ module Vector
 
     extern module Scalar;
 
-    message part_vector_msg;
+    message part_vector_msg
+    {
+        double arr[];
+    };
 
     array[1D] Vector
     {
@@ -151,13 +154,13 @@ module Vector
                     // The generalized index wise multiply then reduce
                     when
                         dot[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy),
-                        input_vector_1[READ_TAG](int read_tag, int size, double arr[size])
+                        input_vector_1[READ_TAG](int read_tag, int size1, double arr[size1])
                     {
                         serial "dot_product"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr, size);
+                            evec_t e1(arr, size1);
                             evec_t e(vec.data(), vec.size());
 
                             double val = e.dot(e1);
@@ -200,14 +203,14 @@ module Vector
                     // The generalized index wise scalar multiply
                     when
                         scalar_multiply[WRITE_TAG](int write_tag, double value),
-                        input_vector_1[WRITE_TAG](int write_tag, int size, double arr[size])
+                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr[size1])
                     {
                         serial "scalar_multiply"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
                         
                             evec_t e(vec.data(), vec.size());
-                            evec_t e1(arr, size);
+                            evec_t e1(arr, size1);
 
                             e = value * e1;
 
@@ -222,7 +225,7 @@ module Vector
                     // The generalized index wise scalar multiply
                     when
                         aum_scalar_multiply[WRITE_TAG](int write_tag),
-                        input_vector_1[WRITE_TAG](int write_tag, int size, double arr[size]),
+                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr[size1]),
                         input_vector_1[WRITE_TAG](int write_tag, double value)
                     {
                         serial "aum_scalar_multiply"
@@ -230,7 +233,7 @@ module Vector
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
                         
                             evec_t e(vec.data(), vec.size());
-                            evec_t e1(arr, size);
+                            evec_t e1(arr, size1);
 
                             e = value * e1;
 
@@ -243,21 +246,15 @@ module Vector
 
                     // Reduction target
                     when
-                        assemble_reduced[WRITE_TAG](int write_tag, int offset, int size, double arr[size])
+                        assemble_reduced[WRITE_TAG](int write_tag, int offset, int size1, double arr[size1], int red_count)
                     {
                         serial "assemble_reduced"
                         {
-                            std::memcpy(arr, vec.data() + offset, size);
-
-                            int num_of_divisions = 
-                                size / aum::sizes::block_size::value_c;
-                            
-                            if (size % aum::sizes::block_size::value_c != 0)
-                                ++num_of_divisions;
+                            std::memcpy(arr, vec.data() + offset, size1);
 
                             // Operation is now complete - set up read facility
                             // on this data.
-                            if (++reduction_counter == num_of_divisions)
+                            if (++reduction_counter == red_count)
                             {
                                 // All possible reductions have submitted
                                 // results. Move to next operation!
@@ -273,11 +270,11 @@ module Vector
                     // other container.
                     when
                         copy_value[WRITE_TAG](int write_tag),
-                        receive_underlying[WRITE_TAG](int write_tag, int size, double arr[size])
+                        receive_underlying[WRITE_TAG](int write_tag, int size1, double arr[size1])
                     {
                         serial "copy_value"
                         {
-                            std::memcpy(&vec[0], arr, size);
+                            std::memcpy(&vec[0], arr, size1);
 
                             // Operation is now complete - set up read facility
                             // on this data.
@@ -346,37 +343,44 @@ module Vector
                             if (size % aum::sizes::block_size::value_c != 0)
                                 ++num_of_divisions;
                             
-                            // Initial dimx
-                            int initial_dimx = thisIndex * num_of_divisions;
+                            // Initial dimy
+                            int initial_dimy = thisIndex * num_of_divisions;
 
                             int offset = 0;
 
-                            for (int section_dimy = 0; section_dimy != dimy; ++section_dimy)
+                            for (int section_dimx = 0; section_dimx != dimy; ++section_dimx)
                             {
                                 std::vector<CkArrayIndex2D> elems;
                                 elems.reserve(num_of_divisions);
-                                for (int i = 0; i != num_of_divisions; ++i)
+                                for (int y = 0; y != num_of_divisions; ++y)
                                 {
-                                    elems.emplace_back(initial_dimx + i, section_dimy);
+                                    elems.emplace_back(section_dimx, initial_dimy + y);
                                 }
 
                                 CProxySection_Matrix sec =
                                     CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
                                 
+                                using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
                                 // Is this the very last element and it's not
                                 // fully aligned with the offset?
                                 if ((size - offset) / aum::sizes::block_size::value_c == 0)
                                 {
+                                    evec_t ev(vec.data() + offset, (size - offset));
+                                    
                                     part_vector_msg* msg =
-                                        new part_vector_msg(sec, (size - offset), vec.data() + offset);
+                                        make_part_vector_msg(elems.size() * dimy, (size - offset), vec.data() + offset);
+
                                     CkSetRefNum(msg, matrix_tag);
                                     sec.part_vector_for_mvm(msg);
                                 }
                                 else
                                 {
+                                    evec_t ev(vec.data() + offset, aum::sizes::block_size::value_c);
+
                                     part_vector_msg* msg =
-                                        new part_vector_msg(sec, aum::sizes::block_size::value_c, vec.data() + offset);
+                                        make_part_vector_msg(elems.size() * dimy, aum::sizes::block_size::value_c, vec.data() + offset);
+
                                     CkSetRefNum(msg, matrix_tag);
                                     sec.part_vector_for_mvm(msg);
                                 }
@@ -406,37 +410,38 @@ module Vector
                             if (size % aum::sizes::block_size::value_r != 0)
                                 ++num_of_divisions;
                             
-                            // Initial dimy
-                            int initial_dimy = thisIndex * num_of_divisions;
+                            // Initial dimx
+                            int initial_dimx = thisIndex * num_of_divisions;
 
                             int offset = 0;
 
-                            for (int section_dimx = 0; section_dimx != dimx; ++section_dimx)
+                            for (int section_dimy = 0; section_dimy != dimx; ++section_dimy)
                             {
                                 std::vector<CkArrayIndex2D> elems;
                                 elems.reserve(num_of_divisions);
-                                for (int y = 0; y != num_of_divisions; ++y)
+                                for (int x = 0; x != num_of_divisions; ++x)
                                 {
-                                    elems.emplace_back(section_dimx, initial_dimy + y);
+                                    elems.emplace_back(x + initial_dimx, section_dimy);
                                 }
 
                                 CProxySection_Matrix sec =
                                     CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
-                                
 
                                 // Is this the very last element and it's not
                                 // fully aligned with the offset?
                                 if ((size - offset) / aum::sizes::block_size::value_r == 0)
                                 {
-                                    part_vector_msg* msg =
-                                        new part_vector_msg(sec, (size - offset), vec.data() + offset);
+                                    part_vector_msg* msg = 
+                                        make_part_vector_msg(elems.size() * dimx, (size - offset), vec.data() + offset);
+
                                     CkSetRefNum(msg, matrix_tag);
                                     sec.part_vector_for_vmm(msg);
                                 }
                                 else
                                 {
                                     part_vector_msg* msg =
-                                        new part_vector_msg(sec, aum::sizes::block_size::value_r, vec.data() + offset);
+                                        make_part_vector_msg(elems.size() * dimx, aum::sizes::block_size::value_r, vec.data() + offset);
+
                                     CkSetRefNum(msg, matrix_tag);
                                     sec.part_vector_for_vmm(msg);
                                 }
@@ -490,7 +495,7 @@ module Vector
         entry void self_dot(int, int, CProxy_Scalar);
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
-        entry void assemble_reduced(int, int, int size, double arr[size]);
+        entry void assemble_reduced(int, int, int size, double arr[size], int);
         entry void copy_value(int);
         entry void receive_underlying(int, int size, double arr[size]);
         entry void send_underlying(int, int, CProxy_Vector);

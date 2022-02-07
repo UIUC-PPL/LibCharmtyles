@@ -22,8 +22,8 @@ public:
     Main(CkArgMsg* msg)
     {
         double start = CkWallTimer();
-        aum::matrix A{1000, 1001, 1.};
-        aum::matrix B{1000, 1001, 2.};
+        aum::matrix A{1010, 1050, 1.};
+        aum::matrix B{1010, 1050, 2.};
 
         // No temporaries
         aum::scalar s{5.0};
@@ -34,13 +34,14 @@ public:
 
         A = 5 * (A - B);
 
-        aum::vector a{1001, 2.};
-        aum::vector v = aum::dot(A, a);
+        aum::matrix C{1010, 1050, 1.};
+        aum::vector a{1050, 2.};
+        aum::vector v = aum::dot(C, a);
 
-        aum::vector b{1000, 2.};
-        aum::vector y = aum::dot(b, A);
+        // aum::vector b{1010, 2.};
+        // aum::vector y = aum::dot(b, C);
 
-        aum::wait_and_exit(y, start);
+        aum::wait_and_exit(v, start);
     }
 };
 

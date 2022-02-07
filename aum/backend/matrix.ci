@@ -208,13 +208,12 @@ module Matrix
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
                             using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>;
+                            using vec_t = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
                             emat_t em(mat.data(), dimy, dimx);
                             evec_t ev(msg->arr, msg->size);
 
-                            std::vector<double> res(msg->size);
-                            evec_t eres(res.data(), msg->size);
-                            eres = em * ev;
+                            vec_t eres = em * ev;
 
                             // Figure out the offset and send a reduction!
                             int num_elems_before = thisIndex.x * aum::sizes::block_size::value_c;
@@ -222,7 +221,7 @@ module Matrix
                                 (num_elems_before % aum::sizes::array_size::value) / aum::sizes::block_size::value_c;
                             int send_index = num_elems_before / aum::sizes::array_size::value;
 
-                            proxy(send_index).assemble_reduced(vector_tag, offset, res.size(), res.data());
+                            proxy(send_index).assemble_reduced(vector_tag, offset, eres.size(), eres.data(), msg->red_count);
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -242,14 +241,12 @@ module Matrix
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+                            using vec_t = Eigen::Matrix<double, 1, Eigen::Dynamic>;
 
                             emat_t em(mat.data(), dimy, dimx);
                             evec_t ev(msg->arr, msg->size);
 
-
-                            std::vector<double> res(msg->size);
-                            evec_t eres(res.data(), msg->size);
-                            eres = ev * em;
+                            vec_t eres = ev * em;
 
                             // Figure out the offset and send a reduction!
                             int num_elems_before = thisIndex.y * aum::sizes::block_size::value_r;
@@ -257,7 +254,7 @@ module Matrix
                                 (num_elems_before % aum::sizes::array_size::value) / aum::sizes::block_size::value_r;
                             int send_index = num_elems_before / aum::sizes::array_size::value;
 
-                            proxy(send_index).assemble_reduced(vector_tag, offset, res.size(), res.data());
+                            proxy(send_index).assemble_reduced(vector_tag, offset, eres.size(), eres.data(), msg->red_count);
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
