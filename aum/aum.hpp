@@ -18,6 +18,7 @@ class CProxy_Scalar;
 class CProxy_Vector;
 class CProxy_Matrix;
 
+#include <aum/backend/exitter.hpp>
 #include <aum/backend/libaum.decl.h>
 
 #include <aum/frontend/matrix.hpp>
@@ -48,6 +49,7 @@ namespace aum {
 
 }    // namespace aum
 
+#include <aum/backend/Exitter.def.h>
 #include <aum/backend/Matrix.def.h>
 #include <aum/backend/Scalar.def.h>
 #include <aum/backend/Vector.def.h>

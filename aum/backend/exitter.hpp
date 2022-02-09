@@ -12,16 +12,21 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Library generating .ci file. Includes all modules implemented in
-// charm++
+#pragma once
 
-module libaum
+#include "Exitter.decl.h"
+
+class Exitter : public CBase_Exitter
 {
-    include "cstdint";
- 
-    extern module Exitter;
+public:
+    Exitter() = default;
 
-    extern module Scalar;
-    extern module Vector;
-    extern module Matrix;
-}
+    void exit(double start)
+    {
+        double end = CkWallTimer();
+
+        ckout << "Execution Time: " << end - start << endl;
+        ckout << "Exiting..." << endl;
+        CkExit();
+    }
+};

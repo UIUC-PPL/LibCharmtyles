@@ -18,6 +18,7 @@ module Matrix
 
     include "aum/util/sizes.hpp";
 
+    extern module Exitter;
     extern module Scalar;
     extern module Vector;
 
@@ -304,24 +305,22 @@ module Matrix
                     {
                         serial "exit"
                         {
-                            ckout << "Exiting..." << endl;
+                            if (thisIndex.x == 0 && thisIndex.y == 0)
+                                ckout << "Exiting..." << endl;
 
-                            CkExit();
+                            contribute(CkCallback(CkCallback::ckExit));
                         }
                     }
 
                     // Operation exit
                     // Helper function that prints the time taken to execute
                     // up to this point in the program and then exits.
-                    when exit[READ_TAG](int read_tag, double start)
+                    when exit[READ_TAG](int read_tag, double start, CProxy_Exitter proxy)
                     {
                         serial "exit_with_timer"
                         {
-                            double end = CkWallTimer();
-
-                            ckout << "Execution Time: " << end - start << endl;
-                            ckout << "Exiting..." << endl;
-                            CkExit();
+                            CkCallback cb(CkReductionTarget(Exitter, exit), proxy);
+                            contribute(sizeof(double), &start, CkReduction::nop, cb);
                         }
                     }
                 }
@@ -344,6 +343,6 @@ module Matrix
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
         entry void exit(int);
-        entry void exit(int, double);
+        entry void exit(int, double, CProxy_Exitter);
     }
 }

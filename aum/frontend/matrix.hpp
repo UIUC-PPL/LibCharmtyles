@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <aum/backend/exitter.hpp>
 #include <aum/backend/matrix_base.hpp>
 
 #include <aum/util/sizes.hpp>
@@ -187,12 +188,13 @@ namespace aum {
 
         void exit() const
         {
-            proxy_(0, 0).exit(read_tag_);
+            proxy_.exit(read_tag_);
         }
 
         void exit(double start) const
         {
-            proxy_(0, 0).exit(read_tag_, start);
+            CProxy_Exitter proxy = CProxy_Exitter::ckNew();
+            proxy_.exit(read_tag_, start, proxy);
         }
 
         void inc_reads() const
