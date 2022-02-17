@@ -283,6 +283,38 @@ module Scalar
                         }
                     }
 
+                    // Printer
+                    when
+                        print_value_string[READ_TAG](int read_tag, std::string const& s)
+                    {
+                        serial "print_value_string"
+                        {
+                            ckout << "[" << s.c_str() << "]" << " Value in Scalar: " << value << endl;
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Get value
+                    when
+                        get_value[READ_TAG](int read_tag, ck::future<double> f)
+                    {
+                        serial "get_value"
+                        {
+                            f.set(value);
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     when send_to_1[READ_TAG](int read_tag, int write_tag, CProxy_Scalar ps)
                     {
                         serial "send_to_1"
@@ -388,6 +420,7 @@ module Scalar
         entry void divide_immediate(int, bool);
         entry void divide_double(int, double, bool);
         entry void copy_value(int);
+        entry void get_value(int, ck::future<double>);
         entry void input_scalar_1(int, double);
         entry void input_scalar_2(int, double);
         entry void send_to_1(int, int, CProxy_Scalar);
@@ -396,6 +429,7 @@ module Scalar
         entry void send_to_matrix(int, int, CProxy_Matrix);
         entry [reductiontarget] void set_reduced_value(double);
         entry void print_value(int);
+        entry void print_value_string(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double);
     }

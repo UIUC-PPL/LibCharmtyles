@@ -90,7 +90,7 @@ public:
 
         std::random_device rd;
         std::default_random_engine eng(rd());
-        std::uniform_real_distribution<double> distr(0., 10.);
+        std::uniform_real_distribution<double> distr(0., 1.);
 
         for (int i = 0; i != size; ++i)
             vec.emplace_back(distr(eng));

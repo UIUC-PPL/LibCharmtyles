@@ -20,5 +20,7 @@ mainmodule conjugate_gradient
     mainchare Main
     {
         entry Main(CkArgMsg*);
+
+        entry [threaded] void benchmark();
     };
 }

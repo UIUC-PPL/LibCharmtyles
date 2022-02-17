@@ -18,7 +18,7 @@ BASE_DIR = $(HOME)/LibAum
 
 # common options
 CHARMC = $(CHARM_DIR)/bin/charmc -DUSE_ESSL_WRAPPER=0
-OPTS	= -c++-option -std=c++17 -O0 -g
+OPTS	= -c++-option -std=c++17 -O3
 LD_OPTS =
 
 INCS = -I$(BASE_DIR)

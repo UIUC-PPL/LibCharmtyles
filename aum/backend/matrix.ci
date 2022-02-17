@@ -299,6 +299,24 @@ module Matrix
                         }
                     }
 
+                    when print_value[READ_TAG](int read_tag, std::string const& s)
+                    {
+                        serial "print_value"
+                        {
+                            ckout << s.c_str() << ": [";
+                            for (int y = 0; y != dimy; ++y)
+                            {
+                                ckout << "[";
+                                for (int x = 0; x != dimx; ++x)
+                                {
+                                    ckout << mat[y * dimx + x] << ",";
+                                }
+                                ckout << "]" << endl;
+                            }
+                            ckout << "]" << endl;
+                        }
+                    }
+
                     // Operation exit
                     // Helper function that exits the program when called.
                     when exit[READ_TAG](int read_tag)
@@ -342,6 +360,7 @@ module Matrix
         entry void part_vector_for_vmm(part_vector_msg*);
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
+        entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
     }

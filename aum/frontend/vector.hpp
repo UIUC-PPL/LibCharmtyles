@@ -199,6 +199,12 @@ namespace aum {
             proxy_.exit(read_tag_, start, proxy);
         }
 
+        void print(std::string const& s) const
+        {
+            proxy_.print_value(read_tag_, s);
+            inc_reads();
+        }
+
     private:
         int size_;
         int num_chares_;

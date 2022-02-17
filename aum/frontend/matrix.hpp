@@ -202,6 +202,12 @@ namespace aum {
             ++write_tag_;
         }
 
+        void print(std::string const& s) const
+        {
+            proxy_.print_value(read_tag_, s);
+            inc_reads();
+        }
+
     private:
         int rows_;
         int cols_;

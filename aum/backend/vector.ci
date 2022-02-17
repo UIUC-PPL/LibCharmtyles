@@ -251,7 +251,7 @@ module Vector
                     {
                         serial "assemble_reduced"
                         {
-                            std::memcpy(arr, vec.data() + offset, size1);
+                            std::memcpy(&vec[offset], arr, size1 * sizeof(double));
 
                             // Operation is now complete - set up read facility
                             // on this data.
@@ -275,12 +275,35 @@ module Vector
                     {
                         serial "copy_value"
                         {
-                            std::memcpy(&vec[0], arr, size1);
+                            std::memcpy(&vec[0], arr, size1 * sizeof(double));
 
                             // Operation is now complete - set up read facility
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+                    // Operation reduce_add:
+                    // Helper reduction that adds all elements of a vector
+                    when
+                        reduce_add[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy)
+                    {
+                        serial "reduce_add"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e(vec.data(), vec.size());
+
+                            double val = e.sum();
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_reduced_value), proxy);
+                            contribute(sizeof(double), &val, CkReduction::sum_double, cb, scalar_tag);
+
+                            // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
                         }
                     }
 
@@ -466,6 +489,18 @@ module Vector
                         }
                     }
 
+                    // Operation print_value
+                    when print_value[READ_TAG](int read_tag, std::string const& s)
+                    {
+                        serial "print_value"
+                        {
+                            ckout << s.c_str() << ": [";
+                            for (auto elem : vec)
+                                ckout << elem << ",";
+                            ckout << "]" << endl;
+                        }
+                    }
+
                     // Operation exit
                     // Helper function that exits the program when called.
                     when exit[READ_TAG](int read_tag)
@@ -504,6 +539,7 @@ module Vector
         entry void aum_scalar_multiply(int);
         entry void assemble_reduced(int, int, int size, double arr[size], int);
         entry void copy_value(int);
+        entry void reduce_add(int, int, CProxy_Scalar);
         entry void receive_underlying(int, int size, double arr[size]);
         entry void send_underlying(int, int, CProxy_Vector);
         entry void input_vector_1(int, double);
@@ -513,6 +549,7 @@ module Vector
         entry void send_to_2(int, int, CProxy_Vector);
         entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
         entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
+        entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
     }

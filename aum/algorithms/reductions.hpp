@@ -14,6 +14,23 @@
 
 #pragma once
 
-#include <aum/algorithms/copy.hpp>
-#include <aum/algorithms/dot.hpp>
-#include <aum/algorithms/reductions.hpp>
+#include <aum/frontend/matrix.hpp>
+#include <aum/frontend/scalar.hpp>
+#include <aum/frontend/vector.hpp>
+
+namespace aum {
+
+    aum::scalar reduce_add(aum::vector const& v)
+    {
+        aum::scalar result;
+        int scalar_tag = result.write_tag();
+
+        int read_tag = v.read_tag();
+        v.proxy().reduce_add(read_tag, scalar_tag, result.proxy());
+        v.inc_reads();
+
+        result.update_tags();
+        return result;
+    }
+
+}    // namespace aum

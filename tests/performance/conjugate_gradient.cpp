@@ -21,10 +21,15 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
+    {
         double start = CkWallTimer();
 
         // Initialized condition
-        aum::matrix A{1000, 1000, aum::random{}};
+        aum::matrix A{1000, 1000, 1.};
         aum::vector b{1000, aum::random{}};
         aum::vector x{1000, aum::random{}};
 
@@ -36,14 +41,23 @@ public:
         {
             aum::vector Ap = aum::dot(A, p);
             aum::scalar alpha = rsold / aum::dot(p, Ap);
-            x = x + alpha * p;
-            r = r - alpha * Ap;
+            x = x + (alpha * p);
+            r = r - (alpha * Ap);
+
             aum::scalar rsnew = aum::dot(r, r);
+
+            double rsnew_value = rsnew.get();
+            if (std::sqrt(rsnew_value) < 1E-8)
+            {
+                ckout << "Converged in " << i << " iterations" << endl;
+                break;
+            }
+
             p = r + (rsnew / rsold) * p;
             rsold = aum::copy(rsnew);
         }
 
-        aum::wait_and_exit(x, start);
+        aum::wait_and_exit(r, start);
     }
 };
 

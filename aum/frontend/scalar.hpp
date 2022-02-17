@@ -109,6 +109,23 @@ namespace aum {
             proxy_.print_value(read_tag_);
         }
 
+        double get() const
+        {
+            ck::future<double> f;
+
+            proxy_.get_value(read_tag_, f);
+            ++write_tag_;
+
+            return f.get();
+        }
+
+        void print_value(std::string const& s) const
+        {
+            ++write_tag_;
+
+            proxy_.print_value_string(read_tag_, s);
+        }
+
         int write_tag() const
         {
             return write_tag_;

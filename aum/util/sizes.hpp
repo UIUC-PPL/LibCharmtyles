@@ -19,11 +19,11 @@
 #endif
 
 #ifndef AUM_BLOCK_ROW_SIZE
-#define AUM_BLOCK_ROW_SIZE 100
+#define AUM_BLOCK_ROW_SIZE 1000
 #endif
 
 #ifndef AUM_BLOCK_COL_SIZE
-#define AUM_BLOCK_COL_SIZE 100
+#define AUM_BLOCK_COL_SIZE 1000
 #endif
 
 namespace aum {
