@@ -13,7 +13,7 @@
 #  with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # point these to absolute paths
-CHARM_DIR = $(HOME)/install/charm-netlrts
+CHARM_DIR = $(HOME)/install/release/charm-netlrts-smp
 BASE_DIR = $(HOME)/LibAum
 
 # common options

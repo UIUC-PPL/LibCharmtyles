@@ -42,7 +42,7 @@ public:
 
         B.print_value();
 
-        aum::wait_and_exit(B, start);
+        aum::wait_and_exit(A, start);
     }
 };
 

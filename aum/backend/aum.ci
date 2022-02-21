@@ -18,6 +18,16 @@
 module libaum
 {
     include "cstdint";
+
+    message vector_msg
+    {
+        double arr[];
+    };
+
+    message matrix_msg
+    {
+        double mat[];
+    };
  
     extern module Exitter;
 

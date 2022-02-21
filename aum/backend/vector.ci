@@ -52,15 +52,15 @@ module Vector
                     // sum of the two vectors.
                     when
                         add[WRITE_TAG](int write_tag),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr1[size1]),
-                        input_vector_2[WRITE_TAG](int write_tag, int size2, double arr2[size2])
+                        input_vector_1[WRITE_TAG](vector_msg* msg1),
+                        input_vector_2[WRITE_TAG](vector_msg* msg2)
                     {
                         serial "vector_addition"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, size1);
-                            evec_t e2(arr2, size2);
+                            evec_t e1(msg1->arr, msg1->size);
+                            evec_t e2(msg2->arr, msg2->size);
 
                             evec_t e(vec.data(), vec.size());
 
@@ -70,6 +70,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+#if CMK_SMP
+                            contribute(cb, msg->tag);
+#endif
                         }
                     }
 
@@ -78,13 +82,13 @@ module Vector
                     // as argument and updates the current vector.
                     when
                         plus_add[WRITE_TAG](int write_tag),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr1[size1])
+                        input_vector_1[WRITE_TAG](vector_msg* msg)
                     {
                         serial "vector_single_addition"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, size1);
+                            evec_t e1(msg->arr, msg->size);
 
                             evec_t e(vec.data(), vec.size());
 
@@ -94,6 +98,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+#if CMK_SMP
+                            contribute(cb, msg->tag);
+#endif
                         }
                     }
 
@@ -103,15 +111,15 @@ module Vector
                     // sum of the two vectors.
                     when
                         subtract[WRITE_TAG](int write_tag),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr1[size1]),
-                        input_vector_2[WRITE_TAG](int write_tag, int size2, double arr2[size2])
+                        input_vector_1[WRITE_TAG](vector_msg* msg1),
+                        input_vector_2[WRITE_TAG](vector_msg* msg2)
                     {
                         serial "vector_subtraction"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, size1);
-                            evec_t e2(arr2, size2);
+                            evec_t e1(msg1->arr, msg1->size);
+                            evec_t e2(msg2->arr, msg2->size);
 
                             evec_t e(vec.data(), vec.size());
 
@@ -121,6 +129,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+#if CMK_SMP
+                            contribute(cb, msg->tag);
+#endif
                         }
                     }
 
@@ -129,13 +141,13 @@ module Vector
                     // as argument and updates the current vector.
                     when
                         minus_subtract[WRITE_TAG](int write_tag, bool inverted),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr1[size1])
+                        input_vector_1[WRITE_TAG](vector_msg* msg)
                     {
                         serial "vector_single_subtraction"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr1, size1);
+                            evec_t e1(msg->arr, msg->size);
 
                             evec_t e(vec.data(), vec.size());
 
@@ -148,6 +160,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+#if CMK_SMP
+                            contribute(cb, msg->tag);
+#endif
                         }
                     }
 
@@ -155,13 +171,13 @@ module Vector
                     // The generalized index wise multiply then reduce
                     when
                         dot[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy),
-                        input_vector_1[READ_TAG](int read_tag, int size1, double arr[size1])
+                        input_vector_1[READ_TAG](vector_msg* msg)
                     {
                         serial "dot_product"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
 
-                            evec_t e1(arr, size1);
+                            evec_t e1(msg->arr, msg->size);
                             evec_t e(vec.data(), vec.size());
 
                             double val = e.dot(e1);
@@ -173,6 +189,11 @@ module Vector
                             // itself, we consider this operation as a read and
                             // not a write.
                             ++WRITE_TAG;
+
+#if CMK_SMP
+                            contribute(cb, msg->tag);
+#endif
+
                         }
                     }
 
@@ -204,14 +225,14 @@ module Vector
                     // The generalized index wise scalar multiply
                     when
                         scalar_multiply[WRITE_TAG](int write_tag, double value),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr[size1])
+                        input_vector_1[WRITE_TAG](vector_msg* msg)
                     {
                         serial "scalar_multiply"
                         {
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
                         
                             evec_t e(vec.data(), vec.size());
-                            evec_t e1(arr, size1);
+                            evec_t e1(msg->arr, msg->size);
 
                             e = value * e1;
 
@@ -226,7 +247,7 @@ module Vector
                     // The generalized index wise scalar multiply
                     when
                         aum_scalar_multiply[WRITE_TAG](int write_tag),
-                        input_vector_1[WRITE_TAG](int write_tag, int size1, double arr[size1]),
+                        input_vector_1[WRITE_TAG](vector_msg* msg),
                         input_vector_1[WRITE_TAG](int write_tag, double value)
                     {
                         serial "aum_scalar_multiply"
@@ -234,7 +255,7 @@ module Vector
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
                         
                             evec_t e(vec.data(), vec.size());
-                            evec_t e1(arr, size1);
+                            evec_t e1(msg->arr, msg->size);
 
                             e = value * e1;
 
@@ -271,11 +292,11 @@ module Vector
                     // other container.
                     when
                         copy_value[WRITE_TAG](int write_tag),
-                        receive_underlying[WRITE_TAG](int write_tag, int size1, double arr[size1])
+                        receive_underlying[WRITE_TAG](vector_msg* msg)
                     {
                         serial "copy_value"
                         {
-                            std::memcpy(&vec[0], arr, size1 * sizeof(double));
+                            std::memcpy(&vec[0], msg->arr, msg->size * sizeof(double));
 
                             // Operation is now complete - set up read facility
                             // on this data.
@@ -315,7 +336,20 @@ module Vector
                     {
                         serial "send_underlying"
                         {
-                            pv[thisIndex].receive_underlying(write_tag, vec.size(), vec.data());
+                            vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
+                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
+                            pv[thisIndex].receive_underlying(msg);
+
+                            // pv[thisIndex].receive_underlying(write_tag, vec.size(), vec.data());
+#if !CMK_SMP
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+#endif
                         }
                     }
 
@@ -326,13 +360,21 @@ module Vector
                     {
                         serial "send_to_1"
                         {
-                            pv[thisIndex].input_vector_1(write_tag, vec.size(), vec.data());
+                            vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
+                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
+                            pv[thisIndex].input_vector_1(msg);
 
+                            // pv[thisIndex].input_vector_1(write_tag, vec.size(), vec.data());
+
+#if !CMK_SMP
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
                             // (read_tag + num of writes) it calls the
                             // appropriate operation.
                             ++WRITE_TAG;
+#endif
                         }
                     }
 
@@ -343,13 +385,21 @@ module Vector
                     {
                         serial "send_to_2"
                         {
-                            pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
+                            vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
+                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
+                            pv[thisIndex].input_vector_2(msg);
 
+                            // pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
+
+#if !CMK_SMP
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
                             // (read_tag + num of writes) it calls the
                             // appropriate operation.
                             ++WRITE_TAG;
+#endif
                         }
                     }
 
@@ -525,6 +575,21 @@ module Vector
                             contribute(sizeof(double), &start, CkReduction::nop, cb);
                         }
                     }
+
+                    // Operation update read tag
+                    // Helper function that classifies a read contract as
+                    // fulfilled
+                    when inc_read[READ_TAG](int read_tag)
+                    {
+                        serial "inc_read"
+                        {
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
                 }
             }
         }
@@ -540,17 +605,18 @@ module Vector
         entry void assemble_reduced(int, int, int size, double arr[size], int);
         entry void copy_value(int);
         entry void reduce_add(int, int, CProxy_Scalar);
-        entry void receive_underlying(int, int size, double arr[size]);
-        entry void send_underlying(int, int, CProxy_Vector);
-        entry void input_vector_1(int, double);
-        entry void input_vector_1(int, int size, double arr[size]);
-        entry void input_vector_2(int, int size, double arr[size]);
+        entry [nokeep] void receive_underlying(vector_msg*);
+        entry [nokeep] void input_vector_1(int, double);
+        entry [nokeep] void input_vector_1(vector_msg*);
+        entry [nokeep] void input_vector_2(vector_msg*);
         entry void send_to_1(int, int, CProxy_Vector);
         entry void send_to_2(int, int, CProxy_Vector);
+        entry void send_underlying(int, int, CProxy_Vector);
         entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
         entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
         entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
+        entry [reductiontarget] void inc_read(int);
     }
 }
