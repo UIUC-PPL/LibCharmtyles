@@ -19,13 +19,8 @@
 struct vector_msg : CMessage_vector_msg
 {
     int size;
-<<<<<<< HEAD
     int tag;
     CkCallback cb;
-=======
-    CkCallback cb;
-    int tag;
->>>>>>> main
     double* local;
     double* arr;
 
@@ -58,22 +53,14 @@ vector_msg* make_vector_msg(int size_, double* arr_, int tag)
 {
     auto* msg = new (&size_) vector_msg();
     msg->size = size_;
-<<<<<<< HEAD
     msg->tag = tag;
     msg->cb = CkCallback(CkCallback::invalid);
-=======
->>>>>>> main
 
     // Just copy the pointers for now. We will pack the remaining if we're
     // sending it off node.
     msg->local = arr_;
     msg->arr = arr_;
 
-<<<<<<< HEAD
-=======
-    msg->tag = tag;
-
->>>>>>> main
     return msg;
 }
 
@@ -81,13 +68,8 @@ struct matrix_msg : CMessage_matrix_msg
 {
     int dimx;
     int dimy;
-<<<<<<< HEAD
     int tag;
     CkCallback cb;
-=======
-    CkCallback cb;
-    int tag;
->>>>>>> main
     double* local;
     double* mat;
 
@@ -123,20 +105,13 @@ matrix_msg* make_matrix_msg(int dimx, int dimy, double* arr_, int tag)
     msg->dimx = dimx;
     msg->dimy = dimy;
 
-<<<<<<< HEAD
     msg->tag = tag;
     msg->cb = CkCallback(CkCallback::invalid);
 
-=======
->>>>>>> main
     // Just copy the pointers for now. We will pack the remaining if we're
     // sending it off node.
     msg->local = arr_;
     msg->mat = arr_;
-<<<<<<< HEAD
-=======
-    msg->tag = tag;
->>>>>>> main
 
     return msg;
 }

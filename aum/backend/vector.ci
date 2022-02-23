@@ -71,7 +71,6 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
-<<<<<<< HEAD
                             // Pointers were shared!
                             if (!msg1->cb.isInvalid())
                                 msg1->cb.send();
@@ -79,11 +78,6 @@ module Vector
                             // Pointers were shared!
                             if (!msg2->cb.isInvalid())
                                 msg2->cb.send();
-=======
-#if CMK_SMP
-                            contribute(cb, msg->tag);
-#endif
->>>>>>> main
                         }
                     }
 
@@ -109,15 +103,9 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
-<<<<<<< HEAD
                             // Pointers were shared!
                             if (!msg->cb.isInvalid())
                                 msg->cb.send();
-=======
-#if CMK_SMP
-                            contribute(cb, msg->tag);
-#endif
->>>>>>> main
                         }
                     }
 
@@ -146,7 +134,6 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
-<<<<<<< HEAD
                             // Pointers were shared!
                             if (!msg1->cb.isInvalid())
                                 msg1->cb.send();
@@ -154,11 +141,6 @@ module Vector
                             // Pointers were shared!
                             if (!msg2->cb.isInvalid())
                                 msg2->cb.send();
-=======
-#if CMK_SMP
-                            contribute(cb, msg->tag);
-#endif
->>>>>>> main
                         }
                     }
 
@@ -187,15 +169,9 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
-<<<<<<< HEAD
                             // Pointers were shared!
                             if (!msg->cb.isInvalid())
                                 msg->cb.send();
-=======
-#if CMK_SMP
-                            contribute(cb, msg->tag);
-#endif
->>>>>>> main
                         }
                     }
 
@@ -222,16 +198,9 @@ module Vector
                             // not a write.
                             ++WRITE_TAG;
 
-<<<<<<< HEAD
                             // Pointers were shared!
                             if (!msg->cb.isInvalid())
                                 msg->cb.send();
-=======
-#if CMK_SMP
-                            contribute(cb, msg->tag);
-#endif
-
->>>>>>> main
                         }
                     }
 
@@ -290,11 +259,7 @@ module Vector
                     when
                         aum_scalar_multiply[WRITE_TAG](int write_tag),
                         input_vector_1[WRITE_TAG](vector_msg* msg),
-<<<<<<< HEAD
                         input_scalar[WRITE_TAG](int write_tag, double value)
-=======
-                        input_vector_1[WRITE_TAG](int write_tag, double value)
->>>>>>> main
                     {
                         serial "aum_scalar_multiply"
                         {
@@ -351,19 +316,11 @@ module Vector
                     // other container.
                     when
                         copy_value[WRITE_TAG](int write_tag),
-<<<<<<< HEAD
                         input_vector_1[WRITE_TAG](vector_msg* msg)
                     {
                         serial "copy_value"
                         {
                             std::memcpy(&vec[0], msg->arr, (msg->size) * sizeof(double));
-=======
-                        receive_underlying[WRITE_TAG](vector_msg* msg)
-                    {
-                        serial "copy_value"
-                        {
-                            std::memcpy(&vec[0], msg->arr, msg->size * sizeof(double));
->>>>>>> main
 
                             // Operation is now complete - set up read facility
                             // on this data.
@@ -407,26 +364,11 @@ module Vector
                     {
                         serial "update_read"
                         {
-<<<<<<< HEAD
-=======
-                            vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
-                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
-                            CkSetRefNum(msg, write_tag);
-                            CkReferenceMsg(msg);
-                            pv[thisIndex].receive_underlying(msg);
-
-                            // pv[thisIndex].receive_underlying(write_tag, vec.size(), vec.data());
-#if !CMK_SMP
->>>>>>> main
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
                             // (read_tag + num of writes) it calls the
                             // appropriate operation.
                             ++WRITE_TAG;
-<<<<<<< HEAD
-=======
-#endif
->>>>>>> main
                         }
                     }
 
@@ -438,7 +380,6 @@ module Vector
                         serial "send_to_1"
                         {
                             vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
-<<<<<<< HEAD
                             CkSetRefNum(msg, write_tag);
                             CkReferenceMsg(msg);
 
@@ -454,22 +395,6 @@ module Vector
                             pv[thisIndex].input_vector_1(msg);
 
                             // pv[thisIndex].input_vector_1(write_tag, vec.size(), vec.data());
-=======
-                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
-                            CkSetRefNum(msg, write_tag);
-                            CkReferenceMsg(msg);
-                            pv[thisIndex].input_vector_1(msg);
-
-                            // pv[thisIndex].input_vector_1(write_tag, vec.size(), vec.data());
-
-#if !CMK_SMP
-                            // Another read occured. Update write tag by one so
-                            // when write operation is called with 
-                            // (read_tag + num of writes) it calls the
-                            // appropriate operation.
-                            ++WRITE_TAG;
-#endif
->>>>>>> main
                         }
                     }
 
@@ -481,7 +406,6 @@ module Vector
                         serial "send_to_2"
                         {
                             vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
-<<<<<<< HEAD
                             CkSetRefNum(msg, write_tag);
                             CkReferenceMsg(msg);
 
@@ -497,22 +421,6 @@ module Vector
                             pv[thisIndex].input_vector_2(msg);
 
                             // pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
-=======
-                            msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
-                            CkSetRefNum(msg, write_tag);
-                            CkReferenceMsg(msg);
-                            pv[thisIndex].input_vector_2(msg);
-
-                            // pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
-
-#if !CMK_SMP
-                            // Another read occured. Update write tag by one so
-                            // when write operation is called with 
-                            // (read_tag + num of writes) it calls the
-                            // appropriate operation.
-                            ++WRITE_TAG;
-#endif
->>>>>>> main
                         }
                     }
 
@@ -688,12 +596,7 @@ module Vector
         entry void assemble_reduced(int, int, int size, double arr[size], int);
         entry void copy_value(int);
         entry void reduce_add(int, int, CProxy_Scalar);
-<<<<<<< HEAD
         entry void input_scalar(int, double);
-=======
-        entry [nokeep] void receive_underlying(vector_msg*);
-        entry [nokeep] void input_vector_1(int, double);
->>>>>>> main
         entry [nokeep] void input_vector_1(vector_msg*);
         entry [nokeep] void input_vector_2(vector_msg*);
         entry void send_to_1(int, int, CProxy_Vector);
