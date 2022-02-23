@@ -601,7 +601,6 @@ module Vector
         entry [nokeep] void input_vector_2(vector_msg*);
         entry void send_to_1(int, int, CProxy_Vector);
         entry void send_to_2(int, int, CProxy_Vector);
-        entry void send_underlying(int, int, CProxy_Vector);
         entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
         entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
         entry void update_read();
