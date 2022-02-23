@@ -218,7 +218,7 @@ private:
         double start = CkWallTimer();
 
         aum::matrix m1{matrix_r, matrix_c, 1.};
-        aum::vector v1{matrix_c, 1.};
+        aum::vector v1{matrix_r, 1.};
 
         aum::vector res = aum::dot(v1, m1);
 
