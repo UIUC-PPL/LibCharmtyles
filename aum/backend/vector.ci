@@ -512,7 +512,6 @@ module Vector
                                     {
                                         msg =
                                             make_part_vector_msg(dimx * num_of_divisions, aum::sizes::block_size::value_r, vec.data() + offset);
-
                                     }
 
                                     CkSetRefNum(msg, matrix_tag);

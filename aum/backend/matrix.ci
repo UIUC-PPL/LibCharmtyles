@@ -232,6 +232,29 @@ module Matrix
                         }
                     }  
 
+                    // Operation reduce_add:
+                    // Helper reduction that adds all elements of a vector
+                    when
+                        reduce_add[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy)
+                    {
+                        serial "reduce_add"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e(mat.data(), dimy, dimx);
+
+                            double val = e.sum();
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_reduced_value), proxy);
+                            contribute(sizeof(double), &val, CkReduction::sum_double, cb, scalar_tag);
+
+                            // Since dot product isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     // Operation matrix-vector multiply
                     // The generalized matrix-vector multiply
                     when
@@ -418,6 +441,7 @@ module Matrix
         entry void minus_subtract(int, bool);
         entry void scalar_multiply(int, double);
         entry void aum_scalar_multiply(int);
+        entry void reduce_add(int, int, CProxy_Scalar);
         entry void matrix_vector_multiply(int, int, CProxy_Vector);
         entry void vector_matrix_multiply(int, int, CProxy_Vector);
         entry void input_scalar(int, double);

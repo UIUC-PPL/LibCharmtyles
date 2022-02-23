@@ -60,3 +60,5 @@ charmrun
 
 # vscode
 .vscode
+
+Makefile.common

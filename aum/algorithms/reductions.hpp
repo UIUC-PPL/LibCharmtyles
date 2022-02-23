@@ -33,4 +33,17 @@ namespace aum {
         return result;
     }
 
+    aum::scalar reduce_add(aum::matrix const& m)
+    {
+        aum::scalar result;
+        int scalar_tag = result.write_tag();
+
+        int read_tag = m.read_tag();
+        m.proxy().reduce_add(read_tag, scalar_tag, result.proxy());
+        m.inc_reads();
+
+        result.update_tags();
+        return result;
+    }
+
 }    // namespace aum
