@@ -71,9 +71,19 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
+<<<<<<< HEAD
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
+=======
 #if CMK_SMP
                             contribute(cb, msg->tag);
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -99,9 +109,15 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
+<<<<<<< HEAD
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
+=======
 #if CMK_SMP
                             contribute(cb, msg->tag);
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -130,9 +146,19 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
+<<<<<<< HEAD
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
+=======
 #if CMK_SMP
                             contribute(cb, msg->tag);
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -161,9 +187,15 @@ module Vector
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
 
+<<<<<<< HEAD
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
+=======
 #if CMK_SMP
                             contribute(cb, msg->tag);
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -190,10 +222,16 @@ module Vector
                             // not a write.
                             ++WRITE_TAG;
 
+<<<<<<< HEAD
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
+=======
 #if CMK_SMP
                             contribute(cb, msg->tag);
 #endif
 
+>>>>>>> main
                         }
                     }
 
@@ -240,6 +278,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }
 
@@ -248,7 +290,11 @@ module Vector
                     when
                         aum_scalar_multiply[WRITE_TAG](int write_tag),
                         input_vector_1[WRITE_TAG](vector_msg* msg),
+<<<<<<< HEAD
+                        input_scalar[WRITE_TAG](int write_tag, double value)
+=======
                         input_vector_1[WRITE_TAG](int write_tag, double value)
+>>>>>>> main
                     {
                         serial "aum_scalar_multiply"
                         {
@@ -263,6 +309,10 @@ module Vector
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }
 
@@ -272,7 +322,16 @@ module Vector
                     {
                         serial "assemble_reduced"
                         {
-                            std::memcpy(&vec[offset], arr, size1 * sizeof(double));
+                            // Initialize to 0
+                            if (reduction_counter == 0)
+                                std::fill(vec.begin(), vec.end(), 0);
+                            
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e(vec.data() + offset, size1);
+                            evec_t incoming(arr, size1);
+
+                            e += incoming;
 
                             // Operation is now complete - set up read facility
                             // on this data.
@@ -292,16 +351,28 @@ module Vector
                     // other container.
                     when
                         copy_value[WRITE_TAG](int write_tag),
+<<<<<<< HEAD
+                        input_vector_1[WRITE_TAG](vector_msg* msg)
+                    {
+                        serial "copy_value"
+                        {
+                            std::memcpy(&vec[0], msg->arr, (msg->size) * sizeof(double));
+=======
                         receive_underlying[WRITE_TAG](vector_msg* msg)
                     {
                         serial "copy_value"
                         {
                             std::memcpy(&vec[0], msg->arr, msg->size * sizeof(double));
+>>>>>>> main
 
                             // Operation is now complete - set up read facility
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }
 
@@ -328,14 +399,16 @@ module Vector
                         }
                     }
 
-                    // Operation send_underlying:
-                    // Helper function to send the underlying vector
-                    // for copying
-                    when
-                        send_underlying[READ_TAG](int read_tag, int write_tag, CProxy_Vector pv)
+                    // Operation update_read:
+                    // Callback function called when a send function sends a
+                    // pointer instead of actual data. Required for the fulfillment
+                    // of a read contract.
+                    when update_read()
                     {
-                        serial "send_underlying"
+                        serial "update_read"
                         {
+<<<<<<< HEAD
+=======
                             vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
                             msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
                             CkSetRefNum(msg, write_tag);
@@ -344,12 +417,16 @@ module Vector
 
                             // pv[thisIndex].receive_underlying(write_tag, vec.size(), vec.data());
 #if !CMK_SMP
+>>>>>>> main
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
                             // (read_tag + num of writes) it calls the
                             // appropriate operation.
                             ++WRITE_TAG;
+<<<<<<< HEAD
+=======
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -361,6 +438,23 @@ module Vector
                         serial "send_to_1"
                         {
                             vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
+<<<<<<< HEAD
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
+
+                            // Get homePe for the destination chare for optimized sends
+                            auto dest_branch = pv[thisIndex].ckLocalBranch();
+                            int homePe = dest_branch->homePe(pv[thisIndex].ckGetIndex());
+
+                            if (CkNodeOf(homePe) == CkMyNode())
+                                msg->cb = CkCallback(CkIndex_Vector::update_read(), thisProxy[thisIndex]);
+                            else
+                                ++WRITE_TAG;    // Copy is already being made. Safe to update reads!
+
+                            pv[thisIndex].input_vector_1(msg);
+
+                            // pv[thisIndex].input_vector_1(write_tag, vec.size(), vec.data());
+=======
                             msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
                             CkSetRefNum(msg, write_tag);
                             CkReferenceMsg(msg);
@@ -375,6 +469,7 @@ module Vector
                             // appropriate operation.
                             ++WRITE_TAG;
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -386,6 +481,23 @@ module Vector
                         serial "send_to_2"
                         {
                             vector_msg* msg = make_vector_msg(vec.size(), vec.data(), READ_TAG);
+<<<<<<< HEAD
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
+
+                            // Get homePe for the destination chare for optimized sends
+                            auto dest_branch = pv[thisIndex].ckLocalBranch();
+                            int homePe = dest_branch->homePe(pv[thisIndex].ckGetIndex());
+
+                            if (CkNodeOf(homePe) == CkMyNode())
+                                msg->cb = CkCallback(CkIndex_Vector::update_read(), thisProxy[thisIndex]);
+                            else
+                                ++WRITE_TAG;    // Copy is already being made. Safe to update reads!
+
+                            pv[thisIndex].input_vector_2(msg);
+
+                            // pv[thisIndex].input_vector_2(write_tag, vec.size(), vec.data());
+=======
                             msg->cb = CkCallback(CkReductionTarget(Vector, inc_read), thisProxy);
                             CkSetRefNum(msg, write_tag);
                             CkReferenceMsg(msg);
@@ -400,6 +512,7 @@ module Vector
                             // appropriate operation.
                             ++WRITE_TAG;
 #endif
+>>>>>>> main
                         }
                     }
 
@@ -424,40 +537,25 @@ module Vector
 
                             for (int dimx_offset = 0; dimx_offset != num_of_divisions; ++dimx_offset)
                             {
-                                std::vector<CkArrayIndex2D> elems;
-                                elems.reserve(dimy);
-
                                 for (int y = 0; y != dimy; ++y)
                                 {
-                                    elems.emplace_back(initial_dimx + dimx_offset, y);
-                                }
+                                    part_vector_msg* msg = nullptr;
 
-                                CProxySection_Matrix sec =
-                                    CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
-
-                                using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
-
-                                // Is this the very last element and it's not
-                                // fully aligned with the offset?
-                                if ((size - offset) / aum::sizes::block_size::value_c == 0)
-                                {
-                                    evec_t ev(vec.data() + offset, (size - offset));
-                                    
-                                    part_vector_msg* msg =
-                                        make_part_vector_msg(elems.size() * num_of_divisions, (size - offset), vec.data() + offset);
+                                    // Is this the very last element and it's not
+                                    // fully aligned with the offset?
+                                    if ((size - offset) / aum::sizes::block_size::value_c == 0)
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimy * num_of_divisions, (size - offset), vec.data() + offset);
+                                    }
+                                    else
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimy * num_of_divisions, aum::sizes::block_size::value_c, vec.data() + offset);
+                                    }
 
                                     CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector_for_mvm(msg);
-                                }
-                                else
-                                {
-                                    evec_t ev(vec.data() + offset, aum::sizes::block_size::value_c);
-
-                                    part_vector_msg* msg =
-                                        make_part_vector_msg(elems.size() * num_of_divisions, aum::sizes::block_size::value_c, vec.data() + offset);
-
-                                    CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector_for_mvm(msg);
+                                    pv(initial_dimx + dimx_offset, y).part_vector_for_mvm(msg);
                                 }
                                 
                                 offset += aum::sizes::block_size::value_c;
@@ -492,40 +590,25 @@ module Vector
 
                             for (int dimy_offset = 0; dimy_offset != num_of_divisions; ++dimy_offset)
                             {
-                                std::vector<CkArrayIndex2D> elems;
-                                elems.reserve(dimy);
-
                                 for (int x = 0; x != dimx; ++x)
                                 {
-                                    elems.emplace_back(x, initial_dimy + dimy_offset);
-                                }
+                                    part_vector_msg* msg = nullptr;
+                                    // Is this the very last element and it's not
+                                    // fully aligned with the offset?
+                                    if ((size - offset) / aum::sizes::block_size::value_r == 0)
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimx * num_of_divisions, (size - offset), vec.data() + offset);
+                                    }
+                                    else
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimx * num_of_divisions, aum::sizes::block_size::value_r, vec.data() + offset);
 
-                                CProxySection_Matrix sec =
-                                    CProxySection_Matrix::ckNew(pv.ckGetArrayID(), elems);
-
-                                using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
-
-                                // Is this the very last element and it's not
-                                // fully aligned with the offset?
-                                if ((size - offset) / aum::sizes::block_size::value_r == 0)
-                                {
-                                    evec_t ev(vec.data() + offset, (size - offset));
-                                    
-                                    part_vector_msg* msg =
-                                        make_part_vector_msg(elems.size() * num_of_divisions, (size - offset), vec.data() + offset);
+                                    }
 
                                     CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector_for_mvm(msg);
-                                }
-                                else
-                                {
-                                    evec_t ev(vec.data() + offset, aum::sizes::block_size::value_r);
-
-                                    part_vector_msg* msg =
-                                        make_part_vector_msg(elems.size() * num_of_divisions, aum::sizes::block_size::value_r, vec.data() + offset);
-
-                                    CkSetRefNum(msg, matrix_tag);
-                                    sec.part_vector_for_mvm(msg);
+                                    pv(x, initial_dimy + dimy_offset).part_vector_for_vmm(msg);
                                 }
                                 
                                 offset += aum::sizes::block_size::value_r;
@@ -605,8 +688,12 @@ module Vector
         entry void assemble_reduced(int, int, int size, double arr[size], int);
         entry void copy_value(int);
         entry void reduce_add(int, int, CProxy_Scalar);
+<<<<<<< HEAD
+        entry void input_scalar(int, double);
+=======
         entry [nokeep] void receive_underlying(vector_msg*);
         entry [nokeep] void input_vector_1(int, double);
+>>>>>>> main
         entry [nokeep] void input_vector_1(vector_msg*);
         entry [nokeep] void input_vector_2(vector_msg*);
         entry void send_to_1(int, int, CProxy_Vector);
@@ -614,6 +701,7 @@ module Vector
         entry void send_underlying(int, int, CProxy_Vector);
         entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
         entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
+        entry void update_read();
         entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);

@@ -53,15 +53,15 @@ module Matrix
                     // sum of the two matrices.
                     when
                         add[WRITE_TAG](int write_tag),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
-                        input_matrix_2[WRITE_TAG](int write_tag, int dimx2, int dimy2, int size2, double arr2[size2])
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg1),
+                        input_matrix_2[WRITE_TAG](matrix_msg* msg2)
                     {
                         serial "matrix_addition"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
-                            emat_t e2(arr2, dimy1, dimx1);
+                            emat_t e1(msg1->mat, msg1->dimy, msg1->dimx);
+                            emat_t e2(msg2->mat, msg2->dimy, msg2->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -71,6 +71,14 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
                         }
                     }
 
@@ -79,13 +87,13 @@ module Matrix
                     // as argument and updates the current matrix.
                     when
                         plus_add[WRITE_TAG](int write_tag),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg)
                     {
                         serial "matrix_single_addition"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -95,6 +103,11 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
+
                         }
                     }
 
@@ -104,15 +117,15 @@ module Matrix
                     // sum of the two matrices.
                     when
                         subtract[WRITE_TAG](int write_tag),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
-                        input_matrix_2[WRITE_TAG](int write_tag, int dimx2, int dimy2, int size2, double arr2[size2])
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg1),
+                        input_matrix_2[WRITE_TAG](matrix_msg* msg2)
                     {
                         serial "matrix_subtraction"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
-                            emat_t e2(arr2, dimy1, dimx1);
+                            emat_t e1(msg1->mat, msg1->dimy, msg1->dimx);
+                            emat_t e2(msg2->mat, msg2->dimy, msg2->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -122,6 +135,14 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
                         }
                     }
 
@@ -130,13 +151,13 @@ module Matrix
                     // as argument and updates the current vector.
                     when
                         minus_subtract[WRITE_TAG](int write_tag, bool inverted),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg)
                     {
                         serial "matrix_single_subtraction"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -149,6 +170,10 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }
 
@@ -156,13 +181,13 @@ module Matrix
                     // The generalized index wise scalar multiply
                     when
                         scalar_multiply[WRITE_TAG](int write_tag, double value),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1])
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg)
                     {
                         serial "scalar_multiply"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -172,6 +197,10 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }
 
@@ -179,14 +208,14 @@ module Matrix
                     // The generalized index wise scalar multiply
                     when
                         aum_scalar_multiply[WRITE_TAG](int write_tag),
-                        input_matrix_1[WRITE_TAG](int write_tag, int dimx1, int dimy1, int size1, double arr1[size1]),
-                        input_matrix_1[WRITE_TAG](int write_tag, double value)
+                        input_matrix_1[WRITE_TAG](matrix_msg* msg),
+                        input_scalar[WRITE_TAG](int write_tag, double value)
                     {
                         serial "aum_scalar_multiply"
                         {
                             using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
 
-                            emat_t e1(arr1, dimy1, dimx1);
+                            emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
                             emat_t e(mat.data(), dimy, dimx);
 
@@ -196,6 +225,10 @@ module Matrix
                             // on this data.
                             ++WRITE_TAG;
                             READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg->cb.isInvalid())
+                                msg->cb.send();
                         }
                     }  
 
@@ -272,13 +305,22 @@ module Matrix
                     {
                         serial "send_to_1"
                         {
-                            pv(thisIndex.x, thisIndex.y).input_matrix_1(write_tag, dimx, dimy, mat.size(), mat.data());
+                            matrix_msg* msg = make_matrix_msg(dimx, dimy, mat.data(), READ_TAG);
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
 
-                            // Another read occured. Update write tag by one so
-                            // when write operation is called with 
-                            // (read_tag + num of writes) it calls the
-                            // appropriate operation.
-                            ++WRITE_TAG;
+                            // Get homePe for the destination chare for optimized sends
+                            auto dest_branch = pv(thisIndex.x, thisIndex.y).ckLocalBranch();
+                            int homePe = dest_branch->homePe(pv(thisIndex.x, thisIndex.y).ckGetIndex());
+
+                            if (CkNodeOf(homePe) == CkMyNode())
+                                msg->cb = CkCallback(CkIndex_Matrix::update_read(), thisProxy(thisIndex.x, thisIndex.y));
+                            else
+                                ++WRITE_TAG;    // Copy is already being made. Safe to update reads!
+
+                            pv(thisIndex.x, thisIndex.y).input_matrix_1(msg);
+
+                            // pv(thisIndex.x, thisIndex.y).input_matrix_1(write_tag, dimx, dimy, mat.size(), mat.data());
                         }
                     }
 
@@ -289,8 +331,33 @@ module Matrix
                     {
                         serial "send_to_2"
                         {
-                            pv(thisIndex.x, thisIndex.y).input_matrix_2(write_tag, dimx, dimy, mat.size(), mat.data());
+                            matrix_msg* msg = make_matrix_msg(dimx, dimy, mat.data(), READ_TAG);
+                            CkSetRefNum(msg, write_tag);
+                            CkReferenceMsg(msg);
 
+                            // Get homePe for the destination chare for optimized sends
+                            auto dest_branch = pv(thisIndex.x, thisIndex.y).ckLocalBranch();
+                            int homePe = dest_branch->homePe(pv(thisIndex.x, thisIndex.y).ckGetIndex());
+
+                            if (CkNodeOf(homePe) == CkMyNode())
+                                msg->cb = CkCallback(CkIndex_Matrix::update_read(), thisProxy(thisIndex.x, thisIndex.y));
+                            else
+                                ++WRITE_TAG;    // Copy is already being made. Safe to update reads!
+
+                            pv(thisIndex.x, thisIndex.y).input_matrix_2(msg);
+
+                            // pv(thisIndex.x, thisIndex.y).input_matrix_2(write_tag, dimx, dimy, mat.size(), mat.data());
+                        }
+                    }
+
+                    // Operation update_read:
+                    // Callback function called when a send function sends a
+                    // pointer instead of actual data. Required for the fulfillment
+                    // of a read contract.
+                    when update_read()
+                    {
+                        serial "update_read"
+                        {
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
                             // (read_tag + num of writes) it calls the
@@ -353,13 +420,14 @@ module Matrix
         entry void aum_scalar_multiply(int);
         entry void matrix_vector_multiply(int, int, CProxy_Vector);
         entry void vector_matrix_multiply(int, int, CProxy_Vector);
-        entry void input_matrix_1(int, double);
-        entry void input_matrix_1(int, int, int, int size, double arr[size]);
-        entry void input_matrix_2(int, int, int, int size, double arr[size]);
+        entry void input_scalar(int, double);
+        entry void input_matrix_1(matrix_msg*);
+        entry void input_matrix_2(matrix_msg*);
         entry void part_vector_for_mvm(part_vector_msg*);
         entry void part_vector_for_vmm(part_vector_msg*);
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
+        entry void update_read();
         entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);

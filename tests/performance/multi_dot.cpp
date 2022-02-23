@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "conjugate_gradient.decl.h"
+#include "multi_dot.decl.h"
 
 class Main : public CBase_Main
 {
@@ -30,35 +30,19 @@ public:
 
         // Initialized condition
         aum::matrix A{3000, 3000, 1.};
-        aum::vector b{3000, aum::random{}};
-        aum::vector x{3000, aum::random{}};
+        aum::vector p{3000, aum::random{}};
 
-        aum::vector r = b - aum::dot(A, x);
-        aum::vector p = aum::copy(r);
-        aum::scalar rsold = aum::dot(r, r);
+        aum::vector Ap = aum::dot(A, p);
 
         for (int i = 0; i != 100; ++i)
         {
-            aum::vector Ap = aum::dot(A, p);
-            aum::scalar alpha = rsold / aum::dot(p, Ap);
-            x = x + (alpha * p);
-            r = r - (alpha * Ap);
-
-            aum::scalar rsnew = aum::dot(r, r);
-
-            double rsnew_value = rsnew.get();
-            if (std::sqrt(rsnew_value) < 1E-8)
-            {
-                ckout << "Converged in " << i << " iterations" << endl;
-                break;
-            }
-
-            p = r + (rsnew / rsold) * p;
-            rsold = aum::copy(rsnew);
+            ckout << "Index: " << i << ", val: " << aum::reduce_add(Ap).get()
+                  << endl;
+            Ap = aum::dot(A, p);
         }
 
-        aum::wait_and_exit(r, start);
+        aum::wait_and_exit(Ap, start);
     }
 };
 
-#include "conjugate_gradient.def.h"
+#include "multi_dot.def.h"

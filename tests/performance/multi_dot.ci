@@ -12,30 +12,15 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Library generating .ci file. Includes all modules implemented in
-// charm++
-
-module libaum
+mainmodule multi_dot
 {
-    include "cstdint";
 
-    message vector_msg
+    extern module libaum;
+
+    mainchare Main
     {
-        double arr[];
+        entry Main(CkArgMsg*);
+
+        entry [threaded] void benchmark();
     };
-
-    message matrix_msg
-    {
-        double mat[];
-    };
-<<<<<<< HEAD
-
-=======
- 
->>>>>>> main
-    extern module Exitter;
-
-    extern module Scalar;
-    extern module Vector;
-    extern module Matrix;
 }

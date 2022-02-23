@@ -350,7 +350,7 @@ module Scalar
                     {
                         serial "send_to_1_vector"
                         {
-                            pv.input_vector_1(write_tag, value);
+                            pv.input_scalar(write_tag, value);
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 
@@ -367,7 +367,7 @@ module Scalar
                     {
                         serial "send_to_1_matrix"
                         {
-                            pv.input_matrix_1(write_tag, value);
+                            pv.input_scalar(write_tag, value);
 
                             // Another read occured. Update write tag by one so
                             // when write operation is called with 

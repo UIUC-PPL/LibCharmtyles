@@ -120,7 +120,7 @@ namespace aum {
             vector dest{size_};
 
             int w_tag = dest.write_tag();
-            this->send_underlying(w_tag, dest);
+            this->send_to_1(w_tag, dest);
             dest.proxy().copy_value(w_tag);
             dest.update_tags();
 
@@ -130,7 +130,7 @@ namespace aum {
         void copy(vector& dest) const
         {
             int w_tag = dest.write_tag();
-            this->send_underlying(w_tag, dest);
+            this->send_to_1(w_tag, dest);
             dest.proxy().copy_value(w_tag);
             dest.update_tags();
         }
@@ -171,9 +171,6 @@ namespace aum {
 
         template <typename Container>
         void send_to_2(int result_tag, Container&& result) const;
-
-        template <typename Container>
-        void send_underlying(int result_tag, Container&& result) const;
 
         template <typename Container>
         void send_for_matrix_vector_multiply(

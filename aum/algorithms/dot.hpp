@@ -110,7 +110,7 @@ namespace aum {
         assert(m1.cols() == v1.size() &&
             "Incompatible matrix and vector dimensions");
 
-        aum::vector result{m1.cols()};
+        aum::vector result{m1.rows()};
         int vector_tag = result.write_tag();
 
         int read_tag = m1.read_tag();
@@ -127,7 +127,7 @@ namespace aum {
         assert(m1.rows() == v1.size() &&
             "Incompatible matrix and vector dimensions");
 
-        aum::vector result{m1.rows()};
+        aum::vector result{m1.cols()};
         int vector_tag = result.write_tag();
 
         int read_tag = m1.read_tag();

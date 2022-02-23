@@ -29,14 +29,6 @@ namespace aum {
     }
 
     template <typename Container>
-    void vector::send_underlying(int result_tag, Container&& result) const
-    {
-        ++write_tag_;
-
-        proxy_.send_underlying(read_tag_, result_tag, result.proxy());
-    }
-
-    template <typename Container>
     void vector::send_to_2(int result_tag, Container&& result) const
     {
         ++write_tag_;
