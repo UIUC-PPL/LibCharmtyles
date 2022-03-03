@@ -17,7 +17,8 @@
 #include "Vector.decl.h"
 
 #include <algorithm>
-#include <vector>
+
+#include <aum/util/view.hpp>
 
 struct part_vector_msg
   : public CkMcastBaseMsg
@@ -33,7 +34,8 @@ class Vector : public CBase_Vector
 private:
     int size;
     int num_chares;
-    std::vector<double> vec;
+    aum::view<double> vec;
+    // std::vector<double> vec;
 
     int READ_TAG;
     int WRITE_TAG;
@@ -67,7 +69,8 @@ public:
             thisIndex == num_chares - 1)
             size = size_ % aum::sizes::array_size::value;
 
-        vec = std::vector<double>(size);
+        // vec = std::vector<double>(size);
+        vec.reserve(size);
 
         thisProxy[thisIndex].initialize_operation();
     }
@@ -93,7 +96,7 @@ public:
         std::uniform_real_distribution<double> distr(0., 1.);
 
         for (int i = 0; i != size; ++i)
-            vec.emplace_back(distr(eng));
+            vec[i] = distr(eng);
 
         thisProxy[thisIndex].initialize_operation();
     }
@@ -112,7 +115,7 @@ public:
             thisIndex == num_chares - 1)
             size = size_ % aum::sizes::array_size::value;
 
-        vec = std::vector<double>(size, value);
+        vec.reserve(size, value);
 
         thisProxy[thisIndex].initialize_operation();
     }

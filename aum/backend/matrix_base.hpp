@@ -17,6 +17,7 @@
 #include "Matrix.decl.h"
 
 #include <aum/util/sizes.hpp>
+#include <aum/util/view.hpp>
 
 #include <random>
 #include <vector>
@@ -28,7 +29,8 @@ private:
     int dimx;
     int num_chares_x;
     int num_chares_y;
-    std::vector<double> mat;
+    // std::vector<double> mat;
+    aum::view<double> mat;
 
     int READ_TAG;
     int WRITE_TAG;
@@ -54,7 +56,7 @@ public:
             thisIndex.y == num_chares_y - 1)
             dimy = dimy_ % aum::sizes::block_size::value_r;
 
-        mat = std::vector<double>(dimx * dimy);
+        mat.reserve(dimx * dimy);
 
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
@@ -84,7 +86,7 @@ public:
         std::uniform_real_distribution<double> distr(0., 1.);
 
         for (int i = 0; i != dimx * dimy; ++i)
-            mat.emplace_back(distr(eng));
+            mat[i] = distr(eng);
 
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
@@ -109,7 +111,7 @@ public:
             thisIndex.y == num_chares_y - 1)
             dimy = dimy_ % aum::sizes::block_size::value_r;
 
-        mat = std::vector<double>(dimx * dimy, value);
+        mat.reserve(dimx * dimy, value);
 
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
