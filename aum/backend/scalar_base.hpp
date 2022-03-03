@@ -20,6 +20,7 @@ class Scalar : public CBase_Scalar
 {
 private:
     double value;
+    int index;
 
     int READ_TAG;
     int WRITE_TAG;
@@ -29,6 +30,7 @@ public:
 
     Scalar(double value_)
       : value(value_)
+      , index(-1)
       , READ_TAG(0)
       , WRITE_TAG(0)
     {
@@ -37,6 +39,7 @@ public:
 
     Scalar()
       : value(0.0)
+      , index(-1)
       , READ_TAG(0)
       , WRITE_TAG(0)
     {

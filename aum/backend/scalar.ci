@@ -14,6 +14,8 @@
 
 module Scalar
 {
+    include "aum/backend/aum_base.hpp";
+
     chare Scalar
     {
         ////////////////////////////////////////////////////////////////////////
@@ -31,6 +33,26 @@ module Scalar
             {
                 case
                 {
+                    ////////////////////////////////////////////////////////////
+                    // BLAS Operations                                        //
+                    ////////////////////////////////////////////////////////////
+                    // BLAS L1: norm_p
+                    when
+                        norm_p[WRITE_TAG](int write_tag, int p),
+                        reduced_norm[WRITE_TAG](double val)
+                    {
+                        serial "norm_p"
+                        {
+                            value = std::pow(val, 1.0 / static_cast<double>(p));
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
+
                     // Addition over scalars
                     when
                         add[WRITE_TAG](int write_tag),
@@ -267,6 +289,22 @@ module Scalar
                         }
                     }
 
+                    // Reduction target
+                    when
+                        set_index_pack[WRITE_TAG](IndexPack const& p)
+                    {
+                        serial "set_index_pack"
+                        {
+                            value = p.value;
+                            index = p.index;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Printer
                     when
                         print_value[READ_TAG](int read_tag)
@@ -406,6 +444,11 @@ module Scalar
                 }
             }
         }
+
+        // BLAS operations
+        entry void norm_p(int, int);
+        entry [reductiontarget] void reduced_norm(double);
+        entry [reductiontarget] void set_index_pack(IndexPack const&);
 
         entry void add(int);
         entry void plus_add(int);

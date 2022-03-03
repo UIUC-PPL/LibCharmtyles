@@ -17,3 +17,5 @@
 #include <aum/algorithms/copy.hpp>
 #include <aum/algorithms/dot.hpp>
 #include <aum/algorithms/reductions.hpp>
+
+#include <aum/algorithms/blas_l1.hpp>

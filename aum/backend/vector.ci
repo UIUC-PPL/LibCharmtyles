@@ -17,6 +17,7 @@ module Vector
     include "eigen3/Eigen/Core";
 
     include "aum/util/sizes.hpp";
+    include "aum/backend/aum_base.hpp";
 
     include "cmath";
 
@@ -46,6 +47,141 @@ module Vector
             {
                 case
                 {
+                    ////////////////////////////////////////////////////////////
+                    // BLAS Operations                                        //
+                    ////////////////////////////////////////////////////////////
+                    // BLAS L1: axpy
+                    when
+                        axpy[WRITE_TAG](int write_tag),
+                        input_vector_1[WRITE_TAG](vector_msg* msg1),
+                        input_vector_2[WRITE_TAG](vector_msg* msg2),
+                        input_scalar[WRITE_TAG](int write_tag, double value)
+                    {
+                        serial "axpy"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e1(msg1->arr, msg1->size);
+                            evec_t e2(msg2->arr, msg2->size);
+
+                            evec_t e(vec.data(), vec.size());
+
+                            e = value * e1 + e2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
+                        }
+                    }
+
+                    when
+                        axpy_scalar[WRITE_TAG](int write_tag, double value),
+                        input_vector_1[WRITE_TAG](vector_msg* msg1),
+                        input_vector_2[WRITE_TAG](vector_msg* msg2)
+                    {
+                        serial "axpy_scalar"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_t e1(msg1->arr, msg1->size);
+                            evec_t e2(msg2->arr, msg2->size);
+
+                            evec_t e(vec.data(), vec.size());
+
+                            e = value * e1 + e2;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+
+                            // Pointers were shared!
+                            if (!msg1->cb.isInvalid())
+                                msg1->cb.send();
+
+                            // Pointers were shared!
+                            if (!msg2->cb.isInvalid())
+                                msg2->cb.send();
+                        }
+                    }
+
+                    when
+                        norm[READ_TAG](int read_tag, int scalar_tag, int p, CProxy_Scalar proxy)
+                    {
+                        serial "norm"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Array<double, 1, Eigen::Dynamic>>;
+                            evec_t e(vec.data(), vec.size());
+                            
+                            double val = Eigen::pow(e, p).sum();
+
+                            CkCallback cb(CkReductionTarget(Scalar, reduced_norm), proxy);
+                            contribute(sizeof(double), &val, CkReduction::sum_double, cb, scalar_tag);
+
+                                                        // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    when
+                        max[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy)
+                    {
+                        serial "max"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Array<double, 1, Eigen::Dynamic>>;
+                            evec_t e(vec.data(), vec.size());
+
+                            Eigen::Index index;
+                            
+                            double val = e.maxCoeff(&index);
+
+                            IndexPack res{static_cast<int>(index), val};
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_index_pack), proxy);
+                            contribute(sizeof(double), &res, MaxIndexType, cb, scalar_tag);
+
+                                                        // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    when
+                        min[READ_TAG](int read_tag, int scalar_tag, CProxy_Scalar proxy)
+                    {
+                        serial "min"
+                        {
+                            using evec_t = Eigen::Map<Eigen::Array<double, 1, Eigen::Dynamic>>;
+                            evec_t e(vec.data(), vec.size());
+
+                            Eigen::Index index;
+                            
+                            double val = e.minCoeff(&index);
+
+                            IndexPack res{static_cast<int>(index), val};
+
+                            CkCallback cb(CkReductionTarget(Scalar, set_index_pack), proxy);
+                            contribute(sizeof(double), &res, MaxIndexType, cb, scalar_tag);
+
+                                                        // Since dot produce isn't updating the vector
+                            // itself, we consider this operation as a read and
+                            // not a write.
+                            ++WRITE_TAG;
+                        }
+                    }
+
                     // Operation Add:
                     // The generalized addition operation takes two vectors
                     // as arguments and updates the current vector with the
@@ -584,6 +720,14 @@ module Vector
             }
         }
 
+        // BLAS kernels
+        entry void axpy(int);
+        entry void axpy_scalar(int, double);
+        entry void norm(int, int, int, CProxy_Scalar);
+        entry void max(int, int, CProxy_Scalar);
+        entry void min(int, int, CProxy_Scalar);
+
+        // Standard operations
         entry void add(int);
         entry void plus_add(int);
         entry void subtract(int);
