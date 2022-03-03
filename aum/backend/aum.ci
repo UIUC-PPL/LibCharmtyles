@@ -19,8 +19,6 @@ module libaum
 {
     include "cstdint";
 
-    initnode void registerMaxIndex(void);
-
     message vector_msg
     {
         double arr[];
@@ -32,4 +30,9 @@ module libaum
     };
 
     extern module Exitter;
+    extern module CustomCallbacks;
+
+    extern module Scalar;
+    extern module Vector;
+    extern module Matrix;
 }

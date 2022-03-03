@@ -255,11 +255,38 @@ module Matrix
                         }
                     }
 
+                    // Operation outer-product
+                    // The generalized vector-vector outer product
+                    when
+                        outer[WRITE_TAG](int write_tag),
+                        part_vector_for_rows(part_vector_msg* msg1),
+                        part_vector_for_rows_2(part_vector_msg* msg2)
+                    {
+                        serial "outer"
+                        {
+                            using evec_row_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>;
+                            using evec_col_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
+
+                            evec_row_t rv(msg1->arr, msg1->size);
+                            evec_col_t cv(msg2->arr, msg2->size);
+
+                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+
+                            evec_t e(mat.data(), dimy, dimx);
+                            e = rv * cv;
+
+                            // Operation is now complete - set up read facility
+                            // on this data.
+                            ++WRITE_TAG;
+                            READ_TAG = WRITE_TAG + 1;
+                        }
+                    }
+
                     // Operation matrix-vector multiply
                     // The generalized matrix-vector multiply
                     when
                         matrix_vector_multiply[READ_TAG](int read_tag, int vector_tag, CProxy_Vector proxy),
-                        part_vector_for_mvm[READ_TAG](part_vector_msg* msg)
+                        part_vector_for_rows[READ_TAG](part_vector_msg* msg)
                     {
                         serial "matrix_vector_multiply"
                         {
@@ -292,7 +319,7 @@ module Matrix
                     // The generalized matrix-vector multiply
                     when
                         vector_matrix_multiply[READ_TAG](int read_tag, int vector_tag, CProxy_Vector proxy),
-                        part_vector_for_vmm[READ_TAG](part_vector_msg* msg)
+                        part_vector_for_cols[READ_TAG](part_vector_msg* msg)
                     {
                         serial "vector_matrix_multiply"
                         {
@@ -444,11 +471,13 @@ module Matrix
         entry void reduce_add(int, int, CProxy_Scalar);
         entry void matrix_vector_multiply(int, int, CProxy_Vector);
         entry void vector_matrix_multiply(int, int, CProxy_Vector);
+        entry void outer(int);
         entry void input_scalar(int, double);
         entry void input_matrix_1(matrix_msg*);
         entry void input_matrix_2(matrix_msg*);
-        entry void part_vector_for_mvm(part_vector_msg*);
-        entry void part_vector_for_vmm(part_vector_msg*);
+        entry void part_vector_for_rows(part_vector_msg*);
+        entry void part_vector_for_rows_2(part_vector_msg*);
+        entry void part_vector_for_cols(part_vector_msg*);
         entry void send_to_1(int, int, CProxy_Matrix);
         entry void send_to_2(int, int, CProxy_Matrix);
         entry void update_read();

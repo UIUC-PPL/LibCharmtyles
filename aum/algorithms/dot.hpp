@@ -114,7 +114,7 @@ namespace aum {
         int vector_tag = result.write_tag();
 
         int read_tag = m1.read_tag();
-        v1.send_for_matrix_vector_multiply(read_tag, m1);
+        v1.send_to_matrix_rows(read_tag, m1);
         m1.proxy().matrix_vector_multiply(read_tag, vector_tag, result.proxy());
         m1.inc_reads();
 
@@ -131,7 +131,7 @@ namespace aum {
         int vector_tag = result.write_tag();
 
         int read_tag = m1.read_tag();
-        v1.send_for_vector_matrix_multiply(read_tag, m1);
+        v1.send_to_matrix_cols(read_tag, m1);
         m1.proxy().vector_matrix_multiply(read_tag, vector_tag, result.proxy());
         m1.inc_reads();
 

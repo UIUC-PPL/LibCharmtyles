@@ -17,7 +17,7 @@ module Vector
     include "eigen3/Eigen/Core";
 
     include "aum/util/sizes.hpp";
-    include "aum/backend/aum_base.hpp";
+    include "aum/backend/custom_callbacks.hpp";
 
     include "cmath";
 
@@ -563,10 +563,10 @@ module Vector
                     // Operation send to certain section of matrix
                     // Helper function to multicast the value to the
                     // destination matrix.
-                    when send_for_matrix_vector_multiply[READ_TAG](
+                    when send_to_matrix_rows[READ_TAG](
                         int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
                     {
-                        serial "send_for_matrix_vector_multiply"
+                        serial "send_to_matrix_rows"
                         {
                             int num_of_divisions = 
                                 size / aum::sizes::block_size::value_c;
@@ -599,7 +599,7 @@ module Vector
                                     }
 
                                     CkSetRefNum(msg, matrix_tag);
-                                    pv(initial_dimx + dimx_offset, y).part_vector_for_mvm(msg);
+                                    pv(initial_dimx + dimx_offset, y).part_vector_for_rows(msg);
                                 }
                                 
                                 offset += aum::sizes::block_size::value_c;
@@ -616,10 +616,63 @@ module Vector
                     // Operation send to certain section of matrix
                     // Helper function to multicast the value to the
                     // destination matrix.
-                    when send_for_vector_matrix_multiply[READ_TAG](
+                    when send_to_matrix_rows_2[READ_TAG](
                         int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
                     {
-                        serial "send_for_vector_matrix_multiply"
+                        serial "send_to_matrix_rows_2"
+                        {
+                            int num_of_divisions = 
+                                size / aum::sizes::block_size::value_c;
+                            
+                            if (size % aum::sizes::block_size::value_c != 0)
+                                ++num_of_divisions;
+                            
+                            // Initial dimy
+                            int initial_dimx = thisIndex * num_of_divisions;
+
+                            int offset = 0;
+
+                            for (int dimx_offset = 0; dimx_offset != num_of_divisions; ++dimx_offset)
+                            {
+                                for (int y = 0; y != dimy; ++y)
+                                {
+                                    part_vector_msg* msg = nullptr;
+
+                                    // Is this the very last element and it's not
+                                    // fully aligned with the offset?
+                                    if ((size - offset) / aum::sizes::block_size::value_c == 0)
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimy * num_of_divisions, (size - offset), vec.data() + offset);
+                                    }
+                                    else
+                                    {
+                                        msg =
+                                            make_part_vector_msg(dimy * num_of_divisions, aum::sizes::block_size::value_c, vec.data() + offset);
+                                    }
+
+                                    CkSetRefNum(msg, matrix_tag);
+                                    pv(initial_dimx + dimx_offset, y).part_vector_for_rows_2(msg);
+                                }
+                                
+                                offset += aum::sizes::block_size::value_c;
+                            }
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
+
+                    // Operation send to certain section of matrix
+                    // Helper function to multicast the value to the
+                    // destination matrix.
+                    when send_to_matrix_cols[READ_TAG](
+                        int read_tag, int matrix_tag, int dimx, int dimy, CProxy_Matrix pv)
+                    {
+                        serial "send_to_matrix_cols"
                         {
                             int num_of_divisions = 
                                 size / aum::sizes::block_size::value_r;
@@ -651,7 +704,7 @@ module Vector
                                     }
 
                                     CkSetRefNum(msg, matrix_tag);
-                                    pv(x, initial_dimy + dimy_offset).part_vector_for_vmm(msg);
+                                    pv(x, initial_dimy + dimy_offset).part_vector_for_cols(msg);
                                 }
                                 
                                 offset += aum::sizes::block_size::value_r;
@@ -744,8 +797,9 @@ module Vector
         entry [nokeep] void input_vector_2(vector_msg*);
         entry void send_to_1(int, int, CProxy_Vector);
         entry void send_to_2(int, int, CProxy_Vector);
-        entry void send_for_matrix_vector_multiply(int, int, int, int, CProxy_Matrix);
-        entry void send_for_vector_matrix_multiply(int, int, int, int, CProxy_Matrix);
+        entry void send_to_matrix_rows(int, int, int, int, CProxy_Matrix);
+        entry void send_to_matrix_rows_2(int, int, int, int, CProxy_Matrix);
+        entry void send_to_matrix_cols(int, int, int, int, CProxy_Matrix);
         entry void update_read();
         entry void print_value(int, std::string const&);
         entry void exit(int);

@@ -49,6 +49,7 @@ namespace aum {
 
 }    // namespace aum
 
+#include <aum/backend/CustomCallbacks.def.h>
 #include <aum/backend/Exitter.def.h>
 #include <aum/backend/Matrix.def.h>
 #include <aum/backend/Scalar.def.h>

@@ -173,12 +173,13 @@ namespace aum {
         void send_to_2(int result_tag, Container&& result) const;
 
         template <typename Container>
-        void send_for_matrix_vector_multiply(
-            int result_tag, Container&& result) const;
+        void send_to_matrix_rows(int result_tag, Container&& result) const;
 
         template <typename Container>
-        void send_for_vector_matrix_multiply(
-            int result_tag, Container&& result) const;
+        void send_to_matrix_rows_2(int result_tag, Container&& result) const;
+
+        template <typename Container>
+        void send_to_matrix_cols(int result_tag, Container&& result) const;
 
         void inc_reads() const
         {

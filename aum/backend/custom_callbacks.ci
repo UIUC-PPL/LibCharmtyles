@@ -12,11 +12,10 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#pragma once
+// Library generating .ci file. Includes all modules implemented in
+// charm++
 
-#include <aum/algorithms/copy.hpp>
-#include <aum/algorithms/dot.hpp>
-#include <aum/algorithms/outer_product.hpp>
-#include <aum/algorithms/reductions.hpp>
-
-#include <aum/algorithms/blas_l1.hpp>
+module CustomCallbacks
+{
+    initnode void registerMaxIndex(void);
+}

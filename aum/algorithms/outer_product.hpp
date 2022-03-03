@@ -14,9 +14,24 @@
 
 #pragma once
 
-#include <aum/algorithms/copy.hpp>
-#include <aum/algorithms/dot.hpp>
-#include <aum/algorithms/outer_product.hpp>
-#include <aum/algorithms/reductions.hpp>
+#include <aum/frontend/matrix.hpp>
+#include <aum/frontend/vector.hpp>
 
-#include <aum/algorithms/blas_l1.hpp>
+namespace aum {
+
+    aum::matrix outer(aum::vector const& v1, aum::vector const& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        aum::matrix result{v1.size(), v1.size()};
+
+        int w_tag = result.write_tag();
+        v1.send_to_matrix_rows(w_tag, result);
+        v2.send_to_matrix_rows_2(w_tag, result);
+        result.proxy().outer(w_tag);
+        result.update_tags();
+
+        return result;
+    }
+}    // namespace aum

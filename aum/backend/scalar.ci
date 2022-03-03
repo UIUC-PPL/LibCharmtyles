@@ -14,7 +14,7 @@
 
 module Scalar
 {
-    include "aum/backend/aum_base.hpp";
+    include "aum/backend/custom_callbacks.hpp";
 
     chare Scalar
     {
