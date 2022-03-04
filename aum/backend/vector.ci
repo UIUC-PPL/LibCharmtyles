@@ -52,7 +52,7 @@ module Vector
                     ////////////////////////////////////////////////////////////
                     // BLAS L1: axpy
                     when
-                        axpy[WRITE_TAG](int write_tag),
+                        axpy[WRITE_TAG](int write_tag, double multiplier),
                         input_vector_1[WRITE_TAG](vector_msg* msg1),
                         input_vector_2[WRITE_TAG](vector_msg* msg2),
                         input_scalar[WRITE_TAG](int write_tag, double value)
@@ -65,6 +65,8 @@ module Vector
                             evec_t e2(msg2->arr, msg2->size);
 
                             evec_t e(vec.data(), vec.size());
+
+                            value = multiplier * value;
 
                             e = value * e1 + e2;
 
@@ -774,7 +776,7 @@ module Vector
         }
 
         // BLAS kernels
-        entry void axpy(int);
+        entry void axpy(int, double);
         entry void axpy_scalar(int, double);
         entry void norm(int, int, int, CProxy_Scalar);
         entry void max(int, int, CProxy_Scalar);

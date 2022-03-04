@@ -33,8 +33,27 @@ namespace aum { namespace blas {
 
         a.send_to_vector(w_tag, result);
         x.send_to_1(w_tag, result);
-        y.send_to_1(w_tag, result);
-        result.proxy().axpy(w_tag);
+        y.send_to_2(w_tag, result);
+        result.proxy().axpy(w_tag, 1.);
+        result.update_tags();
+
+        return result;
+    }
+
+    aum::vector axpy(double multiplier, aum::scalar const& a,
+        aum::vector const& x, aum::vector const& y)
+    {
+        assert((x.size() == y.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        aum::vector result{x.size()};
+
+        int w_tag = result.write_tag();
+
+        a.send_to_vector(w_tag, result);
+        x.send_to_1(w_tag, result);
+        y.send_to_2(w_tag, result);
+        result.proxy().axpy(w_tag, multiplier);
         result.update_tags();
 
         return result;
@@ -51,7 +70,7 @@ namespace aum { namespace blas {
         int w_tag = result.write_tag();
 
         x.send_to_1(w_tag, result);
-        y.send_to_1(w_tag, result);
+        y.send_to_2(w_tag, result);
         result.proxy().axpy_scalar(w_tag, a);
         result.update_tags();
 
