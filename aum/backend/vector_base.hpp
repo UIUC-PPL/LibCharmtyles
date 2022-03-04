@@ -17,7 +17,9 @@
 #include "Vector.decl.h"
 
 #include <algorithm>
+#include <memory>
 
+#include <aum/util/generator.hpp>
 #include <aum/util/view.hpp>
 
 struct part_vector_msg
@@ -116,6 +118,26 @@ public:
             size = size_ % aum::sizes::array_size::value;
 
         vec.reserve(size, value);
+
+        thisProxy[thisIndex].initialize_operation();
+    }
+
+    Vector(int size_, std::unique_ptr<aum::generator>&& gen, int num_chares_)
+      : size(size_)
+      , num_chares(num_chares_)
+      , vec()
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+      , reduction_counter(0)
+    {
+        size = aum::sizes::array_size::value;
+
+        if (size_ % aum::sizes::array_size::value != 0 &&
+            thisIndex == num_chares - 1)
+            size = size_ % aum::sizes::array_size::value;
+
+        vec.reserve(size);
+        gen->generate(thisIndex, size, vec.data());
 
         thisProxy[thisIndex].initialize_operation();
     }

@@ -14,7 +14,32 @@
 
 #include <aum/aum.hpp>
 
-#include "addition.decl.h"
+#include "subtraction.decl.h"
+
+class vec_gen : public aum::generator
+{
+public:
+    vec_gen() = default;
+
+    using aum::generator::generator;
+
+    void generate(int index, int size, double* data)
+    {
+        for (int i = 0; i != size; ++i)
+            data[i] = i + index;
+    }
+
+    PUPable_decl(vec_gen);
+    vec_gen(CkMigrateMessage* m)
+      : aum::generator(m)
+    {
+    }
+
+    virtual void pup(PUP::er& p)
+    {
+        aum::generator::pup(p);
+    }
+};
 
 class Main : public CBase_Main
 {
@@ -22,7 +47,10 @@ public:
     Main(CkArgMsg* msg)
     {
         double start = CkWallTimer();
-        aum::vector A{1000000, 1.1};
+
+        std::unique_ptr<vec_gen> gen = std::make_unique<vec_gen>();
+
+        aum::vector A{1000000, std::move(gen)};
         aum::vector B{1000000, 2.2};
         aum::vector C{1000000, 3.3};
         aum::vector D{1000000, 4.4};
@@ -40,4 +68,4 @@ public:
     }
 };
 
-#include "addition.def.h"
+#include "subtraction.def.h"

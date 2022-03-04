@@ -38,6 +38,10 @@ module Matrix
         // DimX, DimY, NumX, NumY, Random Initialization
         entry Matrix(int, int, int, int, aum::random);
 
+        // Initialize using generator
+        // DimX, DimY, Generator, NumX, NumY
+        entry Matrix(int, int, std::unique_ptr<aum::generator>, int, int)
+
         ////////////////////////////////////////////////////////////////////////
         // Operation over Matrix                                              //
         ////////////////////////////////////////////////////////////////////////

@@ -32,6 +32,8 @@ module libaum
     extern module Exitter;
     extern module CustomCallbacks;
 
+    PUPable aum::generator;
+
     extern module Scalar;
     extern module Vector;
     extern module Matrix;

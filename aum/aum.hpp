@@ -31,7 +31,9 @@ class CProxy_Matrix;
 
 #include <aum/algorithms/algorithms.hpp>
 
+#include <aum/util/generator.hpp>
 #include <aum/util/sizes.hpp>
+#include <aum/util/view.hpp>
 
 namespace aum {
 

@@ -17,6 +17,7 @@ module Vector
     include "eigen3/Eigen/Core";
 
     include "aum/util/sizes.hpp";
+    include "aum/util/generator.hpp";
     include "aum/backend/custom_callbacks.hpp";
 
     include "cmath";
@@ -37,6 +38,7 @@ module Vector
         entry Vector(int, int);  // Size
         entry Vector(int, int, aum::random); // Size, Random Initialization
         entry Vector(int, double, int);  // Size, Value
+        entry Vector(int, std::unique_ptr<aum::generator>, int);   // Random Generation
 
         ////////////////////////////////////////////////////////////////////////
         // Operation over vector                                              //

@@ -16,6 +16,7 @@
 
 #include "Matrix.decl.h"
 
+#include <aum/util/generator.hpp>
 #include <aum/util/sizes.hpp>
 #include <aum/util/view.hpp>
 
@@ -112,6 +113,33 @@ public:
             dimy = dimy_ % aum::sizes::block_size::value_r;
 
         mat.reserve(dimx * dimy, value);
+
+        thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
+    }
+
+    Matrix(int dimx_, int dimy_, std::unique_ptr<aum::generator>&& gen,
+        int numx, int numy)
+      : dimy(dimy_)
+      , dimx(dimx_)
+      , num_chares_x(numx)
+      , num_chares_y(numy)
+      , mat()
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+    {
+        dimx = aum::sizes::block_size::value_c;
+        dimy = aum::sizes::block_size::value_r;
+
+        if (dimx_ % aum::sizes::block_size::value_c != 0 &&
+            thisIndex.x == num_chares_x - 1)
+            dimx = dimx_ % aum::sizes::block_size::value_c;
+
+        if (dimy_ % aum::sizes::block_size::value_r != 0 &&
+            thisIndex.y == num_chares_y - 1)
+            dimy = dimy_ % aum::sizes::block_size::value_r;
+
+        mat.reserve(dimx * dimy);
+        gen->generate(thisIndex.x, thisIndex.y, dimx, dimy, mat.data());
 
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }

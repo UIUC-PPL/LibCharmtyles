@@ -14,8 +14,9 @@
 
 mainmodule subtraction
 {
-
     extern module libaum;
+
+    PUPable vec_gen;
 
     mainchare Main
     {
