@@ -40,7 +40,7 @@ module Matrix
 
         // Initialize using generator
         // DimX, DimY, Generator, NumX, NumY
-        entry Matrix(int, int, std::unique_ptr<aum::generator>, int, int)
+        entry Matrix(int, int, std::unique_ptr<aum::generator>, int, int);
 
         ////////////////////////////////////////////////////////////////////////
         // Operation over Matrix                                              //
