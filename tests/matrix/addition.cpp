@@ -21,6 +21,11 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
+    {
         double start = CkWallTimer();
         aum::matrix A{1000, 1000, 1.1};
         aum::matrix B{1000, 1000, 1.1};

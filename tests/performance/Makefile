@@ -19,18 +19,18 @@ LIBS_DIR=$(BASE_DIR)
 
 all: conjugate_gradient individual_metric multi_dot
 
-.PHONY: clean
+.PHONY: clean performance
 
-conjugate_gradient: conjugate_gradient.cpp conjugate_gradient.ci
-	$(CHARMC) -E $(word 2,$^)
+performance: performance.ci
+	$(CHARMC) -E performance.ci
+
+conjugate_gradient: conjugate_gradient.cpp performance
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-individual_metric: individual_metric.cpp individual_metric.ci
-	$(CHARMC) -E $(word 2,$^)
+individual_metric: individual_metric.cpp performance
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-multi_dot: multi_dot.cpp multi_dot.ci
-	$(CHARMC) -E $(word 2,$^)
+multi_dot: multi_dot.cpp performance
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 clean:

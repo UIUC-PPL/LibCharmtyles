@@ -19,13 +19,16 @@ LIBS_DIR=$(BASE_DIR)
 
 all: addition subtraction
 
-.PHONY: clean
+.PHONY: clean scalars
 
-addition: addition.cpp addition.ci
+scalars: scalars.ci
+	$(CHARMC) -E scalars.ci
+
+addition: addition.cpp scalars
 	$(CHARMC) -E $(word 2,$^)
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-subtraction: subtraction.cpp subtraction.ci
+subtraction: subtraction.cpp scalars
 	$(CHARMC) -E $(word 2,$^)
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 

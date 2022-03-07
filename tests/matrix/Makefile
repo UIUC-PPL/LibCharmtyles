@@ -19,18 +19,18 @@ LIBS_DIR=$(BASE_DIR)
 
 all: addition scalar_multiply subtraction
 
-.PHONY: clean
+.PHONY: clean matrices
 
-addition: addition.cpp addition.ci
-	$(CHARMC) -E $(word 2,$^)
+matrices: matrices.ci
+	$(CHARMC) -E matrices.ci
+
+addition: addition.cpp matrices
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-scalar_multiply: scalar_multiply.cpp scalar_multiply.ci
-	$(CHARMC) -E $(word 2,$^)
+scalar_multiply: scalar_multiply.cpp matrices
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-subtraction: subtraction.cpp subtraction.ci
-	$(CHARMC) -E $(word 2,$^)
+subtraction: subtraction.cpp matrices
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 clean:

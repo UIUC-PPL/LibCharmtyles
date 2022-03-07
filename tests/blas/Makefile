@@ -19,10 +19,12 @@ LIBS_DIR=$(BASE_DIR)
 
 all: level_1
 
-.PHONY: clean
+.PHONY: clean blas
 
-level_1: level_1.cpp level_1.ci
-	$(CHARMC) -E $(word 2,$^)
+blas: blas.ci
+	$(CHARMC) -E blas.ci
+
+level_1: level_1.cpp blas
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 clean:

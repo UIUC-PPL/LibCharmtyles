@@ -19,18 +19,18 @@ LIBS_DIR=$(BASE_DIR)
 
 all: addition copy dot subtraction
 
-.PHONY: clean
+.PHONY: clean vectors
 
-addition: addition.cpp addition.ci
-	$(CHARMC) -E $(word 2,$^)
+vectors: vectors.ci
+	$(CHARMC) -E vectors.ci
+
+addition: addition.cpp vectors
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-dot: dot.cpp dot.ci
-	$(CHARMC) -E $(word 2,$^)
+dot: dot.cpp vectors
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
-copy: copy.cpp copy.ci
-	$(CHARMC) -E $(word 2,$^)
+copy: copy.cpp vectors
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 subtraction: subtraction.cpp subtraction.ci
