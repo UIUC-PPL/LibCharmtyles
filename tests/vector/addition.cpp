@@ -14,12 +14,17 @@
 
 #include <aum/aum.hpp>
 
-#include "addition.decl.h"
+#include "vectors.decl.h"
 
 class Main : public CBase_Main
 {
 public:
     Main(CkArgMsg* msg)
+    {
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
     {
         double start = CkWallTimer();
         aum::vector A{1000000, 1.1};
@@ -40,4 +45,4 @@ public:
     }
 };
 
-#include "addition.def.h"
+#include "vectors.def.h"

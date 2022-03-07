@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "conjugate_gradient.decl.h"
+#include "performance.decl.h"
 
 class Main : public CBase_Main
 {
@@ -62,4 +62,4 @@ public:
     }
 };
 
-#include "conjugate_gradient.def.h"
+#include "performance.def.h"

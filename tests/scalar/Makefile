@@ -28,3 +28,6 @@ addition: addition.cpp addition.ci
 subtraction: subtraction.cpp subtraction.ci
 	$(CHARMC) -E $(word 2,$^)
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
+
+clean:
+	rm *.decl.h *.def.h *.out charmrun

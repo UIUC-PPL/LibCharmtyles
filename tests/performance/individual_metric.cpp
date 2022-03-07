@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "individual_metric.decl.h"
+#include "performance.decl.h"
 
 class Main : public CBase_Main
 {
@@ -231,4 +231,4 @@ private:
     }
 };
 
-#include "individual_metric.def.h"
+#include "performance.def.h"

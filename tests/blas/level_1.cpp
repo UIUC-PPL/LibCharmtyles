@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "level_1.decl.h"
+#include "blas.decl.h"
 
 class Main : public CBase_Main
 {
@@ -39,4 +39,4 @@ public:
     }
 };
 
-#include "level_1.def.h"
+#include "blas.def.h"

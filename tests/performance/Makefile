@@ -34,4 +34,4 @@ multi_dot: multi_dot.cpp multi_dot.ci
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 clean:
-	rm *.decl.h *.def.h *.out
+	rm *.decl.h *.def.h *.out charmrun

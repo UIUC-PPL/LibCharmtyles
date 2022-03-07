@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "addition.decl.h"
+#include "matrices.decl.h"
 
 class Main : public CBase_Main
 {
@@ -40,4 +40,4 @@ public:
     }
 };
 
-#include "addition.def.h"
+#include "matrices.def.h"

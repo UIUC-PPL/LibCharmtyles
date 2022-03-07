@@ -14,12 +14,17 @@
 
 #include <aum/aum.hpp>
 
-#include "addition.decl.h"
+#include "scalars.decl.h"
 
 class Main : public CBase_Main
 {
 public:
     Main(CkArgMsg* msg)
+    {
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
     {
         double start = CkWallTimer();
         aum::scalar A{1.1};
@@ -46,4 +51,4 @@ public:
     }
 };
 
-#include "addition.def.h"
+#include "scalars.def.h"

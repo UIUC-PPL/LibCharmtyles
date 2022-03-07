@@ -14,12 +14,17 @@
 
 #include <aum/aum.hpp>
 
-#include "scalar_multiply.decl.h"
+#include "matrices.decl.h"
 
 class Main : public CBase_Main
 {
 public:
     Main(CkArgMsg* msg)
+    {
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
     {
         double start = CkWallTimer();
         aum::matrix A{1010, 1050, 1.};
@@ -49,4 +54,4 @@ public:
     }
 };
 
-#include "scalar_multiply.def.h"
+#include "matrices.def.h"

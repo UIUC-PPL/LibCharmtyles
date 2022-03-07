@@ -14,7 +14,7 @@
 
 #include <aum/aum.hpp>
 
-#include "multi_dot.decl.h"
+#include "performance.decl.h"
 
 class Main : public CBase_Main
 {
@@ -45,4 +45,4 @@ public:
     }
 };
 
-#include "multi_dot.def.h"
+#include "performance.def.h"
