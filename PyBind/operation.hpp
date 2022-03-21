@@ -64,4 +64,44 @@ namespace aum { namespace bind {
         Container2 const& c2;
     };
 
+    aum::vector make_vector(int size)
+    {
+        return aum::vector{size};
+    }
+
+    aum::vector make_vector(int size, aum::random)
+    {
+        return aum::vector{size, aum::random{}};
+    }
+
+    aum::vector make_vector(int size, double value)
+    {
+        return aum::vector{size, value};
+    }
+
+    aum::vector make_vector(int size, std::unique_ptr<aum::generator>&& gen)
+    {
+        return aum::vector{size, std::move(gen)};
+    }
+
+    aum::scalar make_scalar(double value)
+    {
+        return aum::scalar{value};
+    }
+
+    aum::matrix make_matrix(int rows, int cols)
+    {
+        return aum::matrix{rows, cols};
+    }
+
+    aum::matrix make_matrix(int rows, int cols, aum::random)
+    {
+        return aum::matrix{rows, cols, aum::random{}};
+    }
+
+    aum::matrix make_matrix(int rows, int cols, double value)
+    {
+        return aum::matrix{rows, cols, value};
+    }
+
 }}    // namespace aum::bind
