@@ -27,8 +27,8 @@ public:
     void benchmark()
     {
         double start = CkWallTimer();
-        aum::vector A{1000000, 1.};
-        aum::vector B{1000000, 2.};
+        aum::vector A{1000, 1.};
+        aum::vector B{1000, 2.};
 
         // No temporaries
         aum::scalar s = aum::dot(A, B);
@@ -55,7 +55,9 @@ public:
 
         A = 5 * (A - B);
 
-        aum::wait_and_exit(A, start);
+        aum::matrix m = aum::outer(A, B);
+
+        aum::wait_and_exit(m, start);
     }
 };
 
