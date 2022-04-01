@@ -17,7 +17,7 @@ include ../../Makefile.common
 TEST_DIR=$(BASE_DIR)/../tests
 LIBS_DIR=$(BASE_DIR)
 
-all: addition scalar_multiply subtraction
+all: addition gather scalar_multiply subtraction
 
 .PHONY: clean matrices
 
@@ -25,6 +25,9 @@ matrices: matrices.ci
 	$(CHARMC) -E matrices.ci
 
 addition: addition.cpp matrices
+	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
+
+gather: gather.cpp matrices
 	$(CHARMC) $< -L$(LIBS_DIR)/aum -laum -I$(BASE_DIR) -I$(BASE_DIR)/aum/backend -o $@.out $(OPTS)
 
 scalar_multiply: scalar_multiply.cpp matrices

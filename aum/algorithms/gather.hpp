@@ -30,7 +30,7 @@ namespace aum {
             CProxy_matrix_container::ckNew(m.rows(), m.cols());
 
         int r_tag = m.read_tag();
-        m.proxy().gather(r_tag, proxy);
+        m.proxy().gather_matrix(r_tag, proxy);
         m.inc_reads();
 
         ck::future<aum::view<double, aum::matrix>> f;
@@ -45,7 +45,7 @@ namespace aum {
             CProxy_vector_container::ckNew(v.size());
 
         int r_tag = v.read_tag();
-        v.proxy().gather(r_tag, proxy);
+        v.proxy().gather_vector(r_tag, proxy);
         v.inc_reads();
 
         ck::future<aum::view<double, aum::vector>> f;
