@@ -1,0 +1,94 @@
+// Copyright (C) 2022 Nikunj Gupta
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+//  Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program. If not, see <https://www.gnu.org/licenses/>.
+
+module Container
+{
+    include "eigen3/Eigen/Core";
+
+    include "aum/util/sizes.hpp";
+    include "aum/util/view.hpp";
+    include "aum/util/generator.hpp";
+    include "aum/backend/custom_callbacks.hpp";
+
+    include "cmath";
+
+    extern module Vector;
+    extern module Matrix;
+
+    chare vector_container
+    {
+        entry vector_container(int size);
+        
+        entry void initialize_operation()
+        {
+            for (; READY > -1;)
+            {
+                when gather(gather_msg* msg)
+                {
+                    serial "gather"
+                    {
+                        // Actual code
+
+                        if (++red_count == num_chares_)
+                            READY = 1;
+                    }
+                }
+
+                when get_underlying[READY](int ready, ck::future<aum::view<double, aum::vector>> f)
+                {
+                    serial "get_underlying"
+                    {
+                        f.set(vec);
+                    }
+                }
+            }
+        }
+
+        entry void gather(gather_msg* msg);
+        entry void get_underlying(int, ck::future<aum::view<double, aum::vector>>);
+    }
+
+    chare matrix_container
+    {
+        entry matrix_container(int dimx, int dimy);
+
+        entry void initialize_operation()
+        {
+            for (; READY > -1;)
+            {
+                when gather(gather_msg* msg)
+                {
+                    serial "gather"
+                    {
+                        // Actual code
+
+                        if (++red_count == num_chares_)
+                            READY = 1;
+                    }
+                }
+
+                when get_underlying[READY](int ready, ck::future<aum::view<double, aum::matrix>> f)
+                {
+                    serial "get_underlying"
+                    {
+                        f.set(mat);
+                    }
+                }
+            }
+        }
+
+        entry void gather(gather_msg* msg);
+        entry void get_underlying(int, ck::future<aum::view<double, aum::matrix>>);
+    }
+}

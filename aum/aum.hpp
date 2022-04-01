@@ -17,8 +17,11 @@
 class CProxy_Scalar;
 class CProxy_Vector;
 class CProxy_Matrix;
+class CProxy_vector_container;
+class CProxy_matrix_container;
 
 #include <aum/backend/aum_base.hpp>
+#include <aum/backend/container_base.hpp>
 #include <aum/backend/exitter.hpp>
 
 #include <aum/frontend/matrix.hpp>
@@ -51,6 +54,7 @@ namespace aum {
 
 }    // namespace aum
 
+#include <aum/backend/Container.def.h>
 #include <aum/backend/CustomCallbacks.def.h>
 #include <aum/backend/Exitter.def.h>
 #include <aum/backend/Matrix.def.h>

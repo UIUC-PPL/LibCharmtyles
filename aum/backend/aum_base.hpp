@@ -115,3 +115,49 @@ matrix_msg* make_matrix_msg(int dimx, int dimy, double* arr_, int tag)
 
     return msg;
 }
+
+struct gather_msg : CMessage_gather_msg
+{
+    enum class container_t : short
+    {
+        vector = 0,
+        matrix = 0
+    };
+
+    container_t ctype;
+
+    int dimx;
+    int dimy;
+    int size;
+
+    int chareX;
+    int chareY;
+    int index;
+
+    double* container;
+};
+
+gather_msg* make_gather_msg(int index, int size, double* container)
+{
+    auto* msg = new (size) gather_msg();
+    msg->ctype = gather_msg::container_t::vector;
+    msg->size = size;
+    msg->index = index;
+    std::copy(container, container + size, msg->container);
+
+    return msg;
+}
+
+gather_msg* make_gather_msg(
+    int chareX, int chareY, int dimx, int dimy, double* container)
+{
+    auto* msg = new (dimx * dimy) gather_msg();
+    msg->ctype = gather_msg::container_t::matrix;
+    msg->dimx = dimx;
+    msg->dimy = dimy;
+    msg->chareX = chareX;
+    msg->chareY = chareY;
+    std::copy(container, container + (dimx * dimy), msg->container);
+
+    return msg;
+}

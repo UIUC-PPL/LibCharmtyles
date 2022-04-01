@@ -462,6 +462,25 @@ module Matrix
                             contribute(sizeof(double), &start, CkReduction::nop, cb);
                         }
                     }
+
+                    ////////////////////////////////////////////////////////////
+                    // Gather Operation                                       //
+                    ////////////////////////////////////////////////////////////
+                    when gather_matrix[READ_TAG](int read_tag, CProxy_matrix_container proxy)
+                    {
+                        serial "gather_matrix"
+                        {
+                            auto msg = make_gather_msg(thisIndex.x, thisIndex.y, dimx, dimy, mat.data());
+                            // TODO: Replace with reduction
+                            proxy.gather(msg);
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
                 }
             }
         }
@@ -488,5 +507,7 @@ module Matrix
         entry void print_value(int, std::string const&);
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
+
+        entry void gather_matrix(int, CProxy_matrix_container);
     }
 }

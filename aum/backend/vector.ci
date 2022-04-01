@@ -773,6 +773,25 @@ module Vector
                             ++WRITE_TAG;
                         }
                     }
+
+                    ////////////////////////////////////////////////////////////
+                    // Gather Operation                                       //
+                    ////////////////////////////////////////////////////////////
+                    when gather_vector[READ_TAG](int read_tag, CProxy_vector_container proxy)
+                    {
+                        serial "gather_vector"
+                        {
+                            auto msg = make_gather_msg(thisIndex, size, vec.data());
+                            // TODO: Replace with reduction
+                            proxy.gather(msg);
+
+                            // Another read occured. Update write tag by one so
+                            // when write operation is called with 
+                            // (read_tag + num of writes) it calls the
+                            // appropriate operation.
+                            ++WRITE_TAG;
+                        }
+                    }
                 }
             }
         }
@@ -809,5 +828,7 @@ module Vector
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
         entry [reductiontarget] void inc_read(int);
+
+        entry void gather_vector(int, CProxy_vector_container);
     }
 }

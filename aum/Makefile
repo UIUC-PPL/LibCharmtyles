@@ -24,7 +24,7 @@ libaum.a: aum.o
 	$(CHARMC) $(LD_OPTS) -o $@ $< -I$(BASE_DIR); rm aum.o
 
 aum.o: frontend/aum.cpp aum.hpp
-	cd backend; $(CHARMC) exitter.ci; $(CHARMC) custom_callbacks.ci; $(CHARMC) scalar.ci; $(CHARMC) vector.ci; $(CHARMC) matrix.ci; $(CHARMC) aum.ci;
+	cd backend; $(CHARMC) exitter.ci; $(CHARMC) custom_callbacks.ci; $(CHARMC) scalar.ci; $(CHARMC) vector.ci; $(CHARMC) matrix.ci; $(CHARMC) container.ci; $(CHARMC) aum.ci;
 	$(CHARMC) -c $< -I$(BASE_DIR) $(OPTS)
 
 distclean: clean

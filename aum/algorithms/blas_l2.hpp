@@ -12,36 +12,19 @@
 // You should have received a copy of the GNU General Public License along
 // with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Library generating .ci file. Includes all modules implemented in
-// charm++
+#pragma once
 
-module libaum
-{
-    include "cstdint";
+#include <aum/frontend/matrix.hpp>
+#include <aum/frontend/scalar.hpp>
+#include <aum/frontend/vector.hpp>
 
-    message vector_msg
+namespace aum { namespace blas {
+
+    // BLAS L2: y <- a * A * x + b * y
+    aum::vector gemv(aum::scalar const& a, aum::matrix const& A,
+        aum::vector const& x, aum::scalar const& b, aum::vector const& y)
     {
-        double arr[];
-    };
+        //
+    }
 
-    message matrix_msg
-    {
-        double mat[];
-    };
-
-    message gather_msg
-    {
-        double container[];
-    };
-
-    extern module Exitter;
-    extern module CustomCallbacks;
-
-    PUPable aum::generator;
-
-    extern module Scalar;
-    extern module Vector;
-    extern module Matrix;
-
-    extern module Container; 
-}
+}}    // namespace aum::blas
