@@ -52,6 +52,34 @@ namespace aum {
         t.exit(start);
     }
 
+    namespace impl {
+        template <typename Tuple, std::size_t I = 0>
+        ck::future<bool> call_set(Tuple&& t)
+        {
+            ck::future<bool> f;
+            decltype(std::get<I>(t)) container = std::get<I>(t);
+            int w_tag = container.write_tag();
+            container.proxy().wait_one(w_tag, f);
+            container.update_tags();
+
+            return f;
+        }
+    }    // namespace impl
+
+    template <typename... Args>
+    void wait_all(Args&&... args)
+    {
+        auto targs = std::make_tuple(args...);
+        constexpr std::size_t tsize = std::tuple_size<decltype(targs)>{};
+
+        std::array<ck::future<bool>, tsize> f_vec;
+        for (int i = 0; i != tsize; ++i)
+            f_vec[i] = impl::call_set(targs);
+
+        for (int i = 0; i != tsize; ++i)
+            f_vec[i].get();
+    }
+
 }    // namespace aum
 
 #include <aum/backend/Container.def.h>

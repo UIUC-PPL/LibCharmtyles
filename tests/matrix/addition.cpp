@@ -41,7 +41,10 @@ public:
         // 1 temp to the right
         B = C + (A + D);
 
-        aum::wait_and_exit(B, start);
+        // aum::wait_and_exit(B, start);
+        aum::wait_all(A, B, C, D);
+        ckout << "> All containers are ready..." << endl;
+        CkExit();
     }
 };
 

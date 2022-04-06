@@ -774,6 +774,17 @@ module Vector
                         }
                     }
 
+                    // Operation wait_one
+                    // Helperfunction that waits until all existing reads and writes
+                    // have occured.
+                    when wait_one[WRITE_TAG](int write_tag, ck::future<bool> f)
+                    {
+                        serial "wait_one"
+                        {
+                            f.set(true);
+                        }
+                    }
+
                     ////////////////////////////////////////////////////////////
                     // Gather Operation                                       //
                     ////////////////////////////////////////////////////////////
@@ -828,6 +839,7 @@ module Vector
         entry void exit(int);
         entry void exit(int, double, CProxy_Exitter);
         entry [reductiontarget] void inc_read(int);
+        entry void wait_one(int, ck::future<bool>);
 
         entry void gather_vector(int, CProxy_vector_container);
     }
