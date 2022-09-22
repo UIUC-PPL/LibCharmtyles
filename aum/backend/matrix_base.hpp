@@ -62,6 +62,27 @@ public:
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
 
+    Matrix(int dimx_, int dimy_, int numx, int numy, bool init_data_)
+      : num_chares_x(numx)
+      , num_chares_y(numy)
+      , mat()
+      , READ_TAG(0)
+      , WRITE_TAG(0)
+    {
+        dimx = aum::sizes::block_size::value_c;
+        dimy = aum::sizes::block_size::value_r;
+
+        if (dimx_ % aum::sizes::block_size::value_c != 0 &&
+            thisIndex.x == num_chares_x - 1)
+            dimx = dimx_ % aum::sizes::block_size::value_c;
+
+        if (dimy_ % aum::sizes::block_size::value_r != 0 &&
+            thisIndex.y == num_chares_y - 1)
+            dimy = dimy_ % aum::sizes::block_size::value_r;
+
+        mat.reserve(dimx * dimy);
+    }
+
     Matrix(int dimx_, int dimy_, int numx, int numy, aum::random)
       : num_chares_x(numx)
       , num_chares_y(numy)
@@ -141,6 +162,12 @@ public:
         mat.reserve(dimx * dimy);
         gen->generate(thisIndex.x, thisIndex.y, dimx, dimy, mat.data());
 
+        thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
+    }
+
+    void initialize_data(int size_, double* data)
+    {
+        memcpy(mat.data(), data, dimx * dimy * sizeof(double));
         thisProxy(thisIndex.x, thisIndex.y).initialize_operation();
     }
 };

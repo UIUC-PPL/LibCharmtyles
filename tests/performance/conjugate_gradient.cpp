@@ -37,7 +37,7 @@ public:
         aum::vector p = aum::copy(r);
         aum::scalar rsold = aum::dot(r, r);
 
-        for (int i = 0; i != 100; ++i)
+        for (int i = 0; i != 1000; ++i)
         {
             aum::vector Ap = aum::dot(A, p);
             aum::scalar alpha = rsold / aum::dot(p, Ap);

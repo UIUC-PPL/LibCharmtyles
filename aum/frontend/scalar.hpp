@@ -82,6 +82,36 @@ namespace aum {
             return *this;
         }
 
+        scalar& add_inplace(scalar const& other)
+        {
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().plus_add(w_tag);
+            update_tags();
+
+            return *this;
+        }
+
+        scalar& sub_inplace_1(scalar const& other)
+        {
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().minus_subtract(w_tag, false);
+            update_tags();
+
+            return *this;
+        }
+
+        scalar& sub_inplace_2(scalar const& other)
+        {
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().minus_subtract(w_tag, true);
+            update_tags();
+
+            return *this;
+        }
+
         scalar copy() const
         {
             scalar dest{};

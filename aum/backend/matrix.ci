@@ -38,9 +38,13 @@ module Matrix
         // DimX, DimY, NumX, NumY, Random Initialization
         entry Matrix(int, int, int, int, aum::random);
 
+        entry Matrix(int, int, int, int, bool);
+
         // Initialize using generator
         // DimX, DimY, Generator, NumX, NumY
         entry Matrix(int, int, std::unique_ptr<aum::generator>, int, int);
+
+        entry void initialize_data(int size_, double data[size_]);
 
         ////////////////////////////////////////////////////////////////////////
         // Operation over Matrix                                              //
@@ -62,7 +66,8 @@ module Matrix
                     {
                         serial "matrix_addition"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg1->mat, msg1->dimy, msg1->dimx);
                             emat_t e2(msg2->mat, msg2->dimy, msg2->dimx);
@@ -95,7 +100,8 @@ module Matrix
                     {
                         serial "matrix_single_addition"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
@@ -126,7 +132,8 @@ module Matrix
                     {
                         serial "matrix_subtraction"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg1->mat, msg1->dimy, msg1->dimx);
                             emat_t e2(msg2->mat, msg2->dimy, msg2->dimx);
@@ -159,7 +166,8 @@ module Matrix
                     {
                         serial "matrix_single_subtraction"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
@@ -189,7 +197,8 @@ module Matrix
                     {
                         serial "scalar_multiply"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
@@ -217,7 +226,8 @@ module Matrix
                     {
                         serial "aum_scalar_multiply"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             emat_t e1(msg->mat, msg->dimy, msg->dimx);
 
@@ -243,7 +253,8 @@ module Matrix
                     {
                         serial "reduce_add"
                         {
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using evec_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             evec_t e(mat.data(), dimy, dimx);
 
@@ -274,7 +285,8 @@ module Matrix
                             evec_row_t rv(msg1->arr, msg1->size);
                             evec_col_t cv(msg2->arr, msg2->size);
 
-                            using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using evec_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
 
                             evec_t e(mat.data(), dimy, dimx);
                             e = rv * cv;
@@ -294,7 +306,8 @@ module Matrix
                     {
                         serial "matrix_vector_multiply"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
                             using evec_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>;
                             using vec_t = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
@@ -327,7 +340,8 @@ module Matrix
                     {
                         serial "vector_matrix_multiply"
                         {
-                            using emat_t = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>;
+                            using emat_t = Eigen::Map<Eigen::Matrix<
+                                double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
                             using evec_t = Eigen::Map<Eigen::Matrix<double, 1, Eigen::Dynamic>>;
                             using vec_t = Eigen::Matrix<double, 1, Eigen::Dynamic>;
 

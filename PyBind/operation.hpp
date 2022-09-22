@@ -16,7 +16,7 @@
 
 namespace aum { namespace bind {
 
-    enum class operator: std::size_t
+    enum class oper: std::size_t
     {
         add,
         sub,
@@ -35,25 +35,30 @@ namespace aum { namespace bind {
         {
         }
 
-        auto execute(operator const & op) const
+        auto execute(oper const & op) const
         {
             switch (op)
             {
-            case operator ::add:
+            case oper ::add: {
                 auto res = c1 + c2;
                 return res;
-            case operator ::sub:
+            }
+            case oper ::sub: {
                 auto res = c1 - c2;
                 return res;
-            case operator ::dot:
-                auto res = aum::dot(c1, c2);
-                return res;
-            case operator ::outer:
-                auto res = aum::outer(c1, c2);
-                return res;
-            case operator ::scalar_mul:
-                auto res = c1 * c2;
-                return res;
+            }
+            // case oper ::dot: {
+            //     auto res = aum::dot(c1, c2);
+            //     return res;
+            // }
+            // case oper ::outer: {
+            //     auto res = aum::outer(c1, c2);
+            //     return res;
+            // }
+            // case oper ::scalar_mul: {
+            //     auto res = c1 * c2;
+            //     return res;
+            // }
             default:
                 CmiAbort("Incorrect Operator.");
             }

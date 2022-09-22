@@ -52,6 +52,41 @@ namespace aum {
     }
 
     // v1 is temporary - work from v1 to keep v2 free
+    // FIXME too much code repetition
+    aum::scalar inplace_dot_1(aum::vector& v1, aum::vector& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        aum::scalar result;
+        int scalar_tag = result.write_tag();
+
+        int read_tag = v1.read_tag();
+        v2.send_to_1(read_tag, v1);
+        v1.proxy().dot(read_tag, scalar_tag, result.proxy());
+        v1.inc_reads();
+
+        result.update_tags();
+        return result;
+    }
+    
+    aum::scalar inplace_dot_2(aum::vector& v1, aum::vector& v2)
+    {
+        assert((v1.size() == v2.size()) &&
+            "Vectors provided with incompatible sizes");
+
+        aum::scalar result;
+        int scalar_tag = result.write_tag();
+
+        int read_tag = v2.read_tag();
+        v1.send_to_1(read_tag, v2);
+        v2.proxy().dot(read_tag, scalar_tag, result.proxy());
+        v2.inc_reads();
+
+        result.update_tags();
+        return result;
+    }
+ 
     aum::scalar dot(aum::vector&& v1, aum::vector const& v2)
     {
         assert((v1.size() == v2.size()) &&

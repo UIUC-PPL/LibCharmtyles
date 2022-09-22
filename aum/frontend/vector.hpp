@@ -78,6 +78,29 @@ namespace aum {
                 size_, std::move(gen), num_chares_, num_chares_);
         }
 
+        explicit vector(int size, double* data)
+          : size_(size)
+          , num_chares_(size_ / aum::sizes::array_size::value)
+          , read_tag_(0)
+          , write_tag_(0)
+        {
+            int tile_size = aum::sizes::array_size::value;
+            if (size_ % aum::sizes::array_size::value)
+                ++num_chares_;
+
+            proxy_ = CProxy_Vector::ckNew(
+                size_, num_chares_, true, num_chares_);
+
+            for (int i = 0; i < num_chares_; i++)
+            {
+                if (size_ % aum::sizes::array_size::value != 0 &&
+                    i == num_chares_ - 1)
+                    tile_size = size_ % aum::sizes::array_size::value;
+                proxy_[i].initialize_data(tile_size, 
+                        data + i * aum::sizes::array_size::value);
+            }
+        }
+
         vector(vector const& other)
         {
             size_ = other.size();
@@ -124,6 +147,45 @@ namespace aum {
 
             read_tag_ = other.read_tag();
             write_tag_ = other.write_tag();
+
+            return *this;
+        }
+
+        vector& add_inplace(vector const& other)
+        {
+            assert((size_ == other.size()) &&
+                "Vectors provided with incompatible sizes");
+
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().plus_add(w_tag);
+            update_tags();
+
+            return *this;
+        }
+
+        vector& sub_inplace_1(vector const& other)
+        {
+            assert((size_ == other.size()) &&
+                "Vectors provided with incompatible sizes");
+
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().minus_subtract(w_tag, false);
+            update_tags();
+
+            return *this;
+        }
+
+        vector& sub_inplace_2(vector const& other)
+        {
+            assert((size_ == other.size()) &&
+                "Vectors provided with incompatible sizes");
+
+            int w_tag = write_tag();
+            other.send_to_1(w_tag, *this);
+            proxy().minus_subtract(w_tag, true);
+            update_tags();
 
             return *this;
         }

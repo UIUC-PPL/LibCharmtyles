@@ -13,8 +13,8 @@
 #  with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # point these to absolute paths
-CHARM_DIR = 
-BASE_DIR = 
+CHARM_DIR = /home/adityapb/charm/charm/netlrts-linux-x86_64
+BASE_DIR = /home/adityapb/charm/LibAum
 
 # common options
 CHARMC = $(CHARM_DIR)/bin/charmc -DUSE_ESSL_WRAPPER=0
