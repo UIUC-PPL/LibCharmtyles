@@ -1,5 +1,7 @@
 #pragma once
 
+#include <charmtyles/backend/charmtyles_base.hpp>
+
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/singleton.hpp>
 #include <charmtyles/util/sizes.hpp>
@@ -176,7 +178,7 @@ namespace ct {
                 ++num_chares;
 
             auto it = std::find_if(shape_info.begin(), shape_info.end(),
-                [&num_chares](ct::vec_impl::vec_shape_t const& idx) {
+                [num_chares](ct::vec_impl::vec_shape_t const& idx) {
                     return (idx.num_chares == num_chares);
                 });
 
@@ -418,12 +420,13 @@ namespace ct {
         template <typename T>
         struct is_vec_type_impl
         {
+            constexpr static bool value = false;
         };
 
         template <>
         struct is_vec_type_impl<ct::vector>
         {
-            using type = void;
+            constexpr static bool value = true;
         };
 
     }    // namespace traits

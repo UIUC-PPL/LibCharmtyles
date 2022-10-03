@@ -172,6 +172,12 @@ private:
             for (std::size_t i = 0; i != unrolled_size; i += 4)
             {
                 vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
+                vec_map[node_id][i + 1] =
+                    execute_ast_for_idx(instruction, 0, i + 1);
+                vec_map[node_id][i + 2] =
+                    execute_ast_for_idx(instruction, 0, i + 2);
+                vec_map[node_id][i + 3] =
+                    execute_ast_for_idx(instruction, 0, i + 3);
             }
 
             remainder_start = unrolled_size * 4;
@@ -226,4 +232,228 @@ private:
 
     int SDAG_INDEX;
     int vec_block_size;
+};
+
+class matrix_impl : public CBase_matrix_impl
+{
+    // Helper private functions
+private:
+    std::size_t get_mat_rows(std::size_t row_len)
+    {
+        if (row_len % row_block_len)
+            return row_block_len;
+
+        if (thisIndex.y != num_chares_y - 1)
+            return row_block_len;
+
+        return row_len % row_block_len;
+    }
+
+    std::size_t get_mat_cols(std::size_t col_len)
+    {
+        if (col_len % col_block_len)
+            return col_block_len;
+
+        if (thisIndex.x != num_chares_x - 1)
+            return col_block_len;
+
+        return col_len % col_block_len;
+    }
+
+    void print_instructions(
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
+    {
+        ckout << "Printing Instructions:" << endl;
+
+        for (int num_instr = 0; num_instr != instr_list.size(); ++num_instr)
+        {
+            ckout << "Instruction " << num_instr << ": ";
+            ct::util::parse_ast(instr_list[num_instr], 0);
+            ckout << endl;
+        }
+    }
+
+    // Instruction related private functions
+private:
+    void update_partitions(
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
+    {
+        for (auto const& ast : instr_list)
+            execute_instruction(ast);
+    }
+
+    void execute_instruction(
+        std::vector<ct::mat_impl::mat_node> const& instruction,
+        std::size_t index = 0)
+    {
+        ct::mat_impl::mat_node const& node = instruction[index];
+        std::size_t node_id = node.name_;
+
+        // Useful variables in switch statement
+        std::size_t num_rows{0};
+        std::size_t num_cols{0};
+        std::size_t unrolled_size{0};
+        std::size_t remainder_start{0};
+        std::size_t copy_id{0};
+
+        switch (node.operation_)
+        {
+        case ct::util::Operation::init_random:
+
+            CkAssert((mat_map.size() + 1 == node_id) &&
+                "A matrix is initialized before a dependent matrix "
+                "initialization.");
+
+            num_rows = get_mat_rows(node.mat_row_len_);
+            num_cols = get_mat_cols(node.mat_col_len_);
+
+            // TODO: Do Random Initialization here
+            mat_map.emplace_back(std::vector<std::vector<double>>(
+                num_rows, std::vector<double>(num_cols)));
+
+            return;
+
+        case ct::util::Operation::init_value:
+            CkAssert((mat_map.size() + 1 == node_id) &&
+                "A matrix is initialized before a dependent matrix "
+                "initialization.");
+
+            num_rows = get_mat_rows(node.mat_row_len_);
+            num_cols = get_mat_cols(node.mat_col_len_);
+
+            // TODO: Do Random Initialization here
+            mat_map.emplace_back(std::vector<std::vector<double>>(
+                num_rows, std::vector<double>(num_cols, node.value_)));
+
+            return;
+
+        case ct::util::Operation::copy:
+            copy_id = node.copy_id_;
+
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+
+                mat_map.emplace_back(std::vector<std::vector<double>>(
+                    num_rows, std::vector<double>(num_cols)));
+            }
+
+            unrolled_size = mat_map[node_id].size() / 4;
+            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            {
+                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                {
+                    mat_map[node_id][i][j] = mat_map[copy_id][i][j];
+                    mat_map[node_id][i + 1][j] = mat_map[copy_id][i + 1][j];
+                    mat_map[node_id][i + 2][j] = mat_map[copy_id][i + 2][j];
+                    mat_map[node_id][i + 3][j] = mat_map[copy_id][i + 3][j];
+                }
+            }
+
+            remainder_start = unrolled_size * 4;
+            for (std::size_t i = remainder_start; i != mat_map[node_id].size();
+                 ++i)
+            {
+                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                {
+                    mat_map[node_id][i][j] = mat_map[copy_id][i][j];
+                }
+            }
+
+            return;
+
+        case ct::util::Operation::add:
+        case ct::util::Operation::sub:
+
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+
+                mat_map.emplace_back(std::vector<std::vector<double>>(
+                    num_rows, std::vector<double>(num_cols)));
+            }
+
+            unrolled_size = mat_map[node_id].size() / 4;
+            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            {
+                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                {
+                    mat_map[node_id][i][j] =
+                        execute_ast_for_idx(instruction, 0, i, j);
+                    mat_map[node_id][i + 1][j] =
+                        execute_ast_for_idx(instruction, 0, i + 1, j);
+                    mat_map[node_id][i + 2][j] =
+                        execute_ast_for_idx(instruction, 0, i + 2, j);
+                    mat_map[node_id][i + 3][j] =
+                        execute_ast_for_idx(instruction, 0, i + 3, j);
+                }
+            }
+
+            remainder_start = unrolled_size * 4;
+            for (std::size_t i = remainder_start; i != mat_map[node_id].size();
+                 ++i)
+            {
+                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                {
+                    mat_map[node_id][i][j] =
+                        execute_ast_for_idx(instruction, 0, i, j);
+                }
+            }
+
+            return;
+        }
+    }
+
+    double execute_ast_for_idx(
+        std::vector<ct::mat_impl::mat_node> const& instruction,
+        std::size_t curr_idx, std::size_t iter_i, std::size_t iter_j)
+    {
+        const ct::mat_impl::mat_node& node = instruction[curr_idx];
+
+        switch (node.operation_)
+        {
+        case ct::util::Operation::noop:
+            return mat_map[node.name_][iter_i][iter_j];
+
+        case ct::util::Operation::add:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) +
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+
+        case ct::util::Operation::sub:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) -
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        }
+
+        // Control should not reach here!
+        return 0.;
+    }
+
+public:
+    matrix_impl_SDAG_CODE;
+
+    matrix_impl(int num_chares_y_, int num_chares_x_, int row_block_len_,
+        int col_block_len_)
+      : num_chares_y(num_chares_y_)
+      , num_chares_x(num_chares_x_)
+      , row_block_len(row_block_len_)
+      , col_block_len(col_block_len_)
+      , SDAG_INDEX(0)
+    {
+        mat_map.reserve(1000);
+        thisProxy(thisIndex.x, thisIndex.y).main_kernel();
+    }
+
+private:
+    std::vector<std::vector<std::vector<double>>> mat_map;
+
+    int num_chares_y;
+    int num_chares_x;
+
+    int row_block_len;
+    int col_block_len;
+    int SDAG_INDEX;
 };

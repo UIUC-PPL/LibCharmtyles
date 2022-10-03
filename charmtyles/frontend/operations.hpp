@@ -11,39 +11,64 @@ namespace ct {
         template <typename... Ts>
         struct is_vec_type_impl<ct::vec_impl::vec_expression<Ts...>>
         {
-            using type = void;
+            constexpr static bool value = true;
+        };
+
+        template <typename... Ts>
+        struct is_mat_type_impl<ct::mat_impl::mat_expression<Ts...>>
+        {
+            constexpr static bool value = true;
         };
 
         template <typename LHS, typename RHS>
         struct is_vec_type
         {
-            using type_LHS =
-                typename is_vec_type_impl<typename std::decay<LHS>::type>::type;
-            using type_RHS =
-                typename is_vec_type_impl<typename std::decay<RHS>::type>::type;
-
-            using type =
-                std::enable_if_t<std::is_same<type_LHS, type_RHS>::value>;
+            constexpr static bool value =
+                is_vec_type_impl<typename std::decay<LHS>::type>::value &&
+                is_vec_type_impl<typename std::decay<RHS>::type>::value;
         };
+
+        template <typename LHS, typename RHS>
+        struct is_mat_type
+        {
+            constexpr static bool value =
+                is_mat_type_impl<typename std::decay<LHS>::type>::value &&
+                is_mat_type_impl<typename std::decay<RHS>::type>::value;
+        };
+
     }    // namespace traits
 
-    template <typename LHS, typename RHS,
-        typename = typename ct::traits::is_vec_type<LHS, RHS>::type>
+    template <typename LHS, typename RHS>
     auto operator+(LHS const& lhs, RHS const& rhs)
     {
-        return ct::vec_impl::vec_expression<LHS, RHS>{
-            lhs, rhs, lhs.size(), ct::util::Operation::add};
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::add};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::add};
+        }
     }
 
-    template <typename LHS, typename RHS,
-        typename = typename ct::traits::is_vec_type<LHS, RHS>::type>
+    template <typename LHS, typename RHS>
     auto operator-(LHS const& lhs, RHS const& rhs)
     {
-        return ct::vec_impl::vec_expression<LHS, RHS>{
-            lhs, rhs, lhs.size(), ct::util::Operation::sub};
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::sub};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::sub};
+        }
     }
 
-    ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
+    inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
     {
         std::size_t lhs_shape_id = lhs.vector_shape().shape_id;
         std::size_t rhs_shape_id = rhs.vector_shape().shape_id;

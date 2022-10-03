@@ -75,7 +75,9 @@ namespace ct {
         }
 
     }    // namespace util
+
     namespace vec_impl {
+
         struct vec_node
         {
             std::size_t name_ = -1;
@@ -136,4 +138,75 @@ namespace ct {
         };
 
     }    // namespace vec_impl
+
+    namespace mat_impl {
+
+        struct mat_node
+        {
+            std::size_t name_ = -1;
+            ct::util::Operation operation_;
+            std::size_t copy_id_ = -1;
+            double value_ = 0.;
+
+            std::size_t mat_row_len_;
+            std::size_t mat_col_len_;
+
+            std::size_t left_ = -1;
+            std::size_t right_ = -1;
+
+            // Only called when initializing through expression
+            mat_node() = default;
+
+            explicit mat_node(
+                ct::util::Operation op, std::size_t rows, std::size_t cols)
+              : operation_(op)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                double value, std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , value_(value)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                mat_node const& other)
+              : name_(matrix_id)
+              , operation_(op)
+              , copy_id_(other.name_)
+              , mat_row_len_(other.mat_row_len_)
+              , mat_col_len_(other.mat_col_len_)
+            {
+            }
+
+            void pup(PUP::er& p)
+            {
+                p | name_;
+                p | operation_;
+                p | copy_id_;
+                p | value_;
+                p | mat_row_len_;
+                p | mat_col_len_;
+                p | left_;
+                p | right_;
+            }
+        };
+
+    }    // namespace mat_impl
+
 }    // namespace ct

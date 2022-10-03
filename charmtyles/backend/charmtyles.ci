@@ -68,7 +68,7 @@ module libcharmtyles
                 // Actual computation kernel
                 when compute[SDAG_INDEX](int sdag_index,
                     std::vector<std::vector<ct::vec_impl::vec_node>> instr_list, CProxy_set_future proxy) {
-                serial "compute" {
+                serial "compute_vector" {
                     // if (thisIndex == 0)
                     //    print_instructions(instr_list);
 
@@ -80,7 +80,7 @@ module libcharmtyles
 
                 when compute[SDAG_INDEX](int sdag_index,
                     std::vector<std::vector<ct::vec_impl::vec_node>> instr_list) {
-                serial "compute_no_proxy" {
+                serial "compute_no_proxy_vector" {
                     // if (thisIndex == 0)
                     //    print_instructions(instr_list);
 
@@ -108,5 +108,37 @@ module libcharmtyles
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
         entry void dot(int, int, int, int);
+    }
+
+    array[2D] matrix_impl
+    {
+        entry matrix_impl(int, int, int, int); // Num Chares y, Num Chares x; Block Row Len, Block Col Len
+    
+        entry void main_kernel() {
+            for (; SDAG_INDEX > -1; ++SDAG_INDEX) {
+            case {
+
+                // Actual computational kernel
+                when compute[SDAG_INDEX](int sdag_index,
+                    std::vector<std::vector<ct::mat_impl::mat_node>> instr_list, CProxy_set_future proxy) {
+                serial "compute_matrix" {
+
+                    update_partitions(instr_list);
+
+                    CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
+                    contribute(cb);
+                }}
+
+                when compute[SDAG_INDEX](int sdag_index,
+                    std::vector<std::vector<ct::mat_impl::mat_node>> instr_list) {
+                serial "compute_no_proxy_matrix" {
+
+                    update_partitions(instr_list);
+                }}
+            }}
+        }
+
+        entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>, CProxy_set_future);
+        entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>);
     }
 }

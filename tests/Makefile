@@ -3,12 +3,16 @@ include ../Makefile.common
 TEST_DIR=$(BASE_DIR)/../tests
 LIBS_DIR=$(BASE_DIR)
 
-all: vector
+all: matrix vector
 
-.PHONY: vector clean
+.PHONY: matrix vector clean
+
+matrix:
+	cd matrix; make
 
 vector:
 	cd vector; make
 
 clean:
+	cd matrix; make clean
 	cd vector; make clean

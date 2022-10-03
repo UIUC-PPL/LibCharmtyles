@@ -6,7 +6,9 @@
 #include <charmtyles/util/singleton.hpp>
 #include <charmtyles/util/sizes.hpp>
 
+#include <charmtyles/frontend/matrix.hpp>
 #include <charmtyles/frontend/operations.hpp>
+#include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
 
 namespace ct {
@@ -33,15 +35,20 @@ namespace ct {
 
     void sync()
     {
-        ct::vec_impl::vec_instr_queue_t& queue =
+        ct::vec_impl::vec_instr_queue_t& vec_queue =
             CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-        int dispatch_count = queue.dispatch_size();
+        int vec_dispatch_count = vec_queue.dispatch_size();
+
+        ct::mat_impl::mat_instr_queue_t& mat_queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        int mat_dispatch_count = mat_queue.dispatch_size();
 
         ck::future<bool> is_done;
 
-        CProxy_set_future proxy =
-            CProxy_set_future::ckNew(is_done, dispatch_count);
-        queue.dispatch(is_done, proxy);
+        CProxy_set_future proxy = CProxy_set_future::ckNew(
+            is_done, vec_dispatch_count + mat_dispatch_count);
+        vec_queue.dispatch(is_done, proxy);
+        mat_queue.dispatch(is_done, proxy);
 
         is_done.get();
         is_done.release();
