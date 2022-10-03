@@ -285,6 +285,19 @@ namespace ct {
             queue.insert(node_, vector_shape_.shape_id);
         }
 
+        vector& operator=(vector const& other)
+        {
+            node_.operation_ = ct::util::Operation::copy;
+            node_.copy_id_ = other.node_.name_;
+
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.insert(node_, vector_shape_.shape_id);
+
+            return *this;
+        }
+
         // TODO: Figure out why this is necessary!
         vector(vector&& other)
         {

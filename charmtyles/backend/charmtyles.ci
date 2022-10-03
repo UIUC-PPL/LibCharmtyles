@@ -20,7 +20,8 @@ module libcharmtyles
                     std::vector<std::vector<ct::vec_impl::vec_node>> instr_list, CProxy_set_future proxy) {
                 serial "compute"
                 {
-                    // print_instructions(instr_list);
+                    // if (thisIndex == 0)
+                    //    print_instructions(instr_list);
 
                     update_partitions(instr_list);
 

@@ -71,10 +71,16 @@ public:
         vec114 = vec111 - vec113 + vec114;
 
         ct::sync();
-
         end = CkWallTimer();
 
         ckout << "Execution Time (Phase 2): " << end - start << endl;
+
+        // copy operator
+        vec4 = vec1;
+        // copy constructor
+        ct::vector vec5 = vec4;
+
+        ct::sync();
 
         CkExit();
     }

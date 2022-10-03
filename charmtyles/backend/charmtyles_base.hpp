@@ -52,6 +52,19 @@ private:
         return vec_len % vec_block_size;
     }
 
+    void print_instructions(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
+    {
+        ckout << "Printing Instructions:" << endl;
+
+        for (int num_instr = 0; num_instr != instr_list.size(); ++num_instr)
+        {
+            ckout << "Instruction " << num_instr << ": ";
+            ct::util::parse_ast(instr_list[num_instr], 0);
+            ckout << endl;
+        }
+    }
+
     // Instruction related private functions
 private:
     void update_partitions(
