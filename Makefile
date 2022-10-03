@@ -1,14 +1,14 @@
 include Makefile.common
 
-all: libs
+all: libs tests
 
 .PHONY: libs tests clean
 
 libs:
 	cd charmtyles; make
 
-# tests: libs
-# 	cd tests; make
+tests: libs
+	cd tests; make
 
 clean:
 	cd charmtyles; make clean

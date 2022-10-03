@@ -1,0 +1,38 @@
+module libcharmtyles
+{
+    include "charmtyles/util/AST.hpp";
+
+    chare set_future
+    {
+        entry set_future(ck::future<bool>, int);
+
+        entry [reductiontarget] void mark_complete();
+    }
+
+    array[1D] vector_impl
+    {
+        entry vector_impl(int, int);   // Number of Partitions, Vector Block Size
+
+        entry void main_kernel() {
+            for (; SDAG_INDEX > -1;) {
+                // Actual computation kernel
+                when compute[SDAG_INDEX](int sdag_index,
+                    std::vector<std::vector<ct::vec_impl::vec_node>> instr_list, CProxy_set_future proxy) {
+                serial "compute"
+                {
+                    // print_instructions(instr_list);
+
+                    update_partitions(instr_list);
+
+                    CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
+                    contribute(cb);
+
+                    ++SDAG_INDEX;
+                }
+                }
+            }
+        }
+
+        entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
+    }
+}
