@@ -5,6 +5,8 @@
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
 
+/* readonly */ CProxy_scalar_impl scalar_impl_proxy;
+
 class set_future : public CBase_set_future
 {
 public:
@@ -35,6 +37,23 @@ private:
     ck::future<bool> is_done;
     int total;
     int counter;
+};
+
+class scalar_impl : public CBase_scalar_impl
+{
+public:
+    scalar_impl_SDAG_CODE;
+
+    scalar_impl()
+      : SDAG_INDEX(0)
+    {
+        thisProxy.main_kernel();
+    }
+
+private:
+    std::vector<double> scal_map;
+
+    int SDAG_INDEX;
 };
 
 class vector_impl : public CBase_vector_impl

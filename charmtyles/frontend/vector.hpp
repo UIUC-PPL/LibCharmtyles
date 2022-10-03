@@ -73,18 +73,28 @@ namespace ct {
 
             std::size_t dispatch_size() const
             {
-                return shape_vector_queue_.size();
+                std::size_t dispatch_count = 0;
+                for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
+                {
+                    // Dispatch all non-empty vectors!
+                    if (shape_vector_queue_[i].size() != 0)
+                    {
+                        ++dispatch_count;
+                    }
+                }
+
+                return dispatch_count;
             }
 
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
 
-                for (int i = 0; i != shape_vector_queue_.size(); ++i)
+                for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
                 {
                     ckout << "Instructions for Shape ID: " << i << endl;
 
-                    for (int num_instr = 0;
+                    for (std::size_t num_instr = 0;
                          num_instr != shape_vector_queue_[i].size();
                          ++num_instr)
                     {
@@ -101,7 +111,7 @@ namespace ct {
                 for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
                 {
                     // Dispatch all non-empty vectors!
-                    if (shape_vector_queue_.size() != 0)
+                    if (shape_vector_queue_[i].size() != 0)
                     {
                         std::size_t& sdag_index = sdag_index_[i];
 
@@ -115,6 +125,34 @@ namespace ct {
                         shape_vector_queue_[i].clear();
                     }
                 }
+            }
+
+            void dispatch(std::size_t shape_id)
+            {
+                // Send instructions for execution
+                if (shape_vector_queue_[shape_id].size() != 0)
+                {
+                    std::size_t& sdag_index = sdag_index_[shape_id];
+
+                    CProxy_vector_impl dispatch_proxy =
+                        CT_ACCESS_SINGLETON(vec_shape_info)[shape_id].proxy;
+
+                    dispatch_proxy.compute(
+                        sdag_index, shape_vector_queue_[shape_id]);
+
+                    ++sdag_index;
+                    shape_vector_queue_[shape_id].clear();
+                }
+            }
+
+            std::size_t& sdag_idx(std::size_t shape_id)
+            {
+                return sdag_index_[shape_id];
+            }
+
+            const std::size_t& sdag_idx(std::size_t shape_id) const
+            {
+                return sdag_index_[shape_id];
             }
 
         private:

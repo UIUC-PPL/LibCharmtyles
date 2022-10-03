@@ -82,6 +82,13 @@ public:
 
         ct::sync();
 
+        ct::vector x{1 << 21, 1.0};
+        ct::vector y{1 << 21, 2.0};
+        ct::scalar scal1 = ct::dot(x, y);
+        double underlying_val = scal1.get();
+
+        ckout << "Result of Vector dot product: " << underlying_val << endl;
+
         CkExit();
     }
 };

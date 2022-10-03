@@ -1,6 +1,9 @@
 module libcharmtyles
 {
     include "charmtyles/util/AST.hpp";
+    include "eigen3/Eigen/Core";
+
+    readonly CProxy_scalar_impl scalar_impl_proxy;
 
     chare set_future
     {
@@ -9,17 +12,63 @@ module libcharmtyles
         entry [reductiontarget] void mark_complete();
     }
 
+    chare scalar_impl
+    {
+        entry scalar_impl();
+
+        entry void main_kernel() {
+            for (; SDAG_INDEX > -1;) {
+            case {
+                // Actual computation kernel
+                when add_scalar[SDAG_INDEX](int sdag_index, int scalar_id, double value) {
+                serial "add_scalar" {
+                    if (scalar_id >= scal_map.size())
+                        scal_map.resize(scalar_id + 1);
+                    
+                    scal_map[scalar_id] = value;
+
+                    ++SDAG_INDEX;
+                }} // add_scalar
+
+                when dot_reduction[SDAG_INDEX](double value) {
+                    when update_scalar[SDAG_INDEX](int sdag_index, int scalar_id) {
+                    serial "dot_reduction" {
+                        if (scalar_id >= scal_map.size())
+                            scal_map.resize(scalar_id + 1);
+                        
+                        scal_map[scalar_id] = value;
+
+                        ++SDAG_INDEX;
+                    }} // update_scalar
+                } // dot_reduction
+
+                when get_value[SDAG_INDEX](int sdag_index, int scalar_id, ck::future<double> fval) {
+                serial "get_value" {
+                    fval.set(scal_map[scalar_id]);
+
+                    ++SDAG_INDEX;
+                }} // get_value
+
+            }} // case + for-loop end
+        }
+
+        entry void add_scalar(int, int, double);
+        entry [reductiontarget] void dot_reduction(double);
+        entry void update_scalar(int, int);
+        entry void get_value(int, int, ck::future<double>);
+    }
+
     array[1D] vector_impl
     {
         entry vector_impl(int, int);   // Number of Partitions, Vector Block Size
 
         entry void main_kernel() {
-            for (; SDAG_INDEX > -1;) {
+            for (; SDAG_INDEX > -1; ++SDAG_INDEX) {
+            case {
                 // Actual computation kernel
                 when compute[SDAG_INDEX](int sdag_index,
                     std::vector<std::vector<ct::vec_impl::vec_node>> instr_list, CProxy_set_future proxy) {
-                serial "compute"
-                {
+                serial "compute" {
                     // if (thisIndex == 0)
                     //    print_instructions(instr_list);
 
@@ -27,13 +76,37 @@ module libcharmtyles
 
                     CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
                     contribute(cb);
+                }} // compute
 
-                    ++SDAG_INDEX;
-                }
-                }
-            }
+                when compute[SDAG_INDEX](int sdag_index,
+                    std::vector<std::vector<ct::vec_impl::vec_node>> instr_list) {
+                serial "compute_no_proxy" {
+                    // if (thisIndex == 0)
+                    //    print_instructions(instr_list);
+
+                    update_partitions(instr_list);
+                }} // compute
+
+                when dot[SDAG_INDEX](int sdag_index,
+                    int lhs_id, int rhs_id, int scal_sdag_idx) {
+                serial "vector_dot" {
+                    std::vector<double>& lhs = vec_map[lhs_id];
+                    std::vector<double>& rhs = vec_map[rhs_id];
+
+                    Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
+                    Eigen::Map<Eigen::VectorXd> erhs(rhs.data(), rhs.size());
+
+                    double result = elhs.dot(erhs);
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, dot_reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+                }} // dot
+            
+            }} // case + for-loop end
         }
 
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
+        entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
+        entry void dot(int, int, int, int);
     }
 }

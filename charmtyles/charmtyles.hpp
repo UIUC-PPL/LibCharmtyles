@@ -13,6 +13,8 @@ namespace ct {
 
     void init()
     {
+        scalar_impl_proxy = CProxy_scalar_impl::ckNew();
+
         std::size_t& vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
         vec_len = 1 << 20;
 
@@ -42,6 +44,7 @@ namespace ct {
         queue.dispatch(is_done, proxy);
 
         is_done.get();
+        is_done.release();
         return;
     }
 
