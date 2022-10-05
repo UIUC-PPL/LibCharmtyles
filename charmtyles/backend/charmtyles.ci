@@ -63,7 +63,7 @@ module libcharmtyles
         entry vector_impl(int, int);   // Number of Partitions, Vector Block Size
 
         entry void main_kernel() {
-            for (; SDAG_INDEX > -1; ++SDAG_INDEX) {
+            for (; SDAG_INDEX > -1;) {
             case {
                 // Actual computation kernel
                 when compute[SDAG_INDEX](int sdag_index,
@@ -76,6 +76,8 @@ module libcharmtyles
 
                     CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
                     contribute(cb);
+
+                    ++SDAG_INDEX;
                 }} // compute
 
                 when compute[SDAG_INDEX](int sdag_index,
@@ -85,6 +87,8 @@ module libcharmtyles
                     //    print_instructions(instr_list);
 
                     update_partitions(instr_list);
+
+                    ++SDAG_INDEX;
                 }} // compute
 
                 when dot[SDAG_INDEX](int sdag_index,
@@ -101,6 +105,26 @@ module libcharmtyles
                     CkCallback cb(CkReductionTarget(scalar_impl, dot_reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
                 }} // dot
+
+                when send_to_matrix[SDAG_INDEX](
+                    int sdag_index, int vec_idx, int rhs_sdag_idx, CProxy_matrix_impl proxy) {
+                serial "send_to_matrix" {
+                    proxy.receive_to_matrix(rhs_sdag_idx, vec_map[vec_idx].size(), vec_map[vec_idx].data());
+                
+                    ++SDAG_INDEX;
+                }} // send to matrix
+
+                when update_index[SDAG_INDEX](int sdag_idx, int vector_idx) {
+                when update_vector(int len, double* result) {
+                serial "update vector" {
+                    // TODO: use vector back_inserter here!
+                    if (vector_idx == vec_map.size())
+                        vec_map.emplace_back(std::vector<double>(len));
+
+                    std::copy(result, result + len, vec_map[vector_idx].begin());
+
+                    ++SDAG_INDEX;
+                }}} // update index + update vector
             
             }} // case + for-loop end
         }
@@ -108,6 +132,9 @@ module libcharmtyles
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
         entry void dot(int, int, int, int);
+        entry void send_to_matrix(int, int, int, CProxy_matrix_impl);
+        entry [reductiontarget] void update_vector(int len, double result[len]);
+        entry void update_index(int, int);
     }
 
     array[2D] matrix_impl
@@ -115,7 +142,7 @@ module libcharmtyles
         entry matrix_impl(int, int, int, int); // Num Chares y, Num Chares x; Block Row Len, Block Col Len
     
         entry void main_kernel() {
-            for (; SDAG_INDEX > -1; ++SDAG_INDEX) {
+            for (; SDAG_INDEX > -1;) {
             case {
 
                 // Actual computational kernel
@@ -127,6 +154,8 @@ module libcharmtyles
 
                     CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
                     contribute(cb);
+
+                    ++SDAG_INDEX;
                 }}
 
                 when compute[SDAG_INDEX](int sdag_index,
@@ -134,11 +163,46 @@ module libcharmtyles
                 serial "compute_no_proxy_matrix" {
 
                     update_partitions(instr_list);
-                }}
+
+                    ++SDAG_INDEX;
+                }} // fused compute kernel
+
+                when mat_vec_dot[SDAG_INDEX](
+                    int sdag_index, int mat_idx, int result_sdag_idx,
+                    CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
+                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
+                serial "mat_vec_dot" {
+
+                    // Get the subvector indices
+                    std::size_t block_dim = col_block_len;
+                    std::size_t vec_size = block_dim;
+                    if (thisIndex.x == num_chares_x - 1 && block_dim % col_block_len != 0) {
+                        vec_size = len % col_block_len;
+                    }
+
+                    Eigen::Map<Eigen::VectorXd> elhs(data + thisIndex.x * block_dim, vec_size);
+                    Eigen::Map<Eigen::MatrixXd> 
+                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].rows(), mat_map[mat_idx].cols());
+                    
+                    double result[result_size];
+                    for (int i = 0; i != result_size; ++i)
+                        result[i] = 0;
+
+                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.y * row_block_len, mat_map[mat_idx].rows());
+                    eres = erhs * elhs;
+
+                    // TODO: Use Section Reduction!
+                    CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
+                    contribute((result_size) * sizeof(double), result, CkReduction::sum_double, cb);
+
+                    ++SDAG_INDEX;
+                }} // matrix vector dot product
             }}
         }
 
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>);
+        entry void mat_vec_dot(int, int, int, CProxy_vector_impl, int, int);
+        entry void receive_to_matrix(int, int len, double data[len]);
     }
 }

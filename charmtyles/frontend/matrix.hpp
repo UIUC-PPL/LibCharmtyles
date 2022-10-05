@@ -112,11 +112,14 @@ namespace ct {
 
             void dispatch(ck::future<bool> is_done, CProxy_set_future proxy)
             {
+                bool is_dispatched = false;
                 for (std::size_t i = 0; i != shape_matrix_queue_.size(); ++i)
                 {
                     // Dispatch all non-empty vectors!
                     if (shape_matrix_queue_[i].size() != 0)
                     {
+                        is_dispatched = true;
+
                         std::size_t& sdag_index = sdag_index_[i];
 
                         CProxy_matrix_impl dispatch_proxy =
@@ -129,6 +132,9 @@ namespace ct {
                         shape_matrix_queue_[i].clear();
                     }
                 }
+
+                if (!is_dispatched)
+                    is_done.set(true);
             }
 
             void dispatch(std::size_t shape_id)

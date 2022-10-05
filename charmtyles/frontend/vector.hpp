@@ -110,11 +110,14 @@ namespace ct {
 
             void dispatch(ck::future<bool> is_done, CProxy_set_future proxy)
             {
+                bool is_dispatched = false;
                 for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
                 {
                     // Dispatch all non-empty vectors!
                     if (shape_vector_queue_[i].size() != 0)
                     {
+                        is_dispatched = true;
+
                         std::size_t& sdag_index = sdag_index_[i];
 
                         CProxy_vector_impl dispatch_proxy =
@@ -127,6 +130,9 @@ namespace ct {
                         shape_vector_queue_[i].clear();
                     }
                 }
+
+                if (!is_dispatched)
+                    is_done.set(true);
             }
 
             void dispatch(std::size_t shape_id)
@@ -281,10 +287,16 @@ namespace ct {
 
     }    // namespace vec_impl
 
+    namespace dot_impl {
+        class dot_expression;
+    }
+
     class vector
     {
         template <typename LHS, typename RHS>
         friend class vec_impl::vec_expression;
+
+        friend class dot_impl::dot_expression;
 
     public:
         vector() = default;
@@ -377,6 +389,8 @@ namespace ct {
 
             return *this;
         }
+
+        vector(dot_impl::dot_expression const&);
 
         // Helper functions
     public:

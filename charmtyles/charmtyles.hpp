@@ -43,15 +43,22 @@ namespace ct {
             CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
         int mat_dispatch_count = mat_queue.dispatch_size();
 
-        ck::future<bool> is_done;
+        ck::future<bool> vec_is_done;
+        ck::future<bool> mat_is_done;
 
-        CProxy_set_future proxy = CProxy_set_future::ckNew(
-            is_done, vec_dispatch_count + mat_dispatch_count);
-        vec_queue.dispatch(is_done, proxy);
-        mat_queue.dispatch(is_done, proxy);
+        CProxy_set_future vec_proxy =
+            CProxy_set_future::ckNew(vec_is_done, vec_dispatch_count);
+        CProxy_set_future mat_proxy =
+            CProxy_set_future::ckNew(mat_is_done, mat_dispatch_count);
+        vec_queue.dispatch(vec_is_done, vec_proxy);
+        mat_queue.dispatch(mat_is_done, mat_proxy);
 
-        is_done.get();
-        is_done.release();
+        vec_is_done.get();
+        vec_is_done.release();
+
+        mat_is_done.get();
+        mat_is_done.release();
+
         return;
     }
 

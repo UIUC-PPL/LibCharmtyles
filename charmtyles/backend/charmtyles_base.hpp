@@ -1,7 +1,12 @@
 #pragma once
 
 #include <charmtyles/util/AST.hpp>
+#include <charmtyles/util/matrix_view.hpp>
 #include <charmtyles/util/sizes.hpp>
+
+class CProxy_vector_impl;
+class CProxy_matrix_impl;
+class CProxy_scalar_impl;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
 
@@ -232,6 +237,7 @@ private:
 
     int SDAG_INDEX;
     int vec_block_size;
+    int dot_counter = 0;
 };
 
 class matrix_impl : public CBase_matrix_impl
@@ -240,7 +246,7 @@ class matrix_impl : public CBase_matrix_impl
 private:
     std::size_t get_mat_rows(std::size_t row_len)
     {
-        if (row_len % row_block_len)
+        if (row_len % row_block_len == 0)
             return row_block_len;
 
         if (thisIndex.y != num_chares_y - 1)
@@ -251,7 +257,7 @@ private:
 
     std::size_t get_mat_cols(std::size_t col_len)
     {
-        if (col_len % col_block_len)
+        if (col_len % col_block_len == 0)
             return col_block_len;
 
         if (thisIndex.x != num_chares_x - 1)
@@ -295,6 +301,7 @@ private:
         std::size_t unrolled_size{0};
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
+        ct::util::matrix_view mat{};
 
         switch (node.operation_)
         {
@@ -308,8 +315,8 @@ private:
             num_cols = get_mat_cols(node.mat_col_len_);
 
             // TODO: Do Random Initialization here
-            mat_map.emplace_back(std::vector<std::vector<double>>(
-                num_rows, std::vector<double>(num_cols)));
+            mat = ct::util::matrix_view{num_rows, num_cols};
+            mat_map.emplace_back(std::move(mat));
 
             return;
 
@@ -321,9 +328,8 @@ private:
             num_rows = get_mat_rows(node.mat_row_len_);
             num_cols = get_mat_cols(node.mat_col_len_);
 
-            // TODO: Do Random Initialization here
-            mat_map.emplace_back(std::vector<std::vector<double>>(
-                num_rows, std::vector<double>(num_cols, node.value_)));
+            mat = ct::util::matrix_view{num_rows, num_cols, node.value_};
+            mat_map.emplace_back(std::move(mat));
 
             return;
 
@@ -335,29 +341,30 @@ private:
                 num_rows = get_mat_rows(node.mat_row_len_);
                 num_cols = get_mat_cols(node.mat_col_len_);
 
-                mat_map.emplace_back(std::vector<std::vector<double>>(
-                    num_rows, std::vector<double>(num_cols)));
+                mat = ct::util::matrix_view{num_rows, num_cols};
+
+                mat_map.emplace_back(std::move(mat));
             }
 
-            unrolled_size = mat_map[node_id].size() / 4;
+            unrolled_size = mat_map[node_id].rows() / 4;
             for (std::size_t i = 0; i != unrolled_size; i += 4)
             {
-                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    mat_map[node_id][i][j] = mat_map[copy_id][i][j];
-                    mat_map[node_id][i + 1][j] = mat_map[copy_id][i + 1][j];
-                    mat_map[node_id][i + 2][j] = mat_map[copy_id][i + 2][j];
-                    mat_map[node_id][i + 3][j] = mat_map[copy_id][i + 3][j];
+                    mat_map[node_id](i, j) = mat_map[copy_id](i, j);
+                    mat_map[node_id](i + 1, j) = mat_map[copy_id](i + 1, j);
+                    mat_map[node_id](i + 2, j) = mat_map[copy_id](i + 2, j);
+                    mat_map[node_id](i + 3, j) = mat_map[copy_id](i + 3, j);
                 }
             }
 
             remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != mat_map[node_id].size();
+            for (std::size_t i = remainder_start; i != mat_map[node_id].rows();
                  ++i)
             {
-                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    mat_map[node_id][i][j] = mat_map[copy_id][i][j];
+                    mat_map[node_id](i, j) = mat_map[copy_id](i, j);
                 }
             }
 
@@ -371,33 +378,34 @@ private:
                 num_rows = get_mat_rows(node.mat_row_len_);
                 num_cols = get_mat_cols(node.mat_col_len_);
 
-                mat_map.emplace_back(std::vector<std::vector<double>>(
-                    num_rows, std::vector<double>(num_cols)));
+                mat = ct::util::matrix_view{num_rows, num_cols};
+
+                mat_map.emplace_back(std::move(mat));
             }
 
-            unrolled_size = mat_map[node_id].size() / 4;
+            unrolled_size = mat_map[node_id].rows() / 4;
             for (std::size_t i = 0; i != unrolled_size; i += 4)
             {
-                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    mat_map[node_id][i][j] =
+                    mat_map[node_id](i, j) =
                         execute_ast_for_idx(instruction, 0, i, j);
-                    mat_map[node_id][i + 1][j] =
+                    mat_map[node_id](i + 1, j) =
                         execute_ast_for_idx(instruction, 0, i + 1, j);
-                    mat_map[node_id][i + 2][j] =
+                    mat_map[node_id](i + 2, j) =
                         execute_ast_for_idx(instruction, 0, i + 2, j);
-                    mat_map[node_id][i + 3][j] =
+                    mat_map[node_id](i + 3, j) =
                         execute_ast_for_idx(instruction, 0, i + 3, j);
                 }
             }
 
             remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != mat_map[node_id].size();
+            for (std::size_t i = remainder_start; i != mat_map[node_id].rows();
                  ++i)
             {
-                for (std::size_t j = 0; j != mat_map[node_id][i].size(); ++j)
+                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    mat_map[node_id][i][j] =
+                    mat_map[node_id](i, j) =
                         execute_ast_for_idx(instruction, 0, i, j);
                 }
             }
@@ -415,7 +423,7 @@ private:
         switch (node.operation_)
         {
         case ct::util::Operation::noop:
-            return mat_map[node.name_][iter_i][iter_j];
+            return mat_map[node.name_](iter_i, iter_j);
 
         case ct::util::Operation::add:
             return execute_ast_for_idx(
@@ -448,7 +456,7 @@ public:
     }
 
 private:
-    std::vector<std::vector<std::vector<double>>> mat_map;
+    std::vector<ct::util::matrix_view> mat_map;
 
     int num_chares_y;
     int num_chares_x;

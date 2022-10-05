@@ -1,17 +1,3 @@
-// Copyright (C) 2022 Nikunj Gupta
-//
-// This program is free software: you can redistribute it and/or modify it
-// under the terms of the GNU General Public License as published by the Free
-//  Software Foundation, version 3.
-//
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-// more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
-
 #include <charmtyles/charmtyles.hpp>
 
 #include "base.decl.h"
@@ -86,12 +72,36 @@ public:
 
         ct::sync();
 
-        // ct::matrix x{1 << 21, 1.0};
-        // ct::matrix y{1 << 21, 2.0};
-        // ct::scalar scal1 = ct::dot(x, y);
-        // double underlying_val = scal1.get();
+        start = CkWallTimer();
 
-        // ckout << "Result of matrix dot product: " << underlying_val << endl;
+        ct::matrix x{1 << 13, 1 << 13, 1.0};
+        ct::vector y{1 << 13, 2.0};
+        ct::vector x_dot_y = ct::dot(x, y);
+        ct::sync();
+
+        end = CkWallTimer();
+
+        ckout << "Execution Time (mat-vec dot product): " << end - start
+              << endl;
+
+        start = CkWallTimer();
+
+        ct::scalar scal1 = ct::dot(x_dot_y, x_dot_y);
+        double underlying_val = scal1.get();
+        ckout << "[Result] Dot-product over resultant vector: "
+              << underlying_val << endl;
+
+        Eigen::MatrixXd eX = Eigen::MatrixXd::Constant(1 << 11, 1 << 12, 1.);
+        Eigen::VectorXd ey = Eigen::VectorXd::Constant(1 << 12, 2.);
+        Eigen::VectorXd ex_y = eX * ey;
+
+        double eres = ex_y.dot(ex_y);
+        ckout << "[Result: Eigen] Dot-product over resultant vector: " << eres
+              << endl;
+
+        end = CkWallTimer();
+        ckout << "Execution Time (vec-vec dot product): " << end - start
+              << endl;
 
         CkExit();
     }
