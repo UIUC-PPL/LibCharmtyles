@@ -20,7 +20,10 @@ namespace ct {
 
             // Middle/Head Nodes
             add = 10,
-            sub = 11
+            sub = 11,
+
+            // Blas
+            axpy = 20
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -122,6 +125,17 @@ namespace ct {
               , operation_(op)
               , value_(value)
               , vec_len_(size)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                double alpha, std::size_t size, std::size_t x, std::size_t y)
+              : name_(name)
+              , operation_(op)
+              , value_(alpha)
+              , vec_len_(size)
+              , left_(x)
+              , right_(y)
             {
             }
 

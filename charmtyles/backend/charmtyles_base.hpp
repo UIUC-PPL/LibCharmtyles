@@ -107,9 +107,14 @@ private:
 
         // Useful variables in switch statement
         std::size_t vec_dim{0};
+        std::size_t total_size{0};
         std::size_t unrolled_size{0};
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dist(0., 1.);
 
         switch (instruction[index].operation_)
         {
@@ -123,6 +128,11 @@ private:
 
             // TODO: Do Random Initialization here
             vec_map.emplace_back(std::vector<double>(vec_dim));
+
+            for (double& val : vec_map[node.name_])
+            {
+                val = dist(gen);
+            }
 
             return;
 
@@ -145,8 +155,11 @@ private:
                 vec_map.emplace_back(
                     std::vector<double>(vec_map[copy_id].size()));
 
+            total_size = vec_map[node_id].size();
             unrolled_size = vec_map[node_id].size() / 4;
-            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
             {
                 vec_map[node_id][i] = vec_map[copy_id][i];
                 vec_map[node_id][i + 1] = vec_map[copy_id][i + 1];
@@ -154,9 +167,7 @@ private:
                 vec_map[node_id][i + 3] = vec_map[copy_id][i + 3];
             }
 
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != vec_map[node_id].size();
-                 ++i)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 vec_map[node_id][i] = vec_map[copy_id][i];
             }
@@ -173,8 +184,11 @@ private:
                 vec_map.emplace_back(std::vector<double>(vec_dim));
             }
 
+            total_size = vec_map[node_id].size();
             unrolled_size = vec_map[node_id].size() / 4;
-            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
             {
                 vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
                 vec_map[node_id][i + 1] =
@@ -185,12 +199,34 @@ private:
                     execute_ast_for_idx(instruction, 0, i + 3);
             }
 
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != vec_map[node_id].size();
-                 ++i)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
             }
+
+            return;
+
+        case ct::util::Operation::axpy:
+
+            if (node_id == vec_map.size())
+            {
+                vec_dim = get_vec_dim(node.vec_len_);
+
+                vec_map.emplace_back(std::vector<double>(vec_dim));
+            }
+
+            double alpha = node.value_;
+            std::vector<double>& x = vec_map[node.left_];
+            std::vector<double>& y = vec_map[node.right_];
+            std::vector<double>& res = vec_map[node.name_];
+
+            Eigen::Map<Eigen::VectorXd> ex(x.data(), x.size());
+            Eigen::Map<Eigen::VectorXd> ey(y.data(), y.size());
+            Eigen::Map<Eigen::VectorXd> er(res.data(), res.size());
+
+            er = alpha * ex + ey;
+
+            return;
         }
     }
 

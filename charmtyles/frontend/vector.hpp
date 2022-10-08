@@ -291,6 +291,10 @@ namespace ct {
         class dot_expression;
     }
 
+    namespace blas_impl {
+        class vec_axpy_expr;
+    }
+
     class vector
     {
         template <typename LHS, typename RHS>
@@ -391,6 +395,10 @@ namespace ct {
         }
 
         vector(dot_impl::dot_expression const&);
+        vector& operator=(dot_impl::dot_expression const&);
+
+        vector(blas_impl::vec_axpy_expr const&);
+        vector& operator=(blas_impl::vec_axpy_expr const&);
 
         // Helper functions
     public:

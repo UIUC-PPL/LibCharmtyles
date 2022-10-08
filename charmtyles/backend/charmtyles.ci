@@ -1,7 +1,7 @@
 module libcharmtyles
 {
     include "charmtyles/util/AST.hpp";
-    include "eigen3/Eigen/Core";
+    include "Eigen/Core";
 
     readonly CProxy_scalar_impl scalar_impl_proxy;
 
@@ -104,6 +104,8 @@ module libcharmtyles
 
                     CkCallback cb(CkReductionTarget(scalar_impl, dot_reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
                 }} // dot
 
                 when send_to_matrix[SDAG_INDEX](
