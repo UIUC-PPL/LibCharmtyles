@@ -2,7 +2,10 @@
 
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <vector>
+
+#include <charmtyles/util/generator.hpp>
 
 #include "charm++.h"
 
@@ -102,6 +105,7 @@ namespace ct {
             {
             }
 
+            // Operation: Init Random, Noop
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, std::size_t size)
               : name_(name)
@@ -110,6 +114,7 @@ namespace ct {
             {
             }
 
+            // Operation: Copy
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
@@ -119,6 +124,7 @@ namespace ct {
             {
             }
 
+            // Operation: Init Value
             explicit vec_node(std::size_t name, ct::util::Operation op,
                 double value, std::size_t size)
               : name_(name)
@@ -128,6 +134,7 @@ namespace ct {
             {
             }
 
+            // Operation: AXPY
             explicit vec_node(std::size_t name, ct::util::Operation op,
                 double alpha, std::size_t size, std::size_t x, std::size_t y)
               : name_(name)

@@ -1,6 +1,7 @@
 module libcharmtyles
 {
     include "charmtyles/util/AST.hpp";
+    include "charmtyles/util/generator.hpp";
     include "Eigen/Core";
 
     readonly CProxy_scalar_impl scalar_impl_proxy;
@@ -91,6 +92,14 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // compute
 
+                when generator_init[SDAG_INDEX](int sdag_idx,
+                    int vec_idx, int vec_len, std::shared_ptr<ct::util::generator>& gen_ptr) {
+                serial "generator_init" {
+                    init_generate(vec_idx, vec_len, gen_ptr);
+
+                    ++SDAG_INDEX;
+                }}
+
                 when dot[SDAG_INDEX](int sdag_index,
                     int lhs_id, int rhs_id, int scal_sdag_idx) {
                 serial "vector_dot" {
@@ -133,6 +142,7 @@ module libcharmtyles
 
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
+        entry void generator_init(int, int, int, std::shared_ptr<ct::util::generator>);
         entry void dot(int, int, int, int);
         entry void send_to_matrix(int, int, int, CProxy_matrix_impl);
         entry [reductiontarget] void update_vector(int len, double result[len]);
@@ -169,6 +179,15 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // fused compute kernel
 
+                when generator_init[SDAG_INDEX](
+                    int sdag_index, int node_id, int rows, int cols, std::shared_ptr<ct::util::generator>& gen_ptr) {
+                serial "generator_init" {
+
+                    init_generate(node_id, rows, cols, gen_ptr);
+
+                    ++SDAG_INDEX;
+                }}
+
                 when mat_vec_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx, int result_sdag_idx,
                     CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
@@ -204,6 +223,7 @@ module libcharmtyles
 
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>);
+        entry void generator_init(int, int, int, int, std::shared_ptr<ct::util::generator>);
         entry void mat_vec_dot(int, int, int, CProxy_vector_impl, int, int);
         entry void receive_to_matrix(int, int len, double data[len]);
     }

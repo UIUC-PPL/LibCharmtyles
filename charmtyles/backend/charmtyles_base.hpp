@@ -89,6 +89,21 @@ private:
         }
     }
 
+    void init_generate(std::size_t node_id, std::size_t total_len,
+        std::shared_ptr<ct::util::generator>& gen_ptr)
+    {
+        CkAssert((vec_map.size() + 1 == node_id) &&
+            "A vector is initialized before a dependent vector "
+            "initialization.");
+
+        std::size_t vec_dim = get_vec_dim(total_len);
+
+        std::vector<double> gen_vec(vec_dim);
+        gen_ptr->generate(thisIndex, gen_vec);
+
+        vec_map.emplace_back(std::move(gen_vec));
+    }
+
     // Instruction related private functions
 private:
     void update_partitions(
@@ -313,6 +328,21 @@ private:
             ct::util::parse_ast(instr_list[num_instr], 0);
             ckout << endl;
         }
+    }
+
+    void init_generate(std::size_t node_id, std::size_t total_rows,
+        std::size_t total_cols, std::shared_ptr<ct::util::generator>& gen_ptr)
+    {
+        CkAssert((mat_map.size() + 1 == node_id) &&
+            "A matrix is initialized before a dependent matrix "
+            "initialization.");
+
+        std::size_t num_rows = get_mat_rows(total_rows);
+        std::size_t num_cols = get_mat_cols(total_cols);
+
+        ct::util::matrix_view mat{num_rows, num_cols};
+        gen_ptr->generate(thisIndex.x, thisIndex.y, mat);
+        mat_map.emplace_back(std::move(mat));
     }
 
     // Instruction related private functions
