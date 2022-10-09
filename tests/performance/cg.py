@@ -9,15 +9,8 @@ print(f'Matrix Dimensions: {dim}x{dim}')
 print(f'Vector Dimensions: {dim}')
 
 A = np.full((dim, dim), 1.)
-b = np.full((dim), 0.1)
-x = np.full((dim), .5)
-
-for i in range(dim):
-    for j in range(dim):
-        A[i][j] = (i + j) % 10
-
-# b = np.random.random((dim))
-# x = np.random.random((dim))
+b = np.random.random((dim))
+x = np.random.random((dim))
 
 start = time.time()
 

@@ -28,8 +28,8 @@ public:
         ct::matrix A{dim, dim, 1.};
 
         // Random b, x
-        ct::vector b{dim, 0.1};
-        ct::vector x{dim, 0.5};
+        ct::vector b{dim};
+        ct::vector x{dim};
 
         ct::sync();
 

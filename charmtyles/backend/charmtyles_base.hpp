@@ -340,6 +340,10 @@ private:
         std::size_t copy_id{0};
         ct::util::matrix_view mat{};
 
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dist(0., 1.);
+
         switch (node.operation_)
         {
         case ct::util::Operation::init_random:
@@ -351,8 +355,11 @@ private:
             num_rows = get_mat_rows(node.mat_row_len_);
             num_cols = get_mat_cols(node.mat_col_len_);
 
-            // TODO: Do Random Initialization here
             mat = ct::util::matrix_view{num_rows, num_cols};
+            for (int row = 0; row != mat.rows(); ++row)
+                for (int col = 0; col != mat.cols(); ++col)
+                    mat(row, col) = dist(gen);
+
             mat_map.emplace_back(std::move(mat));
 
             return;
