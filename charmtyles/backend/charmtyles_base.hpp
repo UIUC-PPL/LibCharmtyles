@@ -334,6 +334,7 @@ private:
         // Useful variables in switch statement
         std::size_t num_rows{0};
         std::size_t num_cols{0};
+        std::size_t total_size{0};
         std::size_t unrolled_size{0};
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
@@ -382,8 +383,11 @@ private:
                 mat_map.emplace_back(std::move(mat));
             }
 
+            total_size = mat_map[node_id].rows();
             unrolled_size = mat_map[node_id].rows() / 4;
-            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
@@ -394,9 +398,7 @@ private:
                 }
             }
 
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != mat_map[node_id].rows();
-                 ++i)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
@@ -419,8 +421,11 @@ private:
                 mat_map.emplace_back(std::move(mat));
             }
 
+            total_size = mat_map[node_id].rows();
             unrolled_size = mat_map[node_id].rows() / 4;
-            for (std::size_t i = 0; i != unrolled_size; i += 4)
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
@@ -435,9 +440,7 @@ private:
                 }
             }
 
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = remainder_start; i != mat_map[node_id].rows();
-                 ++i)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {

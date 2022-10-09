@@ -28,8 +28,8 @@ public:
         ct::matrix A{dim, dim, 1.};
 
         // Random b, x
-        ct::vector b{dim};
-        ct::vector x{dim};
+        ct::vector b{dim, 0.1};
+        ct::vector x{dim, 0.5};
 
         ct::sync();
 
@@ -41,6 +41,7 @@ public:
         ct::vector p = r;
 
         ct::scalar rsold = ct::dot(r, r);
+        // ckout << "[-1] Rsold: " << rsold.get() << endl;
 
         double gres = 0.;
         ct::vector Ap = ct::dot(A, p);
@@ -55,10 +56,12 @@ public:
         double rsnew_value = rsnew.get();
 
         if (std::sqrt(rsnew_value) < 1E-8)
-            ckout << "Converged in 1 iterations" << endl;
+            ckout << "Converged in 0 iterations" << endl;
 
         p = ct::axpy(rsnew_value / rsold_value, p, r);
         rsold = rsnew;
+
+        // ckout << "[0] Rsold: " << rsold.get() << endl;
 
         for (int i = 1; i < 100; ++i)
         {
@@ -81,12 +84,15 @@ public:
 
             p = ct::axpy(rsnew_value / rsold_value, p, r);
             rsold = rsnew;
+
+            // ckout << "[" << i << "] Rsold: " << rsold.get() << endl;
         }
 
         ct::sync();
         double end = CkWallTimer();
 
         ckout << "Execution Time: " << end - start << endl;
+        ckout << "Value: " << rsold.get() << endl;
 
         CkExit();
     }
