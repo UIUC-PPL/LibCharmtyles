@@ -374,7 +374,7 @@ namespace ct {
         , matrix_shape_(other.matrix_shape_)
         , node_(other.node_)
         {
-            ckout << "Move constructor called!" << endl;
+            // ckout << "Move constructor called!" << endl;
         }
 
         template <typename LHS, typename RHS>

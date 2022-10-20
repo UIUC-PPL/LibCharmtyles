@@ -360,7 +360,7 @@ namespace ct {
         , vector_shape_(other.vector_shape_)
         , node_(other.node_)
         {
-            ckout << "Move constructor called!" << endl;
+            // ckout << "Move constructor called!" << endl;
         }
 
         template <typename LHS, typename RHS>
