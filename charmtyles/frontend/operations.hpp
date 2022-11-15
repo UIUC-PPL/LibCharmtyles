@@ -354,4 +354,103 @@ namespace ct {
         CkAbort("AXPY with rvalue reference parameter is not supported.");
     }
 
+    namespace mat_mul_impl {
+        class mat_mul_expr
+        {
+            friend class ct::matrix;
+
+        public:
+            mat_mul_expr(ct::matrix const& lhs_, ct::matrix const& rhs_)
+              : lhs(lhs_)
+              , rhs(rhs_)
+            {
+            }
+
+            std::size_t rows() const
+            {
+                return lhs.rows();
+            }
+
+            std::size_t cols() const
+            {
+                return lhs.cols();
+            }
+
+        private:
+            ct::matrix const& lhs;
+            ct::matrix const& rhs;
+        };
+    }    // namespace mat_mul_impl
+
+    matrix::matrix(ct::mat_mul_impl::mat_mul_expr const& expr)
+      : row_size_(expr.rows())
+      , col_size_(expr.cols())
+      , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
+      , node_(matrix_shape_.matrix_id, ct::util::Operation::init_value, 0,
+            row_size_, col_size_)
+    {
+        ct::mat_impl::mat_shape_t const& lhs_shape = expr.lhs.matrix_shape();
+        ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::mat_impl::mat_instr_queue_t& mat_queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        mat_queue.dispatch(matrix_shape_.shape_id);
+
+        std::size_t& curr_sdag_idx = mat_queue.sdag_idx(matrix_shape_.shape_id);
+
+        CProxy_matrix_impl dispatch_proxy = matrix_shape_.proxy;
+        dispatch_proxy.mat_mat_mul(curr_sdag_idx, matrix_shape_.matrix_id,
+            lhs_shape.matrix_id, rhs_shape.matrix_id);
+
+        ++curr_sdag_idx;
+    }
+
+    matrix& matrix::operator=(ct::mat_mul_impl::mat_mul_expr const& expr)
+    {
+        CkAssert(expr.rows() == rows() && expr.cols() == cols() &&
+            "Mismatched matrix dimensions");
+
+        ct::mat_impl::mat_shape_t const& lhs_shape = expr.lhs.matrix_shape();
+        ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::mat_impl::mat_instr_queue_t& mat_queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        mat_queue.dispatch(matrix_shape_.shape_id);
+
+        std::size_t& curr_sdag_idx = mat_queue.sdag_idx(matrix_shape_.shape_id);
+
+        CProxy_matrix_impl dispatch_proxy = matrix_shape_.proxy;
+        dispatch_proxy.mat_mat_mul(curr_sdag_idx, matrix_shape_.matrix_id,
+            lhs_shape.matrix_id, rhs_shape.matrix_id);
+
+        ++curr_sdag_idx;
+
+        return *this;
+    }
+
+    ct::mat_mul_impl::mat_mul_expr operator*(
+        matrix const& lhs, matrix const& rhs)
+    {
+        return mat_mul_impl::mat_mul_expr(lhs, rhs);
+    }
+
+    mat_mul_impl::mat_mul_expr operator*(matrix const& lhs, matrix&& rhs)
+    {
+        CkAbort(
+            "Matrix Multiplication not implemented for complex operations.");
+    }
+
+    mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix const& rhs)
+    {
+        CkAbort(
+            "Matrix Multiplication not implemented for complex operations.");
+    }
+
+    mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix&& rhs)
+    {
+        CkAbort(
+            "Matrix Multiplication not implemented for complex operations.");
+    }
 }    // namespace ct

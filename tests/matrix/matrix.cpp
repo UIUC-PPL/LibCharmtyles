@@ -103,6 +103,24 @@ public:
         ckout << "Execution Time (vec-vec dot product): " << end - start
               << endl;
 
+        ckout << "[Result] MatMul over 2 matrices: " << eres << endl;
+        start = CkWallTimer();
+
+        ct::matrix m1{1 << 10, 1 << 10, 0};
+        ct::matrix m2{1 << 10, 1 << 10, 0};
+        ct::matrix m3 = m1 * m2;
+        ct::sync(m1.matrix_shape());
+
+        end = CkWallTimer();
+        ckout << "Execution Time (mat-mul): " << end - start << endl;
+
+        ct::vector v1{1 << 10, 0};
+        ct::vector vres = ct::dot(m3, v1);
+        ct::scalar sval = ct::dot(vres, vres);
+        double uval = sval.get();
+
+        ckout << "[Result] Mat-mul sum: " << uval << endl;
+
         CkExit();
     }
 };

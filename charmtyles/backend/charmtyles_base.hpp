@@ -510,4 +510,5 @@ private:
     int row_block_len;
     int col_block_len;
     int SDAG_INDEX;
+    int block;
 };

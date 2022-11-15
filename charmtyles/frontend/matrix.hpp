@@ -155,6 +155,19 @@ namespace ct {
                 }
             }
 
+            void sync(std::size_t shape_id, CProxy_set_future proxy)
+            {
+                dispatch(shape_id);
+
+                // Ensure synchronous threads are also saved
+                std::size_t& sdag_index = sdag_index_[shape_id];
+                CProxy_matrix_impl dispatch_proxy =
+                    CT_ACCESS_SINGLETON(mat_shape_info)[shape_id].proxy;
+
+                dispatch_proxy.synchronize(sdag_index, proxy);
+                ++sdag_index;
+            }
+
             std::size_t& sdag_idx(std::size_t shape_id)
             {
                 return sdag_index_[shape_id];
@@ -307,6 +320,10 @@ namespace ct {
 
     }    // namespace mat_impl
 
+    namespace mat_mul_impl {
+        class mat_mul_expr;
+    }
+
     class matrix
     {
         template <typename LHS, typename RHS>
@@ -369,10 +386,10 @@ namespace ct {
 
         // TODO: Figure out why this is necessary!
         matrix(matrix&& other)
-        : row_size_(other.row_size_)
-        , col_size_(other.col_size_)
-        , matrix_shape_(other.matrix_shape_)
-        , node_(other.node_)
+          : row_size_(other.row_size_)
+          , col_size_(other.col_size_)
+          , matrix_shape_(other.matrix_shape_)
+          , node_(other.node_)
         {
             // ckout << "Move constructor called!" << endl;
         }
@@ -395,6 +412,9 @@ namespace ct {
 
             queue.insert(instr, matrix_shape_.shape_id);
         }
+
+        matrix(ct::mat_mul_impl::mat_mul_expr const& expr);
+        matrix& operator=(ct::mat_mul_impl::mat_mul_expr const& expr);
 
         template <typename LHS, typename RHS>
         matrix& operator=(ct::mat_impl::mat_expression<LHS, RHS> const& e)

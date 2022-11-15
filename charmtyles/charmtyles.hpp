@@ -33,6 +33,22 @@ namespace ct {
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
     }
 
+    void sync(ct::mat_impl::mat_shape_t const& matrix_shape)
+    {
+        ct::mat_impl::mat_instr_queue_t& mat_queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+        ck::future<bool> mat_sync;
+        CProxy_set_future mat_proxy = CProxy_set_future::ckNew(mat_sync, 1);
+
+        mat_queue.sync(matrix_shape.shape_id, mat_proxy);
+
+        mat_sync.get();
+        mat_sync.release();
+
+        return;
+    }
+
     void sync()
     {
         ct::vec_impl::vec_instr_queue_t& vec_queue =

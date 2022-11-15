@@ -169,6 +169,14 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // fused compute kernel
 
+                when synchronize[SDAG_INDEX](int sdag_index, CProxy_set_future proxy) {
+                serial "synchronize" {
+                    CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
+                    contribute(cb);
+
+                    ++SDAG_INDEX;
+                }}
+
                 when mat_vec_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx, int result_sdag_idx,
                     CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
@@ -199,11 +207,66 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }} // matrix vector dot product
+
+                when mat_mat_mul[SDAG_INDEX](
+                    int sdag_index, int mat_idx, int mat_A_idx, int mat_B_idx) {
+                    serial "initial_send" {
+                        double* data_A = mat_map[mat_A_idx].data();
+                        std::size_t rows_A = mat_map[mat_A_idx].rows();
+                        std::size_t cols_A = mat_map[mat_A_idx].cols();
+                        thisProxy((thisIndex.x-thisIndex.y+num_chares_y)%num_chares_x, thisIndex.y).inputA(0, data_A, rows_A, cols_A);
+
+                        double* data_B = mat_map[mat_B_idx].data();
+                        std::size_t rows_B = mat_map[mat_B_idx].rows();
+                        std::size_t cols_B = mat_map[mat_B_idx].cols();
+                        thisProxy(thisIndex.x, (thisIndex.y-thisIndex.x+num_chares_x)%num_chares_y).inputB(0, data_B, rows_B, cols_B);
+                    }
+                    // For all block
+                    // FIXME:
+                    // Current implementation expects square matrix!
+                    forall [block] (0:num_chares_x-1,1) {
+                        when
+                        inputA[block](int blockIdA, double blockA[M*KA], unsigned int M, unsigned int KA),
+                        inputB[block](int blockIdB, double blockB[KB*N], unsigned int KB, unsigned int N)
+                        serial "mat_mul_kernel" {
+                            CkAssert(KA == KB);
+
+                            Eigen::Map<Eigen::MatrixXd> matA(blockA, M, KA);
+                            Eigen::Map<Eigen::MatrixXd> matB(blockB, KB, N);
+
+                            ct::util::matrix_view& result_mat = mat_map[mat_idx];
+                            Eigen::Map<Eigen::MatrixXd> matC(result_mat.data(), result_mat.rows(), result_mat.cols());
+
+                            matC += matA * matB;
+
+                            if (blockIdA != num_chares_x) {
+                                int destX = (thisIndex.x + 1) % num_chares_x;
+                                int destY = thisIndex.y;
+                                thisProxy(destX, destY).inputA(blockIdA+1, blockA, M, KA);
+                            }
+                            if (blockIdB != num_chares_y) {
+                                int destX = thisIndex.x;
+                                int destY = (thisIndex.y + 1) % num_chares_y;
+                                thisProxy(destX, destY).inputB(blockIdB+1, blockB, KB, N);
+                            }
+                        }
+                    }
+                    serial "mat_mul_end" {
+                        block = 0;
+                        ++SDAG_INDEX;
+                    }
+                }
             }}
         }
 
+        entry void mat_mat_mul(int, int, int, int);
+        entry void inputA(int, double blockA[M*KA], unsigned int M, unsigned int KA);
+        entry void inputB(int, double blockB[KB*N], unsigned int KB, unsigned int N);
+
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>);
+        entry void synchronize(int, CProxy_set_future);
+        
         entry void mat_vec_dot(int, int, int, CProxy_vector_impl, int, int);
         entry void receive_to_matrix(int, int len, double data[len]);
     }
