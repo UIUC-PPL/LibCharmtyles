@@ -1,6 +1,7 @@
 #pragma once
 
 #include <charmtyles/util/AST.hpp>
+#include <charmtyles/util/generator.hpp>
 #include <charmtyles/util/matrix_view.hpp>
 #include <charmtyles/util/sizes.hpp>
 

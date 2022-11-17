@@ -329,6 +329,25 @@ namespace ct {
             queue.insert(node_, vector_shape_.shape_id);
         }
 
+        explicit vector(
+            std::size_t size, std::shared_ptr<ct::generator> gen_ptr)
+          : size_(size)
+          , vector_shape_(ct::vec_impl::get_vector_shape(size))
+          , node_(vector_shape_.vector_id, ct::util::Operation::noop, size)
+        {
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.dispatch(vector_shape_.shape_id);
+
+            std::size_t& sdag_idx = queue.sdag_idx(vector_shape_.shape_id);
+
+            vector_shape_.proxy.generator_init(
+                sdag_idx, vector_shape_.vector_id, size_, gen_ptr);
+
+            ++sdag_idx;
+        }
+
         vector(vector const& other)
           : size_(other.size_)
           , vector_shape_(ct::vec_impl::get_vector_shape(size_))
@@ -356,9 +375,9 @@ namespace ct {
 
         // TODO: Figure out why this is necessary!
         vector(vector&& other)
-        : size_(other.size_)
-        , vector_shape_(other.vector_shape_)
-        , node_(other.node_)
+          : size_(other.size_)
+          , vector_shape_(other.vector_shape_)
+          , node_(other.node_)
         {
             // ckout << "Move constructor called!" << endl;
         }

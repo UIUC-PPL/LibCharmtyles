@@ -358,6 +358,27 @@ namespace ct {
             queue.insert(node_, matrix_shape_.shape_id);
         }
 
+        explicit matrix(std::size_t rows, std::size_t cols,
+            std::shared_ptr<ct::generator> gen_ptr)
+          : row_size_(rows)
+          , col_size_(cols)
+          , matrix_shape_(ct::mat_impl::get_mat_shape(rows, cols))
+          , node_(
+                matrix_shape_.matrix_id, ct::util::Operation::noop, rows, cols)
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.dispatch(matrix_shape_.shape_id);
+
+            std::size_t& sdag_idx = queue.sdag_idx(matrix_shape_.shape_id);
+
+            matrix_shape_.proxy.generator_init(sdag_idx,
+                matrix_shape_.matrix_id, row_size_, col_size_, gen_ptr);
+
+            ++sdag_idx;
+        }
+
         matrix(matrix const& other)
           : row_size_(other.row_size_)
           , col_size_(other.col_size_)

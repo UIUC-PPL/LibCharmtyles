@@ -1,6 +1,7 @@
 module libcharmtyles
 {
     include "charmtyles/util/AST.hpp";
+    include "charmtyles/util/generator.hpp";
     include "Eigen/Core";
 
     readonly CProxy_scalar_impl scalar_impl_proxy;
@@ -11,6 +12,8 @@ module libcharmtyles
 
         entry [reductiontarget] void mark_complete();
     }
+
+    PUPable ct::generator;
 
     chare scalar_impl
     {
@@ -65,6 +68,27 @@ module libcharmtyles
         entry void main_kernel() {
             for (; SDAG_INDEX > -1;) {
             case {
+                // Generator Init kernel
+                when generator_init[SDAG_INDEX](int sdag_idx,
+                    int vec_idx, int total_len, std::shared_ptr<ct::generator> gen_ptr) {
+                serial "generator_init" {
+                    CkAssert((vec_map.size() + 1 == node_id) &&
+                        "A vector is initialized before a dependent vector "
+                        "initialization.");
+
+                    std::size_t vec_dim = get_vec_dim(total_len);
+
+                    std::vector<double> gen_vec(vec_dim);
+
+                    for (int dimX = 0; dimX != vec_dim; ++dimX)
+                    {
+                        gen_vec[dimX] = gen_ptr->generate(thisIndex * vec_block_size + dimX);
+                    }
+                    vec_map.emplace_back(std::move(gen_vec));
+
+                    ++SDAG_INDEX;
+                }}
+
                 // Actual computation kernel
                 when compute[SDAG_INDEX](int sdag_index,
                     std::vector<std::vector<ct::vec_impl::vec_node>> instr_list, CProxy_set_future proxy) {
@@ -131,6 +155,8 @@ module libcharmtyles
             }} // case + for-loop end
         }
 
+        entry void generator_init(int, int, int, std::shared_ptr<ct::generator>);
+
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
         entry void dot(int, int, int, int);
@@ -146,6 +172,31 @@ module libcharmtyles
         entry void main_kernel() {
             for (; SDAG_INDEX > -1;) {
             case {
+
+                // Generator Init kernel
+                when generator_init[SDAG_INDEX](
+                    int sdag_index, int node_id, int total_rows, int total_cols, std::shared_ptr<ct::generator> gen_ptr) {
+                serial "generator_init" {
+                    CkAssert((mat_map.size() + 1 == node_id) &&
+                        "A matrix is initialized before a dependent matrix "
+                        "initialization.");
+
+                    std::size_t num_rows = get_mat_rows(total_rows);
+                    std::size_t num_cols = get_mat_cols(total_cols);
+
+                    ct::util::matrix_view mat{num_rows, num_cols};
+                    for (int row_id = 0; row_id != num_rows; ++row_id)
+                    {
+                        for (int col_id = 0; col_id != num_cols; ++col_id)
+                        {
+                            mat(row_id, col_id) = gen_ptr->generate(
+                                thisIndex.y * row_block_len + row_id, thisIndex.x * col_block_len + col_id);
+                        }
+                    }
+                    mat_map.emplace_back(std::move(mat));
+
+                    ++SDAG_INDEX;
+                }}
 
                 // Actual computational kernel
                 when compute[SDAG_INDEX](int sdag_index,
@@ -263,6 +314,7 @@ module libcharmtyles
         entry void inputA(int, double blockA[M*KA], unsigned int M, unsigned int KA);
         entry void inputB(int, double blockB[KB*N], unsigned int KB, unsigned int N);
 
+        entry void generator_init(int, int, int, int, std::shared_ptr<ct::generator>);
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::mat_impl::mat_node>>);
         entry void synchronize(int, CProxy_set_future);
