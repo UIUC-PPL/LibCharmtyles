@@ -1,0 +1,13 @@
+mainmodule cg
+{
+    extern module libcharmtyles;
+
+    PUPable cg_generator;
+
+    mainchare Main
+    {
+        entry Main(CkArgMsg*);
+    
+        entry [threaded] void benchmark(int);
+    };
+}

@@ -1,6 +1,36 @@
 #include <charmtyles/charmtyles.hpp>
 
-#include "base.decl.h"
+#include "cg.decl.h"
+
+class cg_generator : public ct::generator
+{
+public:
+    cg_generator() = default;
+    ~cg_generator() {}
+
+    using ct::generator::generator;
+
+    double generate(int row_id, int col_id) final
+    {
+        return (row_id + col_id) % 10;
+    }
+
+    double generate(int dimX) final
+    {
+        return dimX;
+    }
+
+    PUPable_decl(cg_generator);
+    cg_generator(CkMigrateMessage* m)
+      : ct::generator(m)
+    {
+    }
+
+    void pup(PUP::er& p) final
+    {
+        ct::generator::pup(p);
+    }
+};
 
 class Main : public CBase_Main
 {
@@ -25,11 +55,14 @@ public:
         ct::mat_impl::mat_instr_queue_t& mat_queue =
             CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
 
-        ct::matrix A{dim, dim, 1.};
+        std::shared_ptr<cg_generator> new_cg_generator =
+            std::make_shared<cg_generator>();
+
+        ct::matrix A{dim, dim, new_cg_generator};
 
         // Random b, x
-        ct::vector b{dim};
-        ct::vector x{dim};
+        ct::vector b{dim, new_cg_generator};
+        ct::vector x{dim, new_cg_generator};
 
         ct::sync();
 
@@ -41,7 +74,7 @@ public:
         ct::vector p = r;
 
         ct::scalar rsold = ct::dot(r, r);
-        // ckout << "[-1] Rsold: " << rsold.get() << endl;
+        ckout << "[-1] Rsold: " << rsold.get() << endl;
 
         double gres = 0.;
         ct::vector Ap = ct::dot(A, p);
@@ -61,7 +94,7 @@ public:
         p = ct::axpy(rsnew_value / rsold_value, p, r);
         rsold = rsnew;
 
-        // ckout << "[0] Rsold: " << rsold.get() << endl;
+        ckout << "[0] Rsold: " << rsold.get() << endl;
 
         for (int i = 1; i < 100; ++i)
         {
@@ -85,7 +118,7 @@ public:
             p = ct::axpy(rsnew_value / rsold_value, p, r);
             rsold = rsnew;
 
-            // ckout << "[" << i << "] Rsold: " << rsold.get() << endl;
+            ckout << "[" << i << "] Rsold: " << rsold.get() << endl;
         }
 
         ct::sync();
@@ -98,4 +131,4 @@ public:
     }
 };
 
-#include "base.def.h"
+#include "cg.def.h"
