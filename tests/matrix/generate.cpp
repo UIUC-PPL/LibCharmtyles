@@ -83,6 +83,24 @@ public:
         ckout << "[Eigen] Execution Time: " << end - start << endl;
         ckout << "[Eigen] Final Result: " << edres << endl;
 
+        start = CkWallTimer();
+        double mat_sum = ct::sum(mat).get();
+        double vec_sum = ct::sum(vec).get();
+        end = CkWallTimer();
+
+        ckout << "[Charmtyles] Execution Time: " << end - start << endl;
+        ckout << "[Charmtyles] Mat Sum: " << mat_sum << ", Vec Sum: " << vec_sum
+              << endl;
+
+        start = CkWallTimer();
+        double emat_sum = emat.sum();
+        double evec_sum = evec.sum();
+        end = CkWallTimer();
+
+        ckout << "[Eigen] Execution Time: " << end - start << endl;
+        ckout << "[Eigen] Mat Sum: " << emat_sum << ", Vec Sum: " << evec_sum
+              << endl;
+
         CkExit();
     }
 };

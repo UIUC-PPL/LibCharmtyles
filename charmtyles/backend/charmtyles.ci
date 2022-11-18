@@ -33,9 +33,9 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // add_scalar
 
-                when dot_reduction[SDAG_INDEX](double value) {
+                when reduction[SDAG_INDEX](double value) {
                     when update_scalar[SDAG_INDEX](int sdag_index, int scalar_id) {
-                    serial "dot_reduction" {
+                    serial "reduction" {
                         if (scalar_id >= scal_map.size())
                             scal_map.resize(scalar_id + 1);
                         
@@ -43,7 +43,7 @@ module libcharmtyles
 
                         ++SDAG_INDEX;
                     }} // update_scalar
-                } // dot_reduction
+                } // reduction
 
                 when get_value[SDAG_INDEX](int sdag_index, int scalar_id, ck::future<double> fval) {
                 serial "get_value" {
@@ -56,7 +56,7 @@ module libcharmtyles
         }
 
         entry void add_scalar(int, int, double);
-        entry [reductiontarget] void dot_reduction(double);
+        entry [reductiontarget] void reduction(double);
         entry void update_scalar(int, int);
         entry void get_value(int, int, ck::future<double>);
     }
@@ -126,7 +126,7 @@ module libcharmtyles
 
                     double result = elhs.dot(erhs);
 
-                    CkCallback cb(CkReductionTarget(scalar_impl, dot_reduction), scalar_impl_proxy);
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
 
                     ++SDAG_INDEX;
@@ -151,6 +151,20 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }}} // update index + update vector
+
+                when reduce_sum[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
+                serial "reduce_sum" {
+                    std::vector<double>& lhs = vec_map[vector_id];
+
+                    Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
+
+                    double result = elhs.sum();
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }}
             
             }} // case + for-loop end
         }
@@ -163,6 +177,7 @@ module libcharmtyles
         entry void send_to_matrix(int, int, int, CProxy_matrix_impl);
         entry [reductiontarget] void update_vector(int len, double result[len]);
         entry void update_index(int, int);
+        entry void reduce_sum(int, int, int);
     }
 
     array[2D] matrix_impl
@@ -307,6 +322,20 @@ module libcharmtyles
                         ++SDAG_INDEX;
                     }
                 }
+
+                when reduce_sum[SDAG_INDEX](int sdag_idx, int matrix_id, int scal_sdag_idx) {
+                serial "reduce_sum" {
+                    ct::util::matrix_view& lhs = mat_map[matrix_id];
+
+                    Eigen::Map<Eigen::MatrixXd> elhs(lhs.data(), lhs.rows(), lhs.cols());
+
+                    double result = elhs.sum();
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }}
             }}
         }
 
@@ -321,5 +350,7 @@ module libcharmtyles
         
         entry void mat_vec_dot(int, int, int, CProxy_vector_impl, int, int);
         entry void receive_to_matrix(int, int len, double data[len]);
+
+        entry void reduce_sum(int, int, int);
     }
 }

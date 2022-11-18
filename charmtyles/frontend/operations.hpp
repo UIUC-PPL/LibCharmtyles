@@ -130,7 +130,7 @@ namespace ct {
         };
     }    // namespace dot_impl
 
-    vector::vector(dot_impl::dot_expression const& expr)
+    inline vector::vector(dot_impl::dot_expression const& expr)
       : size_(expr.rows())
       , vector_shape_(ct::vec_impl::get_vector_shape(size_))
       , node_(vector_shape_.vector_id, ct::util::Operation::noop, size_)
@@ -176,7 +176,7 @@ namespace ct {
         ++result_sdag_idx;
     }
 
-    vector& vector::operator=(dot_impl::dot_expression const& expr)
+    inline vector& vector::operator=(dot_impl::dot_expression const& expr)
     {
         ct::vec_impl::vec_shape_t const& lhs_shape = expr.lhs.vector_shape();
         ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
@@ -301,7 +301,7 @@ namespace ct {
         };
     }    // namespace blas_impl
 
-    vector::vector(blas_impl::vec_axpy_expr const& expr)
+    inline vector::vector(blas_impl::vec_axpy_expr const& expr)
       : size_(expr.size())
       , vector_shape_(ct::vec_impl::get_vector_shape(size_))
       , node_(vector_shape_.vector_id, ct::util::Operation::axpy, expr.a, size_,
@@ -313,7 +313,7 @@ namespace ct {
         queue.insert(node_, vector_shape_.shape_id);
     }
 
-    vector& vector::operator=(blas_impl::vec_axpy_expr const& expr)
+    inline vector& vector::operator=(blas_impl::vec_axpy_expr const& expr)
     {
         ct::vec_impl::vec_node node{vector_shape_.vector_id,
             ct::util::Operation::axpy, expr.a, size_,
@@ -382,7 +382,7 @@ namespace ct {
         };
     }    // namespace mat_mul_impl
 
-    matrix::matrix(ct::mat_mul_impl::mat_mul_expr const& expr)
+    inline matrix::matrix(ct::mat_mul_impl::mat_mul_expr const& expr)
       : row_size_(expr.rows())
       , col_size_(expr.cols())
       , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
@@ -406,7 +406,7 @@ namespace ct {
         ++curr_sdag_idx;
     }
 
-    matrix& matrix::operator=(ct::mat_mul_impl::mat_mul_expr const& expr)
+    inline matrix& matrix::operator=(ct::mat_mul_impl::mat_mul_expr const& expr)
     {
         CkAssert(expr.rows() == rows() && expr.cols() == cols() &&
             "Mismatched matrix dimensions");
@@ -430,27 +430,79 @@ namespace ct {
         return *this;
     }
 
-    ct::mat_mul_impl::mat_mul_expr operator*(
+    inline ct::mat_mul_impl::mat_mul_expr operator*(
         matrix const& lhs, matrix const& rhs)
     {
         return mat_mul_impl::mat_mul_expr(lhs, rhs);
     }
 
-    mat_mul_impl::mat_mul_expr operator*(matrix const& lhs, matrix&& rhs)
+    inline mat_mul_impl::mat_mul_expr operator*(matrix const& lhs, matrix&& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
     }
 
-    mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix const& rhs)
+    inline mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix const& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
     }
 
-    mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix&& rhs)
+    inline mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix&& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
+    }
+
+    inline ct::scalar sum(ct::vector const& vec)
+    {
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.reduce_sum(
+            vec_sdag_idx, vec_info.vector_id, scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
+
+    inline ct::scalar sum(ct::matrix const& mat)
+    {
+        ct::mat_impl::mat_shape_t mat_info = mat.matrix_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        queue.dispatch(mat_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& mat_sdag_idx = queue.sdag_idx(mat_info.shape_id);
+
+        CProxy_matrix_impl dispatch_proxy = mat_info.proxy;
+        dispatch_proxy.reduce_sum(
+            mat_sdag_idx, mat_info.matrix_id, scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++mat_sdag_idx;
+
+        return result;
     }
 }    // namespace ct
