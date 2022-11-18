@@ -165,6 +165,20 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }}
+
+                when norm_p[SDAG_INDEX](int sdag_idx, int vector_id, int p, int scal_sdag_idx) {
+                serial "norm_p" {
+                    std::vector<double>& lhs = vec_map[vector_id];
+
+                    Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
+
+                    double result = Eigen::pow(elhs, p).sum();
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }}
             
             }} // case + for-loop end
         }
@@ -178,6 +192,7 @@ module libcharmtyles
         entry [reductiontarget] void update_vector(int len, double result[len]);
         entry void update_index(int, int);
         entry void reduce_sum(int, int, int);
+        entry void norm_p(int, int, int, int);
     }
 
     array[2D] matrix_impl

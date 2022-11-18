@@ -505,4 +505,56 @@ namespace ct {
 
         return result;
     }
+
+    inline ct::scalar squared_norm(ct::vector const& vec)
+    {
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.norm_p(
+            vec_sdag_idx, vec_info.vector_id, 2, scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
+
+    inline ct::scalar norm_p(std::size_t p, ct::vector const& vec)
+    {
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        // Dispatch previous instructions belonging to this shape
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.norm_p(
+            vec_sdag_idx, vec_info.vector_id, p, scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
 }    // namespace ct

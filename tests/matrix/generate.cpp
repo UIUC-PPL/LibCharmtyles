@@ -68,9 +68,13 @@ public:
         start = CkWallTimer();
         Eigen::MatrixXd emat{mat_row_len, mat_col_len};
         Eigen::VectorXd evec{vec_len};
+        Eigen::ArrayXd avec{vec_len};
 
         for (int i = 0; i != vec_len; ++i)
+        {
             evec[i] = i;
+            avec[i] = i;
+        }
 
         for (int row = 0; row != emat.rows(); ++row)
             for (int col = 0; col != emat.cols(); ++col)
@@ -100,6 +104,21 @@ public:
         ckout << "[Eigen] Execution Time: " << end - start << endl;
         ckout << "[Eigen] Mat Sum: " << emat_sum << ", Vec Sum: " << evec_sum
               << endl;
+
+        start = CkWallTimer();
+        double vec_norm = ct::squared_norm(vec).get();
+        end = CkWallTimer();
+
+        ckout << "[Charmtyles] Execution Time: " << end - start << endl;
+        ckout << "[Charmtyles] Squared Norm: " << vec_norm << endl;
+
+        start = CkWallTimer();
+
+        double evec_norm = Eigen::pow(avec, 2).sum();
+        end = CkWallTimer();
+
+        ckout << "[Eigen] Execution Time: " << end - start << endl;
+        ckout << "[Eigen] Squared Norm: " << evec_norm << endl;
 
         CkExit();
     }
