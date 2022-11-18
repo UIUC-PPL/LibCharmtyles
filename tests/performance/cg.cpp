@@ -74,7 +74,7 @@ public:
         ct::vector p = r;
 
         ct::scalar rsold = ct::dot(r, r);
-        ckout << "[-1] Rsold: " << rsold.get() << endl;
+        // ckout << "[-1] Rsold: " << rsold.get() << endl;
 
         double gres = 0.;
         ct::vector Ap = ct::dot(A, p);
@@ -94,7 +94,7 @@ public:
         p = ct::axpy(rsnew_value / rsold_value, p, r);
         rsold = rsnew;
 
-        ckout << "[0] Rsold: " << rsold.get() << endl;
+        // ckout << "[0] Rsold: " << rsold.get() << endl;
 
         for (int i = 1; i < 100; ++i)
         {
@@ -118,7 +118,7 @@ public:
             p = ct::axpy(rsnew_value / rsold_value, p, r);
             rsold = rsnew;
 
-            ckout << "[" << i << "] Rsold: " << rsold.get() << endl;
+            // ckout << "[" << i << "] Rsold: " << rsold.get() << endl;
         }
 
         ct::sync();
