@@ -179,7 +179,37 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }}
-            
+
+                when min[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
+                serial "min" {
+                    std::vector<double>& lhs = vec_map[vector_id];
+
+                    Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
+
+                    Eigen::Index index;
+                    double result = elhs.minCoeff(&index);
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::min_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }}
+
+                when max[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
+                serial "max" {
+                    std::vector<double>& lhs = vec_map[vector_id];
+
+                    Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
+
+                    Eigen::Index index;
+                    double result = elhs.maxCoeff(&index);
+
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::max_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }}
+
             }} // case + for-loop end
         }
 
@@ -193,6 +223,8 @@ module libcharmtyles
         entry void update_index(int, int);
         entry void reduce_sum(int, int, int);
         entry void norm_p(int, int, int, int);
+        entry void min(int, int, int);
+        entry void max(int, int, int);
     }
 
     array[2D] matrix_impl

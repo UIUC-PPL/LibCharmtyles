@@ -120,6 +120,35 @@ public:
         ckout << "[Eigen] Execution Time: " << end - start << endl;
         ckout << "[Eigen] Squared Norm: " << evec_norm << endl;
 
+        start = CkWallTimer();
+        double vec_min = ct::min(vec).get();
+        end = CkWallTimer();
+
+        ckout << "[Charmtyles] Execution Time: " << end - start << endl;
+        ckout << "[Charmtyles] Min Value: " << vec_min << endl;
+
+        start = CkWallTimer();
+        Eigen::Index index;
+        double evec_min = avec.minCoeff(&index);
+        end = CkWallTimer();
+
+        ckout << "[Eigen] Execution Time: " << end - start << endl;
+        ckout << "[Eigen] Min Value: " << evec_min << endl;
+
+        start = CkWallTimer();
+        double vec_max = ct::max(vec).get();
+        end = CkWallTimer();
+
+        ckout << "[Charmtyles] Execution Time: " << end - start << endl;
+        ckout << "[Charmtyles] Max Value: " << vec_max << endl;
+
+        start = CkWallTimer();
+        double evec_max = avec.maxCoeff(&index);
+        end = CkWallTimer();
+
+        ckout << "[Eigen] Execution Time: " << end - start << endl;
+        ckout << "[Eigen] Max Value: " << evec_max << endl;
+
         CkExit();
     }
 };
