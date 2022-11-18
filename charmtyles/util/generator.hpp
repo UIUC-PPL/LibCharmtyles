@@ -35,4 +35,31 @@ namespace ct {
         }
     };
 
+    class unary_operator : public PUP::able
+    {
+    public:
+        PUPable_decl(unary_operator);
+
+        unary_operator() = default;
+        virtual ~unary_operator() = default;
+
+        unary_operator(CkMigrateMessage* m)
+          : PUP::able(m)
+        {
+        }
+
+        // Default Operator overload for vectors
+        virtual void operator()(std::size_t index, double& value)
+        {
+            return;
+        }
+
+        // Default Operator overload for matrices
+        virtual void operator()(
+            std::size_t row_id, std::size_t col_id, double& value)
+        {
+            return;
+        }
+    };
+
 }    // namespace ct

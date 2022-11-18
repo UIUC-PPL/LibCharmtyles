@@ -113,6 +113,9 @@ private:
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
 
+        std::shared_ptr<ct::unary_operator> const& unary_expr =
+            node.unary_expr_;
+
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dist(0., 1.);
@@ -204,6 +207,26 @@ private:
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
+            }
+
+            return;
+
+        case ct::util::Operation::unary_expr:
+            total_size = vec_map[node_id].size();
+            unrolled_size = vec_map[node_id].size() / 4;
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
+            {
+                unary_expr->operator()(i, vec_map[node_id][i]);
+                unary_expr->operator()(i + 1, vec_map[node_id][i + 1]);
+                unary_expr->operator()(i + 2, vec_map[node_id][i + 2]);
+                unary_expr->operator()(i + 3, vec_map[node_id][i + 3]);
+            }
+
+            for (std::size_t i = remainder_start; i != total_size; ++i)
+            {
+                unary_expr->operator()(i, vec_map[node_id][i]);
             }
 
             return;

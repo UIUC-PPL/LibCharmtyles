@@ -49,10 +49,7 @@ public:
 
     double generate(int dimX) final
     {
-        if (dimX % DIMENSION == 0)
-            return 2 * dimX;
-
-        return 0;
+        return 2 * dimX;
     }
 
     PUPable_decl(diag_generator);
@@ -100,7 +97,7 @@ public:
         ct::vector dot_r_x = ct::dot(R, x);
         x = (b - dot_r_x) / d;
 
-        for (int i = 1; i != dim; ++i)
+        for (int i = 1; i != 100; ++i)
         {
             dot_r_x = ct::dot(R, x);
             x = (b - dot_r_x) / d;
@@ -126,20 +123,14 @@ public:
 
         for (int i = 0; i != dim; ++i)
         {
-            if (i % DIMENSION)
-            {
-                eb(i) = i;
-                ex(i) = i;
-            }
-            else
-            {
-                ed(i) = 2 * i;
-            }
+            eb(i) = i;
+            ex(i) = i;
+            ed(i) = 2 * i;
         }
 
         start = CkWallTimer();
 
-        for (int i = 0; i != dim; ++i)
+        for (int i = 0; i != 100; ++i)
         {
             auto dot_r_x = ex * eR;
             ex = (eb - dot_r_x) / ed;

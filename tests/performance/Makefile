@@ -3,7 +3,7 @@ include ../../Makefile.common
 TEST_DIR=$(BASE_DIR)/../tests
 LIBS_DIR=$(BASE_DIR)
 
-all: cg eigen_dot jacobi
+all: cg eigen_dot jacobi logistic
 
 .PHONY: clean base
 
@@ -19,6 +19,10 @@ eigen_dot: eigen_dot.cpp base
 
 jacobi: jacobi.cpp
 	$(CHARMC) -E jacobi.ci
+	$(CHARMC) $< -L$(LIBS_DIR)/charmtyles -lcharmtyles -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend -o $@.out $(OPTS)
+
+logistic: logistic.cpp
+	$(CHARMC) -E logistic.ci
 	$(CHARMC) $< -L$(LIBS_DIR)/charmtyles -lcharmtyles -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend -o $@.out $(OPTS)
 
 clean:

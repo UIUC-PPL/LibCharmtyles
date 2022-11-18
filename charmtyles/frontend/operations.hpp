@@ -622,4 +622,12 @@ namespace ct {
 
         return result;
     }
+
+    inline void unary_expr(
+        ct::vector const& vec, std::shared_ptr<unary_operator> unary_operator)
+    {
+        ct::vec_impl::vec_shape_t vector_shape = vec.vector_shape();
+        ct::vec_impl::vec_node root{vector_shape.vector_id,
+            ct::util::Operation::unary_expr, unary_operator, vec.size()};
+    }
 }    // namespace ct

@@ -1,0 +1,14 @@
+mainmodule logistic
+{
+    extern module libcharmtyles;
+
+    PUPable sigmoid_t;
+    PUPable training_generator;
+
+    mainchare Main
+    {
+        entry Main(CkArgMsg*);
+    
+        entry [threaded] void benchmark(int);
+    };
+}

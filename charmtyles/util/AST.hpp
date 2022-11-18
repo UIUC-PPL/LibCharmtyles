@@ -6,6 +6,8 @@
 
 #include "charm++.h"
 
+#include <charmtyles/util/generator.hpp>
+
 namespace ct {
     namespace util {
 
@@ -24,7 +26,10 @@ namespace ct {
             divide = 12,
 
             // Blas
-            axpy = 20
+            axpy = 20,
+
+            // Unary operations
+            unary_expr = 30
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -86,6 +91,8 @@ namespace ct {
         {
             std::size_t name_ = -1;
             ct::util::Operation operation_;
+            std::shared_ptr<ct::unary_operator> unary_expr_ =
+                std::make_shared<ct::unary_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -108,6 +115,16 @@ namespace ct {
               : name_(name)
               , operation_(op)
               , vec_len_(size)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::size_t vec_len)
+              : name_(name)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , vec_len_(vec_len)
             {
             }
 
