@@ -21,6 +21,7 @@ namespace ct {
             // Middle/Head Nodes
             add = 10,
             sub = 11,
+            divide = 12,
 
             // Blas
             axpy = 20

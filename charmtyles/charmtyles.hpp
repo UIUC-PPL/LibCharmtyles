@@ -51,6 +51,22 @@ namespace ct {
         return;
     }
 
+    void sync(ct::vec_impl::vec_shape_t const& vector_shape)
+    {
+        ct::vec_impl::vec_instr_queue_t& vec_queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+        ck::future<bool> vec_sync;
+        CProxy_set_future vec_proxy = CProxy_set_future::ckNew(vec_sync, 1);
+
+        vec_queue.sync(vector_shape.shape_id, vec_proxy);
+
+        vec_sync.get();
+        vec_sync.release();
+
+        return;
+    }
+
     void sync()
     {
         ct::vec_impl::vec_instr_queue_t& vec_queue =

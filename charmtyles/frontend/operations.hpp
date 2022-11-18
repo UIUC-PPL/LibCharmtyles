@@ -68,6 +68,21 @@ namespace ct {
         }
     }
 
+    template <typename LHS, typename RHS>
+    auto operator/(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::divide};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::divide};
+        }
+    }
+
     inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
     {
         std::size_t lhs_shape_id = lhs.vector_shape().shape_id;
@@ -524,7 +539,7 @@ namespace ct {
         CProxy_vector_impl dispatch_proxy = vec_info.proxy;
         dispatch_proxy.norm_p(
             vec_sdag_idx, vec_info.vector_id, 2, scal_sdag_idx);
-        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+        scalar_impl_proxy.norm_update(scal_sdag_idx, result.scalar_id(), 2);
 
         ++scal_sdag_idx;
         ++vec_sdag_idx;
@@ -550,7 +565,7 @@ namespace ct {
         CProxy_vector_impl dispatch_proxy = vec_info.proxy;
         dispatch_proxy.norm_p(
             vec_sdag_idx, vec_info.vector_id, p, scal_sdag_idx);
-        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+        scalar_impl_proxy.norm_update(scal_sdag_idx, result.scalar_id(), p);
 
         ++scal_sdag_idx;
         ++vec_sdag_idx;

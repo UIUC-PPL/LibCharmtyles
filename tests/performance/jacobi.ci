@@ -1,0 +1,14 @@
+mainmodule jacobi
+{
+    extern module libcharmtyles;
+
+    PUPable non_diag_generator;
+    PUPable diag_generator;
+
+    mainchare Main
+    {
+        entry Main(CkArgMsg*);
+    
+        entry [threaded] void benchmark(int);
+    };
+}

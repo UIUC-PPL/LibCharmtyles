@@ -153,6 +153,19 @@ namespace ct {
                 }
             }
 
+            void sync(std::size_t shape_id, CProxy_set_future proxy)
+            {
+                dispatch(shape_id);
+
+                // Ensure synchronous threads are also saved
+                std::size_t& sdag_index = sdag_index_[shape_id];
+                CProxy_vector_impl dispatch_proxy =
+                    CT_ACCESS_SINGLETON(vec_shape_info)[shape_id].proxy;
+
+                dispatch_proxy.synchronize(sdag_index, proxy);
+                ++sdag_index;
+            }
+
             std::size_t& sdag_idx(std::size_t shape_id)
             {
                 return sdag_index_[shape_id];

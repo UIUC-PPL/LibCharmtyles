@@ -34,15 +34,28 @@ module libcharmtyles
                 }} // add_scalar
 
                 when reduction[SDAG_INDEX](double value) {
-                    when update_scalar[SDAG_INDEX](int sdag_index, int scalar_id) {
-                    serial "reduction" {
-                        if (scalar_id >= scal_map.size())
-                            scal_map.resize(scalar_id + 1);
-                        
-                        scal_map[scalar_id] = value;
+                    case {
+                        when update_scalar[SDAG_INDEX](int sdag_index, int scalar_id) {
+                        serial "reduction" {
+                            if (scalar_id >= scal_map.size())
+                                scal_map.resize(scalar_id + 1);
+                            
+                            scal_map[scalar_id] = value;
 
-                        ++SDAG_INDEX;
-                    }} // update_scalar
+                            ++SDAG_INDEX;
+                        }} // update_scalar
+
+                        when norm_update[SDAG_INDEX](int sdag_index, int scalar_id, int p) {
+                        serial "norm_update" {
+                            if (scalar_id >= scal_map.size())
+                                scal_map.resize(scalar_id + 1);
+                            
+                            value = std::pow(value, 1.0 / static_cast<double>(p));
+                            scal_map[scalar_id] = value;
+
+                            ++SDAG_INDEX;
+                        }}
+                    }
                 } // reduction
 
                 when get_value[SDAG_INDEX](int sdag_index, int scalar_id, ck::future<double> fval) {
@@ -58,6 +71,7 @@ module libcharmtyles
         entry void add_scalar(int, int, double);
         entry [reductiontarget] void reduction(double);
         entry void update_scalar(int, int);
+        entry void norm_update(int, int, int);
         entry void get_value(int, int, ck::future<double>);
     }
 
@@ -210,6 +224,14 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }}
 
+                when synchronize[SDAG_INDEX](int sdag_index, CProxy_set_future proxy) {
+                serial "synchronize" {
+                    CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
+                    contribute(cb);
+
+                    ++SDAG_INDEX;
+                }}
+
             }} // case + for-loop end
         }
 
@@ -225,6 +247,7 @@ module libcharmtyles
         entry void norm_p(int, int, int, int);
         entry void min(int, int, int);
         entry void max(int, int, int);
+        entry void synchronize(int, CProxy_set_future);
     }
 
     array[2D] matrix_impl

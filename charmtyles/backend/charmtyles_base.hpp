@@ -177,6 +177,7 @@ private:
 
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
+        case ct::util::Operation::divide:
 
             if (node_id == vec_map.size())
             {
@@ -248,6 +249,10 @@ private:
 
         case ct::util::Operation::sub:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) -
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+
+        case ct::util::Operation::divide:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) /
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
         }
 
@@ -418,6 +423,7 @@ private:
 
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
+        case ct::util::Operation::divide:
 
             if (node_id == mat_map.size())
             {
@@ -478,6 +484,11 @@ private:
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
 
         case ct::util::Operation::sub:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) -
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+
+        case ct::util::Operation::divide:
             return execute_ast_for_idx(
                        instruction, node.left_, iter_i, iter_j) -
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
