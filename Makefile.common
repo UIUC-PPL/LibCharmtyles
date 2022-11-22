@@ -5,7 +5,7 @@ EIGEN_DIR = /usr/include/eigen3
 
 # common options
 CHARMC = $(CHARM_DIR)/bin/charmc -DUSE_ESSL_WRAPPER=0
-OPTS	= -c++-option -std=c++17 -O3 -march=native -DNDEBUG -I$(EIGEN_DIR)
+OPTS	= -c++-option -std=c++17 -O3 -march=native -DNDEBUG -I$(EIGEN_DIR) -tracemode projections
 LD_OPTS =
 
 INCS = -I$(BASE_DIR)
