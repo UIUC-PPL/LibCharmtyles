@@ -69,6 +69,8 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
+        traceRegisterUserEvent("[Eigen] Matrix-Vector Product", 10);
+
         DIMENSION = 1 << 14;
         if (msg->argc > 1)
             DIMENSION = atoi(msg->argv[1]);
