@@ -4,8 +4,6 @@
 
 #include <Eigen/Dense>
 
-/* readonly */ int DIMENSION;
-
 // features -> X_train (Data Points * Num Features)
 // target -> y_train (Data Points)
 // weights -> weight_vector (Num Features)
@@ -108,25 +106,30 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
-        DIMENSION = 1 << 14;
+        int NUM_DATA_POINTS = 1 << 14;
+        int NUM_FEATURES = 1 << 10;
         if (msg->argc > 1)
-            DIMENSION = atoi(msg->argv[1]);
+        {
+            NUM_DATA_POINTS = atoi(msg->argv[1]);
+            NUM_FEATURES = atoi(msg->argv[2]);
+        }
 
         ct::init();
-        thisProxy.benchmark(DIMENSION);
+        thisProxy.benchmark(NUM_DATA_POINTS, NUM_FEATURES);
     }
 
-    void benchmark(int dim)
+    void benchmark(int num_data_points, int num_features)
     {
         std::shared_ptr<training_generator> new_training_generator =
             std::make_shared<training_generator>();
 
-        ct::matrix X_train{dim, dim, new_training_generator};
-        ct::vector y_train{dim, new_training_generator};
+        ct::matrix X_train{
+            num_data_points, num_features, new_training_generator};
+        ct::vector y_train{num_data_points, new_training_generator};
 
         double start = CkWallTimer();
 
-        logistic_regression logit{0.01, 100, dim};
+        logistic_regression logit{0.01, 100, num_features};
         logit.train(X_train, y_train);
 
         ct::sync();

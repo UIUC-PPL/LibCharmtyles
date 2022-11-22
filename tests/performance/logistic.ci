@@ -9,6 +9,6 @@ mainmodule logistic
     {
         entry Main(CkArgMsg*);
     
-        entry [threaded] void benchmark(int);
+        entry [threaded] void benchmark(int, int);
     };
 }
