@@ -37,11 +37,20 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
+        int array_len = 1 << 20;
+        int mat_dim = 1 << 10;
+
         int dim = 1 << 14;
         if (msg->argc > 1)
             dim = atoi(msg->argv[1]);
 
-        ct::init();
+        if (msg->argc > 2)
+        {
+            array_len = atoi(msg->argv[2]);
+            mat_dim = atoi(msg->argv[3]);
+        }
+
+        ct::init(array_len, mat_dim);
         thisProxy.benchmark(dim);
     }
 
