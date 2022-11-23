@@ -8,24 +8,16 @@ if len(sys.argv) > 1:
 print(f'Matrix Dimensions: {dim}x{dim}')
 print(f'Vector Dimensions: {dim}')
 
-A = np.full((dim, dim), 1.)
-b = np.full((dim), 1.)
-x = np.full((dim), 1.)
-
-for row in range(dim):
-    for col in range(dim):
-        A[row][col] = (row + col) % 10
-
-for dimX in range(dim):
-    b[dimX] = dimX
-    x[dimX] = dimX
+A = np.random.random((dim, dim))
+b = np.random.random(dim)
+x = np.random.random(dim)
 
 start = time.time()
 
 r = b - np.dot(A, x)
 p = r
 rsold = np.dot(r, r)
-print(f'[-1] Rsold: {rsold}')
+# print(f'[-1] Rsold: {rsold}')
 
 for i in range(100):
     Ap = np.dot(A, p)
@@ -42,7 +34,7 @@ for i in range(100):
     p = r + (rsnew / rsold) * p
     rsold = rsnew
 
-    print(f'[{i}] Rsold: {rsold}')
+    # print(f'[{i}] Rsold: {rsold}')
 
 end = time.time()
 print(f'Execution Time: {end - start}')
