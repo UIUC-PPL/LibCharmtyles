@@ -323,7 +323,7 @@ module libcharmtyles
                     // Get the subvector indices
                     std::size_t block_dim = col_block_len;
                     std::size_t vec_size = block_dim;
-                    if (thisIndex.x == num_chares_x - 1 && block_dim % col_block_len != 0) {
+                    if (thisIndex.x == num_chares_x - 1 && len % col_block_len != 0) {
                         vec_size = len % col_block_len;
                     }
 
@@ -354,11 +354,11 @@ module libcharmtyles
                     // Get the subvector indices
                     std::size_t block_dim = row_block_len;
                     std::size_t vec_size = block_dim;
-                    if (thisIndex.y == num_chares_y - 1 && block_dim % row_block_len != 0) {
+                    if (thisIndex.y == num_chares_y - 1 && len % row_block_len != 0) {
                         vec_size = len % row_block_len;
                     }
 
-                    Eigen::Map<Eigen::VectorXd> elhs(data + thisIndex.y * block_dim, vec_size);
+                    Eigen::Map<Eigen::RowVectorXd> elhs(data + thisIndex.y * block_dim, vec_size);
                     Eigen::Map<Eigen::MatrixXd> 
                         erhs(mat_map[mat_idx].data(), mat_map[mat_idx].rows(), mat_map[mat_idx].cols());
                     
@@ -366,7 +366,7 @@ module libcharmtyles
                     for (int i = 0; i != result_size; ++i)
                         result[i] = 0;
 
-                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.x * col_block_len, mat_map[mat_idx].cols());
+                    Eigen::Map<Eigen::RowVectorXd> eres(result + thisIndex.x * col_block_len, mat_map[mat_idx].cols());
                     eres = elhs * erhs;
 
                     // TODO: Use Section Reduction!

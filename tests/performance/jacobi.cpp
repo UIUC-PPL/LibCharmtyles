@@ -118,37 +118,6 @@ public:
         ckout << "[Charmtyles] Execution Time: " << end - start << endl;
         ckout << "[Charmtyles] Squared Norm (x): " << sum_x.get() << endl;
 
-        Eigen::ArrayXXd eR{dim, dim};
-        Eigen::ArrayXd eb{dim};
-        Eigen::ArrayXd ex{dim};
-        Eigen::ArrayXd ed{dim};
-
-        for (int i = 0; i != dim; ++i)
-            for (int j = 0; j != dim; ++j)
-                if (i != j)
-                    eR(i, j) = (i + j) % 10;
-                else
-                    eR(i, j) = 0;
-
-        for (int i = 0; i != dim; ++i)
-        {
-            eb(i) = i;
-            ex(i) = i;
-            ed(i) = 2 * i;
-        }
-
-        start = CkWallTimer();
-
-        for (int i = 0; i != 100; ++i)
-        {
-            auto dot_r_x = ex * eR;
-            ex = (eb - dot_r_x) / ed;
-        }
-
-        end = CkWallTimer();
-        ckout << "[Eigen] Execution Time: " << end - start << endl;
-        ckout << "[Eigen] Squared Norm (x): " << ex.sum() << endl;
-
         CkExit();
     }
 };

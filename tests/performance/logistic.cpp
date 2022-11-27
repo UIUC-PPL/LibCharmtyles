@@ -50,16 +50,17 @@ public:
         ct::unary_expr(predictions, sigmoid_);
 
         ct::vector error = y_train - predictions;
-        ct::vector gradient = ct::dot(X_train, error);
+        ct::vector gradient = ct::dot(error, X_train);
         weight_vector_ = ct::axpy(learning_rate_, gradient, weight_vector_);
 
+        ct::sync(weight_vector_.vector_shape());
         for (std::size_t iters = 1; iters != iterations_; ++iters)
         {
             predictions = ct::dot(X_train, weight_vector_);
             ct::unary_expr(predictions, sigmoid_);
 
             error = y_train - predictions;
-            gradient = ct::dot(X_train, error);
+            gradient = ct::dot(error, X_train);
             weight_vector_ = ct::axpy(learning_rate_, gradient, weight_vector_);
         }
     }
@@ -114,7 +115,15 @@ public:
             NUM_FEATURES = atoi(msg->argv[2]);
         }
 
-        ct::init();
+        int array_len = 1 << 20;
+        int mat_dim = 1 << 10;
+        if (msg->argc > 3)
+        {
+            array_len = atoi(msg->argv[2]);
+            mat_dim = atoi(msg->argv[3]);
+        }
+
+        ct::init(array_len, mat_dim);
         thisProxy.benchmark(NUM_DATA_POINTS, NUM_FEATURES);
     }
 

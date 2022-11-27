@@ -124,31 +124,29 @@ namespace ct {
 
         public:
             dot_expression(ct::vector const& lhs_, ct::matrix const& rhs_,
-                bool vec_mat = true)
+                std::size_t size, bool vec_mat = true)
               : lhs(lhs_)
               , rhs(rhs_)
+              , size_(size)
+              , is_vec_mat(vec_mat)
             {
             }
 
-            std::size_t cols() const
+            std::size_t size() const
             {
-                return rhs.cols();
-            }
-
-            std::size_t rows() const
-            {
-                return rhs.rows();
+                return size_;
             }
 
         private:
             ct::vector const& lhs;
             ct::matrix const& rhs;
+            std::size_t size_;
             bool is_vec_mat;
         };
     }    // namespace dot_impl
 
     inline vector::vector(dot_impl::dot_expression const& expr)
-      : size_(expr.rows())
+      : size_(expr.size())
       , vector_shape_(ct::vec_impl::get_vector_shape(size_))
       , node_(vector_shape_.vector_id, ct::util::Operation::noop, size_)
     {
@@ -201,6 +199,10 @@ namespace ct {
 
     inline vector& vector::operator=(dot_impl::dot_expression const& expr)
     {
+        CkAssert(expr.size() == size_ &&
+            "Dot product result dimensions not equivalent to current vector "
+            "dimensions.");
+
         ct::vec_impl::vec_shape_t const& lhs_shape = expr.lhs.vector_shape();
         ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
 
@@ -253,20 +255,20 @@ namespace ct {
         ct::vector const& lhs, ct::matrix const& rhs)
     {
         std::size_t lhs_len = lhs.size();
-        std::size_t rhs_cols = rhs.cols();
-        CkAssert(lhs_len == rhs_cols && "Invalid dot product dimensions.");
+        std::size_t rhs_rows = rhs.rows();
+        CkAssert(lhs_len == rhs_rows && "Invalid dot product dimensions.");
 
-        return ct::dot_impl::dot_expression{lhs, rhs};
+        return ct::dot_impl::dot_expression{lhs, rhs, rhs.cols()};
     }
 
     inline ct::dot_impl::dot_expression dot(
         ct::matrix const& lhs, ct::vector const& rhs)
     {
-        std::size_t lhs_rows = lhs.rows();
+        std::size_t lhs_cols = lhs.cols();
         std::size_t rhs_len = rhs.size();
-        CkAssert(rhs_len == lhs_rows && "Invalid dot product dimensions.");
+        CkAssert(rhs_len == lhs_cols && "Invalid dot product dimensions.");
 
-        return ct::dot_impl::dot_expression{rhs, lhs, false};
+        return ct::dot_impl::dot_expression{rhs, lhs, lhs.rows(), false};
     }
 
     // Non-implemented dot product types
@@ -347,6 +349,10 @@ namespace ct {
 
     inline vector& vector::operator=(blas_impl::vec_axpy_expr const& expr)
     {
+        CkAssert(size_ == expr.size() &&
+            "Resultant Vector Dimension not equivalent to Operand Vector "
+            "Dimension.");
+
         ct::vec_impl::vec_node node{vector_shape_.vector_id,
             ct::util::Operation::axpy, expr.a, size_,
             expr.x.vector_shape_.vector_id, expr.y.vector_shape_.vector_id};
