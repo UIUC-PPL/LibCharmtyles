@@ -119,8 +119,8 @@ public:
         int mat_dim = 1 << 10;
         if (msg->argc > 3)
         {
-            array_len = atoi(msg->argv[2]);
-            mat_dim = atoi(msg->argv[3]);
+            array_len = atoi(msg->argv[3]);
+            mat_dim = atoi(msg->argv[4]);
         }
 
         ct::init(array_len, mat_dim);
