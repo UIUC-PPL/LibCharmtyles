@@ -124,7 +124,7 @@ private:
         {
         case ct::util::Operation::init_random:
 
-            CkAssert((vec_map.size() + 1 == node_id) &&
+            CkAssert((vec_map.size() == node_id) &&
                 "A vector is initialized before a dependent vector "
                 "initialization.");
 
@@ -141,7 +141,7 @@ private:
             return;
 
         case ct::util::Operation::init_value:
-            CkAssert((vec_map.size() + 1 == node_id) &&
+            CkAssert((vec_map.size() == node_id) &&
                 "A vector is initialized before a dependent vector "
                 "initialization.");
 
@@ -377,7 +377,7 @@ private:
         {
         case ct::util::Operation::init_random:
 
-            CkAssert((mat_map.size() + 1 == node_id) &&
+            CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
 
@@ -394,7 +394,7 @@ private:
             return;
 
         case ct::util::Operation::init_value:
-            CkAssert((mat_map.size() + 1 == node_id) &&
+            CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
 

@@ -87,7 +87,7 @@ module libcharmtyles
                 when generator_init[SDAG_INDEX](int sdag_idx,
                     int vec_idx, int total_len, std::shared_ptr<ct::generator> gen_ptr) {
                 serial "generator_init" {
-                    CkAssert((vec_map.size() + 1 == node_id) &&
+                    CkAssert((vec_map.size() == vec_idx) &&
                         "A vector is initialized before a dependent vector "
                         "initialization.");
 
@@ -263,7 +263,7 @@ module libcharmtyles
                 when generator_init[SDAG_INDEX](
                     int sdag_index, int node_id, int total_rows, int total_cols, std::shared_ptr<ct::generator> gen_ptr) {
                 serial "generator_init" {
-                    CkAssert((mat_map.size() + 1 == node_id) &&
+                    CkAssert((mat_map.size() == node_id) &&
                         "A matrix is initialized before a dependent matrix "
                         "initialization.");
 
@@ -345,6 +345,37 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // matrix vector dot product
 
+                when vec_mat_dot[SDAG_INDEX](
+                    int sdag_index, int mat_idx, int result_sdag_idx,
+                    CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
+                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
+                serial "vec_mat_dot" {
+
+                    // Get the subvector indices
+                    std::size_t block_dim = row_block_len;
+                    std::size_t vec_size = block_dim;
+                    if (thisIndex.y == num_chares_y - 1 && block_dim % row_block_len != 0) {
+                        vec_size = len % row_block_len;
+                    }
+
+                    Eigen::Map<Eigen::VectorXd> elhs(data + thisIndex.y * block_dim, vec_size);
+                    Eigen::Map<Eigen::MatrixXd> 
+                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].rows(), mat_map[mat_idx].cols());
+                    
+                    double result[result_size];
+                    for (int i = 0; i != result_size; ++i)
+                        result[i] = 0;
+
+                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.x * col_block_len, mat_map[mat_idx].cols());
+                    eres = elhs * erhs;
+
+                    // TODO: Use Section Reduction!
+                    CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
+                    contribute((result_size) * sizeof(double), result, CkReduction::sum_double, cb);
+
+                    ++SDAG_INDEX;
+                }} // vector matrix dot product
+
                 when mat_mat_mul[SDAG_INDEX](
                     int sdag_index, int mat_idx, int mat_A_idx, int mat_B_idx) {
                     serial "initial_send" {
@@ -420,6 +451,7 @@ module libcharmtyles
         entry void synchronize(int, CProxy_set_future);
         
         entry void mat_vec_dot(int, int, int, CProxy_vector_impl, int, int);
+        entry void vec_mat_dot(int, int, int, CProxy_vector_impl, int, int);
         entry void receive_to_matrix(int, int len, double data[len]);
 
         entry void reduce_sum(int, int, int);

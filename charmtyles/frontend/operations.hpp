@@ -123,7 +123,8 @@ namespace ct {
             friend class ct::vector;
 
         public:
-            dot_expression(ct::vector const& lhs_, ct::matrix const& rhs_)
+            dot_expression(ct::vector const& lhs_, ct::matrix const& rhs_,
+                bool vec_mat = true)
               : lhs(lhs_)
               , rhs(rhs_)
             {
@@ -142,6 +143,7 @@ namespace ct {
         private:
             ct::vector const& lhs;
             ct::matrix const& rhs;
+            bool is_vec_mat;
         };
     }    // namespace dot_impl
 
@@ -175,9 +177,15 @@ namespace ct {
 
         lhs_proxy.send_to_matrix(
             lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
-        dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-            result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-            size_);
+
+        if (expr.is_vec_mat)
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
+                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
+                size_);
+        else
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
+                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
+                size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -218,9 +226,14 @@ namespace ct {
 
         lhs_proxy.send_to_matrix(
             lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
-        dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-            result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-            size_);
+        if (expr.is_vec_mat)
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
+                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
+                size_);
+        else
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
+                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
+                size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -249,7 +262,11 @@ namespace ct {
     inline ct::dot_impl::dot_expression dot(
         ct::matrix const& lhs, ct::vector const& rhs)
     {
-        return dot(rhs, lhs);
+        std::size_t lhs_rows = lhs.rows();
+        std::size_t rhs_len = rhs.size();
+        CkAssert(rhs_len == lhs_rows && "Invalid dot product dimensions.");
+
+        return ct::dot_impl::dot_expression{rhs, lhs, false};
     }
 
     // Non-implemented dot product types
