@@ -232,7 +232,7 @@ private:
             return;
 
         case ct::util::Operation::axpy:
-
+        {
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
@@ -252,6 +252,9 @@ private:
             er = alpha * ex + ey;
 
             return;
+        }
+        default:
+            CmiAbort("Operation not implemented");
         }
     }
 
@@ -277,6 +280,8 @@ private:
         case ct::util::Operation::divide:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) /
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
+        default:
+            CmiAbort("Operation not implemented");
         }
 
         // Control should not reach here!
@@ -487,6 +492,8 @@ private:
             }
 
             return;
+        default:
+            CmiAbort("Operation not implemented");
         }
     }
 
@@ -515,6 +522,8 @@ private:
             return execute_ast_for_idx(
                        instruction, node.left_, iter_i, iter_j) -
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        default:
+            CmiAbort("Operation not implemented");
         }
 
         // Control should not reach here!
