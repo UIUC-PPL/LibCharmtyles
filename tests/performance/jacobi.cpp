@@ -1,10 +1,11 @@
 #include <charmtyles/charmtyles.hpp>
+#include <string>
 
 #include "jacobi.decl.h"
 
 #include <Eigen/Dense>
 
-/* readonly */ int DIMENSION;
+/* readonly */ size_t DIMENSION;
 
 class non_diag_generator : public ct::generator
 {
@@ -71,13 +72,13 @@ public:
     {
         DIMENSION = 1 << 14;
         if (msg->argc > 1)
-            DIMENSION = atoi(msg->argv[1]);
+            DIMENSION = std::stoull(msg->argv[1]);
 
         ct::init();
         thisProxy.benchmark(DIMENSION);
     }
 
-    void benchmark(int dim)
+    void benchmark(size_t dim)
     {
         std::shared_ptr<non_diag_generator> new_non_diag_generator =
             std::make_shared<non_diag_generator>();
