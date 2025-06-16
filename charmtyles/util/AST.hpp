@@ -80,6 +80,8 @@ namespace ct {
                 ckout << " - ";
                 parse_ast(instr, instr[index].right_);
                 return;
+            default:
+                CmiAbort("Operation not implemented");
             }
         }
 
