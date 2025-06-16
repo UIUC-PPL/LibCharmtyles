@@ -1,4 +1,5 @@
 #include <charmtyles/charmtyles.hpp>
+#include <string>
 
 #include "cg.decl.h"
 
@@ -37,15 +38,15 @@ class Main : public CBase_Main
 public:
     Main(CkArgMsg* msg)
     {
-        int dim = 1 << 14;
+        size_t dim = 1 << 14;
         if (msg->argc > 1)
-            dim = atoi(msg->argv[1]);
+            dim = std::stoull(msg->argv[1]);
 
         ct::init();
         thisProxy.benchmark(dim);
     }
 
-    void benchmark(int dim)
+    void benchmark(size_t dim)
     {
         ckout << "Matrix Dimensions: " << dim << "x" << dim << endl;
         ckout << "Vector Dimensions: " << dim << endl;
