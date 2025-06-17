@@ -179,6 +179,8 @@ namespace ct {
         {
             std::size_t name_ = -1;
             ct::util::Operation operation_;
+            std::shared_ptr<ct::unary_operator> unary_expr_ =
+                std::make_shared<ct::unary_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -203,6 +205,17 @@ namespace ct {
                 std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , unary_expr_(unary_expr)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
             {
