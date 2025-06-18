@@ -647,4 +647,13 @@ namespace ct {
         ct::vec_impl::vec_node root{vector_shape.vector_id,
             ct::util::Operation::unary_expr, unary_operator, vec.size()};
     }
+
+    inline void unary_expr(
+        ct::matrix const& mat, std::shared_ptr<unary_operator> unary_operator)
+    {
+        ct::mat_impl::mat_shape_t mat_shape = mat.matrix_shape();
+        ct::mat_impl::mat_node root{mat_shape.matrix_id,
+            ct::util::Operation::unary_expr, unary_operator, mat.rows(),
+            mat.cols()};
+    }
 }    // namespace ct
