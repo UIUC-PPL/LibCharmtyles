@@ -503,9 +503,12 @@ private:
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
                     unary_expr->operator()(i, j, mat_map[node_id](i, j));
-                    unary_expr->operator()(i, j, mat_map[node_id](i + 1, j));
-                    unary_expr->operator()(i, j, mat_map[node_id](i + 2, j));
-                    unary_expr->operator()(i, j, mat_map[node_id](i + 3, j));
+                    unary_expr->operator()(
+                        i + 1, j, mat_map[node_id](i + 1, j));
+                    unary_expr->operator()(
+                        i + 2, j, mat_map[node_id](i + 2, j));
+                    unary_expr->operator()(
+                        i + 3, j, mat_map[node_id](i + 3, j));
                 }
             }
             for (std::size_t i = remainder_start; i != total_size; ++i)
