@@ -647,4 +647,19 @@ namespace ct {
         ct::vec_impl::vec_node root{vector_shape.vector_id,
             ct::util::Operation::unary_expr, unary_operator, vec.size()};
     }
+
+    inline void binary_expr(
+        ct::vector const& lhs, ct::vector const& rhs,
+        std::shared_ptr<binary_operator> binary_operator) 
+    {
+        std::size_t lhs_shape_id = lhs.vector_shape().shape_id;
+        std::size_t rhs_shape_id = rhs.vector_shape().shape_id;
+        CkAssert(lhs_shape_id == rhs_shape_id &&
+            "Binary expression across vectors belonging to different shapes is "
+            "illegal.");
+        ct::vec_impl::vec_shape_t vector_shape = lhs.vector_shape();
+        ct::vec_impl::vec_node root{vector_shape.vector_id,
+            ct::util::Operation::binary_expr, binary_operator, lhs.size(),
+            lhs.vector_shape().vector_id, rhs.vector_shape().vector_id};
+    }
 }    // namespace ct
