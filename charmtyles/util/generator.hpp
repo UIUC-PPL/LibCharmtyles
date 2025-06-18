@@ -62,4 +62,31 @@ namespace ct {
         }
     };
 
+    class binary_operator : public PUP::able
+    {
+    public:
+        PUPable_decl(binary_operator);
+
+        binary_operator() = default;
+        virtual ~binary_operator() = default;
+
+        binary_operator(CkMigrateMessage* m)
+          : PUP::able(m)
+        {
+        }
+
+        // Default Operator overload for vectors
+        virtual void operator()(std::size_t index, double& lhs, double& rhs)
+        {
+            return;
+        }
+
+        // Default Operator overload for matrices
+        virtual void operator()(std::size_t row_id, std::size_t col_id,
+            double& lhs, double& rhs)
+        {
+            return;
+        }
+    };
+
 }    // namespace ct

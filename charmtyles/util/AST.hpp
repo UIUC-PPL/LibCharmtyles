@@ -29,7 +29,8 @@ namespace ct {
             axpy = 20,
 
             // Unary operations
-            unary_expr = 30
+            unary_expr = 30,
+            binary_expr = 31,
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -95,6 +96,8 @@ namespace ct {
             ct::util::Operation operation_;
             std::shared_ptr<ct::unary_operator> unary_expr_ =
                 std::make_shared<ct::unary_operator>();
+            std::shared_ptr<ct::binary_operator> binary_expr_ =
+                std::make_shared<ct::binary_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -127,6 +130,18 @@ namespace ct {
               , operation_(op)
               , unary_expr_(unary_expr)
               , vec_len_(vec_len)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::size_t vec_len, std::size_t left, std::size_t right)
+              : name_(name)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , vec_len_(vec_len)
+              , left_(left)
+              , right_(right)
             {
             }
 
