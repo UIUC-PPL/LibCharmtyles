@@ -364,6 +364,8 @@ private:
     {
         ct::mat_impl::mat_node const& node = instruction[index];
         std::size_t node_id = node.name_;
+        std::shared_ptr<ct::unary_operator> const& unary_expr =
+            node.unary_expr_;
 
         // Useful variables in switch statement
         std::size_t num_rows{0};
@@ -492,6 +494,33 @@ private:
             }
 
             return;
+        case ct::util::Operation::unary_expr:
+            total_size = mat_map[node_id].cols();
+            unrolled_size = mat_map[node_id].cols() / 4;
+            remainder_start = unrolled_size * 4;
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); i++)
+            {
+                for (std::size_t j = 0; j != remainder_start; j += 4)
+                {
+                    unary_expr->operator()(i, j, mat_map[node_id](i, j));
+                    unary_expr->operator()(
+                        i, j + 1, mat_map[node_id](i, j + 1));
+                    unary_expr->operator()(
+                        i, j + 2, mat_map[node_id](i, j + 2));
+                    unary_expr->operator()(
+                        i, j + 3, mat_map[node_id](i, j + 3));
+                }
+            }
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); ++i)
+            {
+                for (std::size_t j = remainder_start; j != total_size; ++j)
+                {
+                    unary_expr->operator()(i, j, mat_map[node_id](i, j));
+                }
+            }
+
+            return;
+
         default:
             CmiAbort("Operation not implemented");
         }

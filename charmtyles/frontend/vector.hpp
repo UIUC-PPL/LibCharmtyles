@@ -9,6 +9,11 @@
 #include <vector>
 
 namespace ct {
+    namespace unary_impl {
+        template <typename Operand>
+        class unary_expression;
+    }    // namespace unary_impl
+
     namespace vec_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, vec_shape_id);
@@ -97,8 +102,7 @@ namespace ct {
                     ckout << "Instructions for Shape ID: " << i << endl;
 
                     for (std::size_t num_instr = 0;
-                         num_instr != shape_vector_queue_[i].size();
-                         ++num_instr)
+                        num_instr != shape_vector_queue_[i].size(); ++num_instr)
                     {
                         ckout << "Instruction " << num_instr << ": ";
                         ct::util::parse_ast(
@@ -313,6 +317,9 @@ namespace ct {
         template <typename LHS, typename RHS>
         friend class vec_impl::vec_expression;
 
+        template <typename Operand>
+        friend class unary_impl::unary_expression;
+
         friend class dot_impl::dot_expression;
 
     public:
@@ -434,6 +441,12 @@ namespace ct {
 
         vector(blas_impl::vec_axpy_expr const&);
         vector& operator=(blas_impl::vec_axpy_expr const&);
+
+        template <typename Operand>
+        vector(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename Operand>
+        vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
 
         // Helper functions
     public:
