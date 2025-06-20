@@ -99,8 +99,7 @@ namespace ct {
                     ckout << "Instructions for Shape ID: " << i << endl;
 
                     for (std::size_t num_instr = 0;
-                         num_instr != shape_matrix_queue_[i].size();
-                         ++num_instr)
+                        num_instr != shape_matrix_queue_[i].size(); ++num_instr)
                     {
                         ckout << "Instruction " << num_instr << ": ";
                         ct::util::parse_ast(
@@ -385,6 +384,21 @@ namespace ct {
           , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
           , node_(
                 matrix_shape_.matrix_id, ct::util::Operation::copy, other.node_)
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(node_, matrix_shape_.shape_id);
+        }
+
+        matrix(
+            matrix const& other, std::shared_ptr<unary_operator> unary_operator)
+          : row_size_(other.row_size_)
+          , col_size_(other.col_size_)
+          , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
+          , node_(other.matrix_shape_.matrix_id,
+                ct::util::Operation::unary_expr, unary_operator, row_size_,
+                col_size_)
         {
             ct::mat_impl::mat_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);

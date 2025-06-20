@@ -164,6 +164,7 @@ namespace ct {
                 p | name_;
                 p | operation_;
                 p | copy_id_;
+                p | unary_expr_;
                 p | value_;
                 p | vec_len_;
                 p | left_;
@@ -245,6 +246,7 @@ namespace ct {
             {
                 p | name_;
                 p | operation_;
+                p | unary_expr_;
                 p | copy_id_;
                 p | value_;
                 p | mat_row_len_;
