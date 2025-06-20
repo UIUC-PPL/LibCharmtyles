@@ -9,64 +9,9 @@
 #include <vector>
 
 namespace ct {
-
     namespace unary_impl {
         template <typename Operand>
-        class unary_expression
-        {
-        public:
-            explicit unary_expression(Operand const& operand_,
-                std::shared_ptr<unary_operator> unary_op_)
-              : operand(operand_)
-              , unary_op(unary_op_)
-            {
-            }
-
-            std::vector<ct::vec_impl::vec_node> operator()() const
-            {
-                std::vector<ct::vec_impl::vec_node> operand_ast = operand();
-                ct::vec_impl::vec_node& operand_root = operand_ast.front();
-
-                // Create unary expression node
-                ct::vec_impl::vec_node unary_node{operand_root.name_,
-                    ct::util::Operation::unary_expr, unary_op,
-                    operand_root.vec_len_};
-
-                // Set the operand as the left child
-                unary_node.left_ = 1;
-
-                std::vector<ct::vec_impl::vec_node> ast;
-                ast.reserve(operand_ast.size() + 1);
-
-                ast.emplace_back(unary_node);
-                std::copy(operand_ast.begin(), operand_ast.end(),
-                    std::back_inserter(ast));
-
-                // Update indices in operand AST
-                for (int i = 1; i != ast.size(); ++i)
-                {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
-                    {
-                        ast[i].left_ += 1;
-                    }
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
-                    {
-                        ast[i].right_ += 1;
-                    }
-                }
-
-                return ast;
-            }
-
-            std::size_t size() const
-            {
-                return operand.size();
-            }
-
-        private:
-            Operand const& operand;
-            std::shared_ptr<unary_operator> unary_op;
-        };
+        class unary_expression;
     }    // namespace unary_impl
 
     namespace vec_impl {
@@ -435,40 +380,6 @@ namespace ct {
             queue.insert(node_, vector_shape_.shape_id);
         }
 
-        template <typename Operand>
-        vector(ct::unary_impl::unary_expression<Operand> const& e)
-        {
-            std::vector<ct::vec_impl::vec_node> instr = e();
-            ct::vec_impl::vec_node& root = instr.front();
-            size_ = root.vec_len_;
-
-            vector_shape_ = ct::vec_impl::get_vector_shape(size_);
-
-            root.name_ = vector_shape_.vector_id;
-            node_ = ct::vec_impl::vec_node{root};
-
-            ct::vec_impl::vec_instr_queue_t& queue =
-                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-
-            queue.insert(instr, vector_shape_.shape_id);
-        }
-
-        template <typename Operand>
-        vector& operator=(ct::unary_impl::unary_expression<Operand> const& e)
-        {
-            std::vector<ct::vec_impl::vec_node> instr = e();
-            ct::vec_impl::vec_node& root = instr.front();
-
-            root.name_ = vector_shape_.vector_id;
-
-            ct::vec_impl::vec_instr_queue_t& queue =
-                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-
-            queue.insert(instr, vector_shape_.shape_id);
-
-            return *this;
-        }
-
         vector& operator=(vector const& other)
         {
             node_.operation_ = ct::util::Operation::copy;
@@ -530,6 +441,12 @@ namespace ct {
 
         vector(blas_impl::vec_axpy_expr const&);
         vector& operator=(blas_impl::vec_axpy_expr const&);
+
+        template <typename Operand>
+        vector(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename Operand>
+        vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
 
         // Helper functions
     public:

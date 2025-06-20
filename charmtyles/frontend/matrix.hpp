@@ -7,7 +7,10 @@
 #include <charmtyles/util/sizes.hpp>
 
 namespace ct {
-
+    namespace unary_impl {
+        template <typename Operand>
+        class unary_expression;
+    }
     namespace mat_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, mat_shape_id);
@@ -327,6 +330,8 @@ namespace ct {
     {
         template <typename LHS, typename RHS>
         friend class mat_impl::mat_expression;
+        template <typename Operand>
+        friend class unary_impl::unary_expression;
 
     public:
         matrix() = default;
@@ -450,6 +455,12 @@ namespace ct {
 
         matrix(ct::mat_mul_impl::mat_mul_expr const& expr);
         matrix& operator=(ct::mat_mul_impl::mat_mul_expr const& expr);
+
+        template <typename Operand>
+        matrix(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename Operand>
+        matrix& operator=(ct::unary_impl::unary_expression<Operand> const& e);
 
         template <typename LHS, typename RHS>
         matrix& operator=(ct::mat_impl::mat_expression<LHS, RHS> const& e)

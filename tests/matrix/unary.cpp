@@ -1,0 +1,77 @@
+#include <charmtyles/charmtyles.hpp>
+
+#include "unary.decl.h"
+
+class identity_t : public ct::unary_operator
+{
+public:
+    identity_t() = default;
+    ~identity_t() {}
+
+    using ct::unary_operator::unary_operator;
+
+    inline void operator()(std::size_t index, double& value) override final
+    {
+        value = 1.0;
+    }
+
+    inline void operator()(
+        std::size_t rows, std::size_t cols, double& value) override final
+    {
+        if (rows == cols)
+        {
+            value = 1.0;
+        }
+        else
+        {
+            value = 0;
+        }
+    }
+
+    PUPable_decl(identity_t);
+    identity_t(CkMigrateMessage* m)
+      : ct::unary_operator(m)
+    {
+    }
+
+    void pup(PUP::er& p) final
+    {
+        ct::unary_operator::pup(p);
+    }
+};
+
+class Main : public CBase_Main
+{
+public:
+    Main(CkArgMsg* msg)
+    {
+        int num_pes = 6;
+        if (msg->argc > 1)
+            num_pes = atoi(msg->argv[1]);
+
+        ct::init();
+        thisProxy.benchmark();
+    }
+
+    void benchmark()
+    {
+        std::shared_ptr<ct::unary_operator> identity =
+            std::make_shared<identity_t>();
+        ct::matrix orig{1000, 1000, 1.0};
+        ct::matrix identity_mat = ct::unary_expr(orig, identity);
+        ct::vector v1{1000, 1.0};
+        ct::vector vres = ct::dot(orig, v1);
+        ct::vector v_id = ct::dot(identity_mat, v1);
+        ct::scalar sval = ct::dot(vres, vres);
+        ct::scalar s_id = ct::dot(v_id, v_id);
+        double uval = sval.get();
+        double val_id = s_id.get();
+
+        ckout << "[Result] Mat-mul sum: " << uval << endl;
+        ckout << "[Result] Identity: " << val_id << endl;
+
+        CkExit();
+    }
+};
+
+#include "unary.def.h"

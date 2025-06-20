@@ -20,6 +20,18 @@ namespace ct {
             constexpr static bool value = true;
         };
 
+        template <typename T>
+        struct is_unary_vec_type
+        {
+            constexpr static bool value = std::is_same_v<T, ct::vector>;
+        };
+
+        template <typename T>
+        struct is_unary_mat_type
+        {
+            constexpr static bool value = std::is_same_v<T, ct::matrix>;
+        };
+
         template <typename LHS, typename RHS>
         struct is_vec_type
         {
@@ -639,6 +651,190 @@ namespace ct {
 
         return result;
     }
+    namespace unary_impl {
+        template <typename Operand>
+        class unary_expression
+        {
+        public:
+            explicit unary_expression(Operand const& operand_,
+                std::shared_ptr<unary_operator> unary_op_)
+              : operand(operand_)
+              , unary_op(unary_op_)
+            {
+            }
+
+            // Single operator() that uses traits
+            auto operator()() const
+            {
+                if constexpr (ct::traits::is_unary_vec_type<Operand>::value)
+                {
+                    return create_vec_ast();
+                }
+                else if constexpr (ct::traits::is_unary_mat_type<
+                                       Operand>::value)
+                {
+                    return create_mat_ast();
+                }
+                else
+                {
+                    static_assert(
+                        ct::traits::is_unary_vec_type<Operand>::value ||
+                            ct::traits::is_unary_mat_type<Operand>::value,
+                        "Operand must be ct::vector or ct::matrix");
+                }
+            }
+
+            std::size_t size() const
+            {
+                return operand.size();
+            }
+            std::size_t rows() const
+            {
+                return operand.rows();
+            }
+            std::size_t cols() const
+            {
+                return operand.cols();
+            }
+
+        private:
+            // Vector AST creation
+            std::vector<ct::vec_impl::vec_node> create_vec_ast() const
+            {
+                std::vector<ct::vec_impl::vec_node> operand_ast = operand();
+                ct::vec_impl::vec_node& operand_root = operand_ast.front();
+
+                ct::vec_impl::vec_node unary_node{operand_root.name_,
+                    ct::util::Operation::unary_expr, unary_op,
+                    operand_root.vec_len_};
+
+                unary_node.left_ = 1;
+
+                std::vector<ct::vec_impl::vec_node> ast;
+                ast.reserve(operand_ast.size() + 1);
+
+                ast.emplace_back(unary_node);
+                std::copy(operand_ast.begin(), operand_ast.end(),
+                    std::back_inserter(ast));
+
+                for (int i = 1; i != ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1;
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1;
+                }
+
+                return ast;
+            }
+
+            // Matrix AST creation
+            std::vector<ct::mat_impl::mat_node> create_mat_ast() const
+            {
+                std::vector<ct::mat_impl::mat_node> operand_ast = operand();
+                ct::mat_impl::mat_node& operand_root = operand_ast.front();
+
+                ct::mat_impl::mat_node unary_node{operand_root.name_,
+                    ct::util::Operation::unary_expr, unary_op,
+                    operand_root.mat_row_len_, operand_root.mat_col_len_};
+
+                unary_node.left_ = 1;
+
+                std::vector<ct::mat_impl::mat_node> ast;
+                ast.reserve(operand_ast.size() + 1);
+
+                ast.emplace_back(unary_node);
+                std::copy(operand_ast.begin(), operand_ast.end(),
+                    std::back_inserter(ast));
+
+                for (int i = 1; i != ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1;
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1;
+                }
+
+                return ast;
+            }
+
+            Operand const& operand;
+            std::shared_ptr<unary_operator> unary_op;
+        };
+    }    // namespace unary_impl
+
+    // Vector constructors and assignment operators
+    template <typename Operand>
+    vector::vector(ct::unary_impl::unary_expression<Operand> const& e)
+    {
+        std::vector<ct::vec_impl::vec_node> instr = e();
+        ct::vec_impl::vec_node& root = instr.front();
+        size_ = root.vec_len_;
+
+        vector_shape_ = ct::vec_impl::get_vector_shape(size_);
+
+        root.name_ = vector_shape_.vector_id;
+        node_ = ct::vec_impl::vec_node{root};
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+        queue.insert(instr, vector_shape_.shape_id);
+    }
+
+    template <typename Operand>
+    vector& vector::operator=(
+        ct::unary_impl::unary_expression<Operand> const& e)
+    {
+        std::vector<ct::vec_impl::vec_node> instr = e();
+        ct::vec_impl::vec_node& root = instr.front();
+
+        root.name_ = vector_shape_.vector_id;
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+        queue.insert(instr, vector_shape_.shape_id);
+
+        return *this;
+    }
+
+    // Matrix constructors and assignment operators
+    template <typename Operand>
+    matrix::matrix(ct::unary_impl::unary_expression<Operand> const& e)
+    {
+        std::vector<ct::mat_impl::mat_node> instr = e();
+        ct::mat_impl::mat_node& root = instr.front();
+        row_size_ = root.mat_row_len_;
+        col_size_ = root.mat_col_len_;
+
+        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+
+        root.name_ = matrix_shape_.matrix_id;
+        node_ = ct::mat_impl::mat_node{root};
+
+        ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+        queue.insert(instr, matrix_shape_.shape_id);
+    }
+
+    template <typename Operand>
+    matrix& matrix::operator=(
+        ct::unary_impl::unary_expression<Operand> const& e)
+    {
+        std::vector<ct::mat_impl::mat_node> instr = e();
+        ct::mat_impl::mat_node& root = instr.front();
+
+        root.name_ = matrix_shape_.matrix_id;
+
+        ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+        queue.insert(instr, matrix_shape_.shape_id);
+
+        return *this;
+    }    // namespace ct
 
     template <typename Operand>
     auto unary_expr(
