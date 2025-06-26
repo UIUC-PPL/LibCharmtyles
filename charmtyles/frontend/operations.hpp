@@ -837,8 +837,7 @@ namespace ct {
     }    // namespace ct
 
     template <typename Operand>
-    auto unary_expr(
-        Operand const& operand, std::shared_ptr<unary_operator> unary_op)
+    auto unary_expr(Operand& operand, std::shared_ptr<unary_operator> unary_op)
     {
         return ct::unary_impl::unary_expression<Operand>(operand, unary_op);
     }
