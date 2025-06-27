@@ -62,15 +62,15 @@ public:
 
     void construct_vector(CkReductionMsg* msg)
     {
-        std::vector<double> out(len, 0.1);
+        std::vector<double> out(len, 0.);
         CkReduction::setElement* current =
             (CkReduction::setElement*) msg->getData();
         while (current != NULL)
         {
             double* result = (double*) &current->data;
-            int index = (int) result[0];
+            size_t index = (size_t) result[0];
             size_t len = current->dataSize / sizeof(double);
-            for (int i = 1; i < len; i++)
+            for (size_t i = 1; i < len; i++)
             {
                 out[index + i - 1] = result[i];
             }
@@ -82,6 +82,55 @@ public:
 private:
     ck::future<std::vector<double>> output;
     size_t len;
+};
+
+class get_mat_future : public CBase_get_mat_future
+{
+public:
+    get_mat_future(ck::future<std::vector<std::vector<double>>> output_,
+        size_t rows_, size_t cols_)
+      : output(output_)
+      , rows(rows_)
+      , cols(cols_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | rows;
+        p | cols;
+    }
+
+    void construct_matrix(CkReductionMsg* msg)
+    {
+        std::vector<std::vector<double>> out(
+            rows, std::vector<double>(cols, 0.0));
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t row_index = (size_t) result[0];
+            size_t col_index = (size_t) result[1];
+            size_t row_size = (size_t) result[2];
+            size_t col_size = (current->dataSize - (3 * sizeof(double))) /
+                (sizeof(double) * row_size);
+            for (size_t i = 0; i < row_size; i++)
+            {
+                for (size_t j = 0; j < col_size; j++)
+                    out[row_index + i][col_index + j] =
+                        result[3 + i * col_size + j];
+            }
+            current = current->next();
+        }
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<std::vector<double>>> output;
+    size_t rows;
+    size_t cols;
 };
 
 class scalar_impl : public CBase_scalar_impl
