@@ -7,7 +7,10 @@
 #include <charmtyles/util/sizes.hpp>
 
 namespace ct {
-
+    namespace unary_impl {
+        template <typename Operand>
+        class unary_expression;
+    }
     namespace mat_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, mat_shape_id);
@@ -99,8 +102,7 @@ namespace ct {
                     ckout << "Instructions for Shape ID: " << i << endl;
 
                     for (std::size_t num_instr = 0;
-                         num_instr != shape_matrix_queue_[i].size();
-                         ++num_instr)
+                        num_instr != shape_matrix_queue_[i].size(); ++num_instr)
                     {
                         ckout << "Instruction " << num_instr << ": ";
                         ct::util::parse_ast(
@@ -328,6 +330,8 @@ namespace ct {
     {
         template <typename LHS, typename RHS>
         friend class mat_impl::mat_expression;
+        template <typename Operand>
+        friend class unary_impl::unary_expression;
 
     public:
         matrix() = default;
@@ -392,6 +396,21 @@ namespace ct {
             queue.insert(node_, matrix_shape_.shape_id);
         }
 
+        matrix(
+            matrix const& other, std::shared_ptr<unary_operator> unary_operator)
+          : row_size_(other.row_size_)
+          , col_size_(other.col_size_)
+          , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
+          , node_(other.matrix_shape_.matrix_id,
+                ct::util::Operation::unary_expr, unary_operator, row_size_,
+                col_size_)
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(node_, matrix_shape_.shape_id);
+        }
+
         matrix& operator=(matrix const& other)
         {
             node_.operation_ = ct::util::Operation::copy;
@@ -437,6 +456,12 @@ namespace ct {
         matrix(ct::mat_mul_impl::mat_mul_expr const& expr);
         matrix& operator=(ct::mat_mul_impl::mat_mul_expr const& expr);
 
+        template <typename Operand>
+        matrix(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename Operand>
+        matrix& operator=(ct::unary_impl::unary_expression<Operand> const& e);
+
         template <typename LHS, typename RHS>
         matrix& operator=(ct::mat_impl::mat_expression<LHS, RHS> const& e)
         {
@@ -480,6 +505,21 @@ namespace ct {
             p | col_size_;
             p | matrix_shape_;
             p | node_;
+        }
+
+        std::vector<std::vector<double>> get()
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.dispatch(matrix_shape().shape_id);
+            ck::future<std::vector<std::vector<double>>> fval;
+            CProxy_get_mat_future mat_proxy =
+                CProxy_get_mat_future::ckNew(fval, row_size_, col_size_);
+            std::size_t& sdag_idx = queue.sdag_idx(matrix_shape().shape_id);
+            matrix_shape().proxy.get_value(
+                sdag_idx, matrix_shape().matrix_id, mat_proxy);
+            ++sdag_idx;
+            return fval.get();
         }
 
     private:

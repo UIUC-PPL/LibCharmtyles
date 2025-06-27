@@ -45,6 +45,94 @@ private:
     int counter;
 };
 
+class get_vec_future : public CBase_get_vec_future
+{
+public:
+    get_vec_future(ck::future<std::vector<double>> output_, size_t len_)
+      : output(output_)
+      , len(len_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | len;
+    }
+
+    void construct_vector(CkReductionMsg* msg)
+    {
+        std::vector<double> out(len, 0.);
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t index = (size_t) result[0];
+            size_t len = current->dataSize / sizeof(double);
+            for (size_t i = 1; i < len; i++)
+            {
+                out[index + i - 1] = result[i];
+            }
+            current = current->next();
+        }
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<double>> output;
+    size_t len;
+};
+
+class get_mat_future : public CBase_get_mat_future
+{
+public:
+    get_mat_future(ck::future<std::vector<std::vector<double>>> output_,
+        size_t rows_, size_t cols_)
+      : output(output_)
+      , rows(rows_)
+      , cols(cols_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | rows;
+        p | cols;
+    }
+
+    void construct_matrix(CkReductionMsg* msg)
+    {
+        std::vector<std::vector<double>> out(
+            rows, std::vector<double>(cols, 0.0));
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t row_index = (size_t) result[0];
+            size_t col_index = (size_t) result[1];
+            size_t row_size = (size_t) result[2];
+            size_t col_size = (current->dataSize - (3 * sizeof(double))) /
+                (sizeof(double) * row_size);
+            for (size_t i = 0; i < row_size; i++)
+            {
+                for (size_t j = 0; j < col_size; j++)
+                    out[row_index + i][col_index + j] =
+                        result[3 + i * col_size + j];
+            }
+            current = current->next();
+        }
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<std::vector<double>>> output;
+    size_t rows;
+    size_t cols;
+};
+
 class scalar_impl : public CBase_scalar_impl
 {
 public:
@@ -212,21 +300,32 @@ private:
             return;
 
         case ct::util::Operation::unary_expr:
+            if (node_id == vec_map.size())
+            {
+                vec_dim = get_vec_dim(node.vec_len_);
+
+                vec_map.emplace_back(std::vector<double>(vec_dim));
+            }
             total_size = vec_map[node_id].size();
             unrolled_size = vec_map[node_id].size() / 4;
             remainder_start = unrolled_size * 4;
 
             for (std::size_t i = 0; i != remainder_start; i += 4)
             {
-                unary_expr->operator()(i, vec_map[node_id][i]);
-                unary_expr->operator()(i + 1, vec_map[node_id][i + 1]);
-                unary_expr->operator()(i + 2, vec_map[node_id][i + 2]);
-                unary_expr->operator()(i + 3, vec_map[node_id][i + 3]);
+                vec_map[node_id][i] = unary_expr->operator()(
+                    i, vec_map[instruction[node.left_].name_][i]);
+                vec_map[node_id][i + 1] = unary_expr->operator()(
+                    i + 1, vec_map[instruction[node.left_].name_][i + 1]);
+                vec_map[node_id][i + 2] = unary_expr->operator()(
+                    i + 2, vec_map[instruction[node.left_].name_][i + 2]);
+                vec_map[node_id][i + 3] = unary_expr->operator()(
+                    i + 3, vec_map[instruction[node.left_].name_][i + 3]);
             }
 
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
-                unary_expr->operator()(i, vec_map[node_id][i]);
+                vec_map[node_id][i] = unary_expr->operator()(
+                    i, vec_map[instruction[node.left_].name_][i]);
             }
 
             return;
@@ -364,6 +463,8 @@ private:
     {
         ct::mat_impl::mat_node const& node = instruction[index];
         std::size_t node_id = node.name_;
+        std::shared_ptr<ct::unary_operator> const& unary_expr =
+            node.unary_expr_;
 
         // Useful variables in switch statement
         std::size_t num_rows{0};
@@ -492,6 +593,47 @@ private:
             }
 
             return;
+        case ct::util::Operation::unary_expr:
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+
+                mat = ct::util::matrix_view{num_rows, num_cols};
+
+                mat_map.emplace_back(std::move(mat));
+            }
+            total_size = mat_map[node_id].cols();
+            unrolled_size = mat_map[node_id].cols() / 4;
+            remainder_start = unrolled_size * 4;
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); i++)
+            {
+                for (std::size_t j = 0; j != remainder_start; j += 4)
+                {
+                    mat_map[node_id](i, j) = unary_expr->operator()(
+                        i, j, mat_map[instruction[node.left_].name_](i, j));
+                    mat_map[node_id](i, j + 1) =
+                        unary_expr->operator()(i, j + 1,
+                            mat_map[instruction[node.left_].name_](i, j + 1));
+                    mat_map[node_id](i, j + 2) =
+                        unary_expr->operator()(i, j + 2,
+                            mat_map[instruction[node.left_].name_](i, j + 2));
+                    mat_map[node_id](i, j + 3) =
+                        unary_expr->operator()(i, j + 3,
+                            mat_map[instruction[node.left_].name_](i, j + 3));
+                }
+            }
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); ++i)
+            {
+                for (std::size_t j = remainder_start; j != total_size; ++j)
+                {
+                    mat_map[node_id](i, j) = unary_expr->operator()(
+                        i, j, mat_map[instruction[node.left_].name_](i, j));
+                }
+            }
+
+            return;
+
         default:
             CmiAbort("Operation not implemented");
         }

@@ -9,6 +9,11 @@
 #include <vector>
 
 namespace ct {
+    namespace unary_impl {
+        template <typename Operand>
+        class unary_expression;
+    }    // namespace unary_impl
+
     namespace vec_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, vec_shape_id);
@@ -97,8 +102,7 @@ namespace ct {
                     ckout << "Instructions for Shape ID: " << i << endl;
 
                     for (std::size_t num_instr = 0;
-                         num_instr != shape_vector_queue_[i].size();
-                         ++num_instr)
+                        num_instr != shape_vector_queue_[i].size(); ++num_instr)
                     {
                         ckout << "Instruction " << num_instr << ": ";
                         ct::util::parse_ast(
@@ -313,6 +317,9 @@ namespace ct {
         template <typename LHS, typename RHS>
         friend class vec_impl::vec_expression;
 
+        template <typename Operand>
+        friend class unary_impl::unary_expression;
+
         friend class dot_impl::dot_expression;
 
     public:
@@ -435,6 +442,12 @@ namespace ct {
         vector(blas_impl::vec_axpy_expr const&);
         vector& operator=(blas_impl::vec_axpy_expr const&);
 
+        template <typename Operand>
+        vector(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename Operand>
+        vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
+
         // Helper functions
     public:
         const ct::vec_impl::vec_shape_t vector_shape() const
@@ -457,6 +470,21 @@ namespace ct {
             p | size_;
             p | vector_shape_;
             p | node_;
+        }
+
+        std::vector<double> get()
+        {
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.dispatch(vector_shape().shape_id);
+            ck::future<std::vector<double>> fval;
+            CProxy_get_vec_future vec_proxy =
+                CProxy_get_vec_future::ckNew(fval, size_);
+            std::size_t& sdag_idx = queue.sdag_idx(vector_shape().shape_id);
+            vector_shape().proxy.get_value(
+                sdag_idx, vector_shape().vector_id, vec_proxy);
+            ++sdag_idx;
+            return fval.get();
         }
 
     private:

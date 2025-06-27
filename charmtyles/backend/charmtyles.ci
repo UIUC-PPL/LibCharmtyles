@@ -13,6 +13,20 @@ module libcharmtyles
         entry [reductiontarget] void mark_complete();
     }
 
+    chare get_vec_future
+    {
+        entry get_vec_future(ck::future<std::vector<double>>, size_t);
+
+        entry [reductiontarget] void construct_vector(CkReductionMsg *msg);
+    }
+
+    chare get_mat_future
+    {
+        entry get_mat_future(ck::future<std::vector<std::vector<double>>>, size_t, size_t);
+
+        entry [reductiontarget] void construct_matrix(CkReductionMsg *msg);
+    }
+
     PUPable ct::generator;
     PUPable ct::unary_operator;
 
@@ -233,6 +247,20 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }}
 
+                when get_value[SDAG_INDEX](int sdag_index, int vector_id, CProxy_get_vec_future proxy) {
+                serial "get_value" {
+                    std::size_t vec_size = vec_map[vector_id].size();
+                    size_t index = thisIndex*vec_block_size;
+
+                    std::vector<double> arr_portion(vec_size + 1);
+                    arr_portion[0] = static_cast<double>(index);
+                    std::copy(vec_map[vector_id].begin(), vec_map[vector_id].end(), arr_portion.begin() + 1);
+                    
+                    CkCallback cb(CkReductionTarget(get_vec_future, construct_vector), proxy);
+                    contribute(arr_portion, CkReduction::set, cb);
+                    ++SDAG_INDEX;
+                }} // get_value
+
             }} // case + for-loop end
         }
 
@@ -249,6 +277,7 @@ module libcharmtyles
         entry void min(int, int, int);
         entry void max(int, int, int);
         entry void synchronize(int, CProxy_set_future);
+        entry void get_value(int, int, CProxy_get_vec_future);
     }
 
     array[2D] matrix_impl
@@ -438,6 +467,26 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }}
+
+                when get_value[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_get_mat_future proxy) {
+                serial "get_value" {
+                    ct::util::matrix_view& mat = mat_map[matrix_id];
+                    size_t row_size = mat.rows();
+                    size_t col_size = mat.cols();
+
+                    size_t row_index = thisIndex.y*col_block_len;
+                    size_t col_index = thisIndex.x*row_block_len;
+
+                    std::vector<double> arr_portion(row_size*col_size + 3);
+                    arr_portion[0] = static_cast<double>(row_index);
+                    arr_portion[1] = static_cast<double>(col_index);
+                    arr_portion[2] = static_cast<double>(row_size);
+                    std::copy(mat.data(), mat.data()+(row_size*col_size), arr_portion.begin() + 3);
+                    
+                    CkCallback cb(CkReductionTarget(get_mat_future, construct_matrix), proxy);
+                    contribute(arr_portion, CkReduction::set, cb);
+                    ++SDAG_INDEX;
+                }} // get_value
             }}
         }
 
@@ -455,5 +504,6 @@ module libcharmtyles
         entry void receive_to_matrix(int, int len, double data[len]);
 
         entry void reduce_sum(int, int, int);
+        entry void get_value(int sdag_index, int matrix_id, CProxy_get_mat_future proxy);
     }
 }
