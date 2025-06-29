@@ -14,6 +14,11 @@ namespace ct {
         class unary_expression;
     }    // namespace unary_impl
 
+    namespace binary_impl {
+        template <typename LeftOperand, typename RightOperand>
+        class binary_expression;
+    }    // namespace binary_impl
+
     namespace vec_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, vec_shape_id);
@@ -320,6 +325,9 @@ namespace ct {
         template <typename Operand>
         friend class unary_impl::unary_expression;
 
+        template <typename LeftOperand, typename RightOperand>
+        friend class binary_impl::binary_expression;
+
         friend class dot_impl::dot_expression;
 
     public:
@@ -447,6 +455,14 @@ namespace ct {
 
         template <typename Operand>
         vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
+
+        template <typename LeftOperand, typename RightOperand>
+        vector(
+            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+
+        template <typename LeftOperand, typename RightOperand>
+        vector& operator=(
+            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
 
         // Helper functions
     public:

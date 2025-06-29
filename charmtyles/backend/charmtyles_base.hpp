@@ -155,6 +155,9 @@ private:
         std::shared_ptr<ct::unary_operator> const& unary_expr =
             node.unary_expr_;
 
+        std::shared_ptr<ct::binary_operator> const& binary_expr = 
+            node.binary_expr_;
+
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dist(0., 1.);
@@ -277,6 +280,43 @@ private:
             {
                 vec_map[node_id][i] = unary_expr->operator()(
                     i, vec_map[instruction[node.left_].name_][i]);
+            }
+
+            return;
+        
+        case ct::util::Operation::binary_expr:
+            if (node_id == vec_map.size())
+            {
+                vec_dim = get_vec_dim(node.vec_len_);
+
+                vec_map.emplace_back(std::vector<double>(vec_dim));
+            }
+
+            total_size = vec_map[node_id].size();
+            unrolled_size = vec_map[node_id].size() / 4;
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != remainder_start; i += 4)
+            {
+                vec_map[node_id][i] = binary_expr->operator()(
+                    i, vec_map[instruction[node.left_].name_][i], 
+                    vec_map[instruction[node.right_].name_][i]);
+                vec_map[node_id][i + 1] = binary_expr->operator()(
+                    i + 1, vec_map[instruction[node.left_].name_][i + 1], 
+                    vec_map[instruction[node.right_].name_][i + 1]);
+                vec_map[node_id][i + 2] = binary_expr->operator()(
+                    i + 2, vec_map[instruction[node.left_].name_][i + 2], 
+                    vec_map[instruction[node.right_].name_][i + 2]);
+                vec_map[node_id][i + 3] = binary_expr->operator()(
+                    i + 3, vec_map[instruction[node.left_].name_][i + 3], 
+                    vec_map[instruction[node.right_].name_][i + 3]);
+            }
+
+            for (std::size_t i = remainder_start; i != total_size; ++i)
+            {
+                vec_map[node_id][i] = binary_expr->operator()(
+                    i, vec_map[instruction[node.left_].name_][i], 
+                    vec_map[instruction[node.right_].name_][i]);
             }
 
             return;
@@ -416,6 +456,8 @@ private:
         std::size_t node_id = node.name_;
         std::shared_ptr<ct::unary_operator> const& unary_expr =
             node.unary_expr_;
+        std::shared_ptr<ct::binary_operator> const& binary_expr = 
+            node.binary_expr_;
 
         // Useful variables in switch statement
         std::size_t num_rows{0};
@@ -580,6 +622,51 @@ private:
                 {
                     mat_map[node_id](i, j) = unary_expr->operator()(
                         i, j, mat_map[instruction[node.left_].name_](i, j));
+                }
+            }
+
+            return;
+        case ct::util::Operation::binary_expr:
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+
+                mat = ct::util::matrix_view{num_rows, num_cols};
+
+                mat_map.emplace_back(std::move(mat));
+            }
+
+            total_size = mat_map[node_id].cols();
+            unrolled_size = mat_map[node_id].cols() / 4;
+            remainder_start = unrolled_size * 4;
+
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); i++)
+            {
+                for (std::size_t j = 0; j != remainder_start; j += 4)
+                {
+                    mat_map[node_id](i, j) = binary_expr->operator()(
+                        i, j, mat_map[instruction[node.left_].name_](i, j),
+                        mat_map[instruction[node.right_].name_](i, j));
+                    mat_map[node_id](i, j + 1) = binary_expr->operator()(
+                        i, j + 1, mat_map[instruction[node.left_].name_](i, j + 1),
+                        mat_map[instruction[node.right_].name_](i, j + 1));
+                    mat_map[node_id](i, j + 2) = binary_expr->operator()(
+                        i, j + 2, mat_map[instruction[node.left_].name_](i, j + 2),
+                        mat_map[instruction[node.right_].name_](i, j + 2));
+                    mat_map[node_id](i, j + 3) = binary_expr->operator()(
+                        i, j + 3, mat_map[instruction[node.left_].name_](i, j + 3),
+                        mat_map[instruction[node.right_].name_](i, j + 3));
+                }
+            }
+
+            for (std::size_t i = 0; i != mat_map[node_id].rows(); ++i)
+            {
+                for (std::size_t j = remainder_start; j != total_size; ++j)
+                {
+                    mat_map[node_id](i, j) = binary_expr->operator()(
+                        i, j, mat_map[instruction[node.left_].name_](i, j),
+                        mat_map[instruction[node.right_].name_](i, j));
                 }
             }
 

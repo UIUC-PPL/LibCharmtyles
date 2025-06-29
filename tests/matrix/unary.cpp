@@ -10,12 +10,13 @@ public:
 
     using ct::unary_operator::unary_operator;
 
-    inline void operator()(std::size_t index, double& value) override final
+    virtual double operator()(std::size_t index, double& value) override final
     {
         value = 1.0;
+        return 1.0;
     }
 
-    inline void operator()(
+    virtual double operator()(
         std::size_t rows, std::size_t cols, double& value) override final
     {
         if (rows == cols)
@@ -26,6 +27,7 @@ public:
         {
             value = 0;
         }
+        return 1;
     }
 
     PUPable_decl(identity_t);
@@ -69,6 +71,12 @@ public:
 
         ckout << "[Result] Mat-mul sum: " << uval << endl;
         ckout << "[Result] Identity: " << val_id << endl;
+
+        ct::vector v2{100, 0.0};
+        ct::vector v3 = ct::unary_expr(v2, identity);
+        ct::scalar s2 = ct::max(v3);
+        double val2 = s2.get();
+        ckout << "[Result] Vector max: " << val2 << endl;
 
         CkExit();
     }
