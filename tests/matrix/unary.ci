@@ -1,0 +1,12 @@
+mainmodule unary
+{
+    extern module libcharmtyles;
+    PUPable identity_t;
+
+    mainchare Main
+    {
+        entry Main(CkArgMsg*);
+    
+        entry [threaded] void benchmark();
+    };
+}
