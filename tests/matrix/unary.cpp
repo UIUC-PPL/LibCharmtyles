@@ -26,6 +26,7 @@ public:
         {
             return 0.;
         }
+        return 1;
     }
 
     PUPable_decl(identity_t);
@@ -58,8 +59,7 @@ public:
         std::shared_ptr<ct::unary_operator> identity =
             std::make_shared<identity_t>();
         ct::matrix orig{1000, 1000, 1.0};
-        ct::matrix identity_mat = orig;
-        identity_mat = ct::unary_expr(identity_mat, identity);
+        ct::matrix identity_mat = ct::unary_expr(orig, identity);
         ct::vector v1{1000, 1.0};
         ct::vector cpy = ct::unary_expr(v1, identity);
         ct::vector vres = ct::dot(orig, v1);
@@ -77,6 +77,12 @@ public:
         std::cout << std::endl;
         ckout << "[Result] Mat-mul sum: " << uval << endl;
         ckout << "[Result] Identity: " << val_id << endl;
+
+        ct::vector v2{100, 0.0};
+        ct::vector v3 = ct::unary_expr(v2, identity);
+        ct::scalar s2 = ct::max(v3);
+        double val2 = s2.get();
+        ckout << "[Result] Vector max: " << val2 << endl;
 
         CkExit();
     }

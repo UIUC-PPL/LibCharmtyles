@@ -29,6 +29,7 @@ module libcharmtyles
 
     PUPable ct::generator;
     PUPable ct::unary_operator;
+    PUPable ct::binary_operator;
 
     chare scalar_impl
     {
