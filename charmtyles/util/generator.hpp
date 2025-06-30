@@ -81,13 +81,13 @@ namespace ct {
         }
 
         virtual double operator()(
-            std::size_t index, double& left_val, double& right_val)
+            std::size_t index, double left_val, double right_val)
         {
             return -1.0;
         }
 
         virtual double operator()(std::size_t row_id, std::size_t col_id,
-            double& left_val, double& right_val)
+            double left_val, double right_val)
         {
             return -1.0;
         }

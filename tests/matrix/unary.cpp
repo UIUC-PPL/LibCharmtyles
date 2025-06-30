@@ -20,11 +20,11 @@ public:
     {
         if (rows == cols)
         {
-            return 1.0;
+            return value + 3;
         }
         else
         {
-            return 0.;
+            return value + 4;
         }
         return 1;
     }
@@ -59,7 +59,7 @@ public:
         std::shared_ptr<ct::unary_operator> identity =
             std::make_shared<identity_t>();
         ct::matrix orig{1000, 1000, 1.0};
-        ct::matrix identity_mat = ct::unary_expr(orig, identity);
+        ct::matrix identity_mat = ct::unary_expr(orig + orig > orig, identity);
         ct::vector v1{1000, 1.0};
         ct::vector cpy = ct::unary_expr(v1, identity);
         ct::vector vres = ct::dot(orig, v1);
@@ -68,11 +68,11 @@ public:
         ct::scalar s_id = ct::dot(v_id, v_id);
         double uval = sval.get();
         double val_id = s_id.get();
-        std::vector<double> vec = v_id.get();
+        std::vector<std::vector<double>> vec = identity_mat.get();
         std::cout << "The vector is: ";
         for (size_t i = 0; i < vec.size(); i++)
         {
-            std::cout << vec[i] << " ";
+            std::cout << vec[i][i] << " ";
         }
         std::cout << std::endl;
         ckout << "[Result] Mat-mul sum: " << uval << endl;
