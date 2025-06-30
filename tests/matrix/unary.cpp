@@ -10,13 +10,13 @@ public:
 
     using ct::unary_operator::unary_operator;
 
-    inline double operator()(std::size_t index, double& value) override final
+    inline double operator()(std::size_t index, double value) override final
     {
-        return 3.0;
+        return value + 5;
     }
 
     inline double operator()(
-        std::size_t rows, std::size_t cols, double& value) override final
+        std::size_t rows, std::size_t cols, double value) override final
     {
         if (rows == cols)
         {

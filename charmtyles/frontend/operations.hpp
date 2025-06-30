@@ -95,6 +95,96 @@ namespace ct {
         }
     }
 
+    template <typename LHS, typename RHS>
+    auto operator>(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::greater};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::greater};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator<(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::lesser};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::lesser};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator==(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::eq};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::eq};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator!=(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::neq};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::neq};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator>=(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::geq};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::geq};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator<=(LHS const& lhs, RHS const& rhs)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{
+                lhs, rhs, lhs.size(), ct::util::Operation::leq};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::leq};
+        }
+    }
+
     inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
     {
         std::size_t lhs_shape_id = lhs.vector_shape().shape_id;
@@ -663,23 +753,33 @@ namespace ct {
             {
             }
 
+            explicit unary_expression(
+                Operand&& operand_, std::shared_ptr<unary_operator> unary_op_)
+              : operand(std::move(operand_))
+              , unary_op(unary_op_)
+            {
+            }
+
             // Single operator() that uses traits
             auto operator()() const
             {
-                if constexpr (ct::traits::is_unary_vec_type<Operand>::value)
+                if constexpr (traits::is_vec_type_impl<
+                                  typename std::decay<Operand>::type>::value)
                 {
                     return create_vec_ast();
                 }
-                else if constexpr (ct::traits::is_unary_mat_type<
-                                       Operand>::value)
+                else if constexpr (traits::is_mat_type_impl<typename std::decay<
+                                       Operand>::type>::value)
                 {
                     return create_mat_ast();
                 }
                 else
                 {
                     static_assert(
-                        ct::traits::is_unary_vec_type<Operand>::value ||
-                            ct::traits::is_unary_mat_type<Operand>::value,
+                        traits::is_vec_type_impl<
+                            typename std::decay<Operand>::type>::value ||
+                            traits::is_mat_type_impl<
+                                typename std::decay<Operand>::type>::value,
                         "Operand must be ct::vector or ct::matrix");
                 }
             }
@@ -842,219 +942,9 @@ namespace ct {
         return ct::unary_impl::unary_expression<Operand>(operand, unary_op);
     }
 
-    // Binary expression constructors and assignment operators for vectors
-    template <typename LeftOperand, typename RightOperand>
-    vector::vector(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
+    template <typename Operand>
+    auto unary_expr(Operand&& operand, std::shared_ptr<unary_operator> unary_op)
     {
-        std::vector<ct::vec_impl::vec_node> instr = e();
-        ct::vec_impl::vec_node& root = instr.front();
-        size_ = root.vec_len_;
-
-        vector_shape_ = ct::vec_impl::get_vector_shape(size_);
-
-        root.name_ = vector_shape_.vector_id;
-        node_ = ct::vec_impl::vec_node{root};
-
-        ct::vec_impl::vec_instr_queue_t& queue =
-            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-
-        queue.insert(instr, vector_shape_.shape_id);
-    }
-
-    template <typename LeftOperand, typename RightOperand>
-    vector& vector::operator=(
-        ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
-    {
-        std::vector<ct::vec_impl::vec_node> instr = e();
-        ct::vec_impl::vec_node& root = instr.front();
-
-        root.name_ = vector_shape_.vector_id;
-
-        ct::vec_impl::vec_instr_queue_t& queue =
-            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-
-        queue.insert(instr, vector_shape_.shape_id);
-
-        return *this;
-    }
-
-    // Binary expression constructors and assignment operators for matrices
-    template <typename LeftOperand, typename RightOperand>
-    matrix::matrix(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
-    {
-        std::vector<ct::mat_impl::mat_node> instr = e();
-        ct::mat_impl::mat_node& root = instr.front();
-        row_size_ = root.mat_row_len_;
-        col_size_ = root.mat_col_len_;
-
-        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
-
-        root.name_ = matrix_shape_.matrix_id;
-        node_ = ct::mat_impl::mat_node{root};
-
-        ct::mat_impl::mat_instr_queue_t& queue =
-            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-
-        queue.insert(instr, matrix_shape_.shape_id);
-    }
-
-    template <typename LeftOperand, typename RightOperand>
-    matrix& matrix::operator=(
-        ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
-    {
-        std::vector<ct::mat_impl::mat_node> instr = e();
-        ct::mat_impl::mat_node& root = instr.front();
-
-        root.name_ = matrix_shape_.matrix_id;
-
-        ct::mat_impl::mat_instr_queue_t& queue =
-            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-
-        queue.insert(instr, matrix_shape_.shape_id);
-
-        return *this;
-    }
-
-    // Global binary_expr function
-    template <typename LeftOperand, typename RightOperand>
-    auto binary_expr(LeftOperand& left_operand, RightOperand& right_operand, 
-                     std::shared_ptr<binary_operator> binary_op)
-    {
-        return ct::binary_impl::binary_expression<LeftOperand, RightOperand>(
-            left_operand, right_operand, binary_op);
-    }
-
-    namespace binary_impl {
-    template <typename LeftOperand, typename RightOperand>
-    class binary_expression
-        {
-        public:
-            explicit binary_expression(LeftOperand const& left_operand_,
-                                    RightOperand const& right_operand_,
-                                    std::shared_ptr<binary_operator> binary_op_)
-            : left_operand(left_operand_)
-            , right_operand(right_operand_)
-            , binary_op(binary_op_)
-            {
-            }
-
-            // Create AST 
-            auto operator()() const
-            {
-                if constexpr (ct::traits::is_unary_vec_type<LeftOperand>::value)
-                {
-                    return create_vec_ast();
-                }
-                else if constexpr (ct::traits::is_unary_mat_type<LeftOperand>::value)
-                {
-                    return create_mat_ast();
-                }
-            }
-
-            std::size_t size() const { return left_operand.size(); }
-            std::size_t rows() const { return left_operand.rows(); }
-            std::size_t cols() const { return left_operand.cols(); }
-
-        private:
-            // Vector AST 
-            std::vector<ct::vec_impl::vec_node> create_vec_ast() const
-            {
-                
-                std::vector<ct::vec_impl::vec_node> left_ast = left_operand();
-                std::vector<ct::vec_impl::vec_node> right_ast = right_operand();
-                
-                ct::vec_impl::vec_node& left_root = left_ast.front();
-                ct::vec_impl::vec_node& right_root = right_ast.front();
-
-                
-                ct::vec_impl::vec_node binary_node{left_root.name_,
-                    ct::util::Operation::binary_expr, binary_op,
-                    left_root.vec_len_};
-
-                
-                binary_node.left_ = 1; 
-                binary_node.right_ = 1 + left_ast.size(); 
-
-                
-                std::vector<ct::vec_impl::vec_node> ast;
-                ast.reserve(1 + left_ast.size() + right_ast.size());
-                
-                ast.emplace_back(binary_node);
-                std::copy(left_ast.begin(), left_ast.end(), std::back_inserter(ast));
-                std::copy(right_ast.begin(), right_ast.end(), std::back_inserter(ast));
-
-                
-                for (int i = 1; i != 1 + left_ast.size(); ++i)
-                {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
-                        ast[i].left_ += 1;
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
-                        ast[i].right_ += 1;
-                }
-
-                
-                for (int i = 1 + left_ast.size(); i != ast.size(); ++i)
-                {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
-                        ast[i].left_ += 1 + left_ast.size();
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
-                        ast[i].right_ += 1 + left_ast.size();
-                }
-
-                return ast;
-            }
-
-            // Matrix AST 
-            std::vector<ct::mat_impl::mat_node> create_mat_ast() const
-            {
-               
-                std::vector<ct::mat_impl::mat_node> left_ast = left_operand();
-                std::vector<ct::mat_impl::mat_node> right_ast = right_operand();
-                
-                ct::mat_impl::mat_node& left_root = left_ast.front();
-                ct::mat_impl::mat_node& right_root = right_ast.front();
-
-                
-                ct::mat_impl::mat_node binary_node{left_root.name_,
-                    ct::util::Operation::binary_expr, binary_op,
-                    left_root.mat_row_len_, left_root.mat_col_len_};
-
-                
-                binary_node.left_ = 1;  
-                binary_node.right_ = 1 + left_ast.size();  
-
-                
-                std::vector<ct::mat_impl::mat_node> ast;
-                ast.reserve(1 + left_ast.size() + right_ast.size());
-                
-                ast.emplace_back(binary_node);
-                std::copy(left_ast.begin(), left_ast.end(), std::back_inserter(ast));
-                std::copy(right_ast.begin(), right_ast.end(), std::back_inserter(ast));
-
-                
-                for (int i = 1; i != 1 + left_ast.size(); ++i)
-                {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
-                        ast[i].left_ += 1;
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
-                        ast[i].right_ += 1;
-                }
-
-                
-                for (int i = 1 + left_ast.size(); i != ast.size(); ++i)
-                {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
-                        ast[i].left_ += 1 + left_ast.size();
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
-                        ast[i].right_ += 1 + left_ast.size();
-                }
-
-                return ast;
-            }
-
-            LeftOperand const& left_operand;
-            RightOperand const& right_operand;
-            std::shared_ptr<binary_operator> binary_op;
-        };
+        return ct::unary_impl::unary_expression<Operand>(operand, unary_op);
     }
 }    // namespace ct

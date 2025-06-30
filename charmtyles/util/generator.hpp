@@ -49,14 +49,14 @@ namespace ct {
         }
 
         // Default Operator overload for vectors
-        virtual double operator()(std::size_t index, double& value)
+        virtual double operator()(std::size_t index, double value)
         {
             return -1.0;
         }
 
         // Default Operator overload for matrices
         virtual double operator()(
-            std::size_t row_id, std::size_t col_id, double& value)
+            std::size_t row_id, std::size_t col_id, double value)
         {
             return -1.0;
         }
@@ -66,23 +66,30 @@ namespace ct {
     {
     public:
         PUPable_decl(binary_operator);
-        
+
         binary_operator() = default;
         virtual ~binary_operator() = default;
-        
-        binary_operator(CkMigrateMessage* m) : PUP::able(m) {}
-        
-        
-        virtual double operator()(std::size_t index, double& left_val, double& right_val)
+
+        binary_operator(CkMigrateMessage* m)
+          : PUP::able(m)
         {
-            return -1.0; 
         }
-        
-        
-        virtual double operator()(std::size_t row_id, std::size_t col_id, 
-                                double& left_val, double& right_val)
+
+        virtual void pup(PUP::er& p)
         {
-            return -1.0; 
+            PUP::able::pup(p);
+        }
+
+        virtual double operator()(
+            std::size_t index, double& left_val, double& right_val)
+        {
+            return -1.0;
+        }
+
+        virtual double operator()(std::size_t row_id, std::size_t col_id,
+            double& left_val, double& right_val)
+        {
+            return -1.0;
         }
     };
 

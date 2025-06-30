@@ -25,8 +25,21 @@ namespace ct {
             sub = 11,
             divide = 12,
 
+            // Relational Operators
+            greater = 13,
+            lesser = 14,
+            geq = 15,
+            leq = 16,
+            eq = 17,
+            neq = 18,
+
             // Blas
             axpy = 20,
+
+            // Logical
+            logical_and = 21,
+            logical_or = 22,
+            logical_not = 23,
 
             // Unary operations
             unary_expr = 30,
