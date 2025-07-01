@@ -7,14 +7,6 @@
 #include <charmtyles/util/sizes.hpp>
 
 namespace ct {
-    namespace unary_impl {
-        template <typename Operand>
-        class unary_expression;
-    }
-    namespace binary_impl {
-        template <typename LeftOperand, typename RightOperand>
-        class binary_expression;
-    }    // namespace binary_impl
     namespace mat_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, mat_shape_id);
@@ -259,22 +251,74 @@ namespace ct {
             {
             }
 
+            explicit mat_expression(LHS const& lhs_, RHS const& rhs_,
+                std::size_t rows_, std::size_t cols_, ct::util::Operation op_,
+                std::shared_ptr<binary_operator> binary_op_)
+              : lhs(lhs_)
+              , rhs(rhs_)
+              , row_len(rows_)
+              , col_len(cols_)
+              , op(op_)
+              , binary_op(binary_op_)
+            {
+            }
+
+            explicit mat_expression(LHS const& lhs_, std::size_t rows_,
+                std::size_t cols_, ct::util::Operation op_,
+                std::shared_ptr<unary_operator> unary_op_)
+              : lhs(lhs_)
+              , rhs(lhs_)
+              , row_len(rows_)
+              , col_len(cols_)
+              , op(op_)
+              , unary_op(unary_op_)
+            {
+            }
+
             std::vector<ct::mat_impl::mat_node> operator()() const
             {
                 std::vector<ct::mat_impl::mat_node> left = lhs();
                 std::vector<ct::mat_impl::mat_node> right = rhs();
 
-                ct::mat_impl::mat_node node{op, row_len, col_len};
+                ct::mat_impl::mat_node node;
+
+                if (binary_op)
+                {
+                    node = ct::mat_impl::mat_node(
+                        -1, op, binary_op, row_len, col_len);
+                }
+                else if (unary_op)
+                {
+                    node = ct::mat_impl::mat_node(
+                        -1, op, unary_op, row_len, col_len);
+                }
+                else
+                {
+                    node = ct::mat_impl::mat_node(op, row_len, col_len);
+                }
 
                 node.left_ = 1;
-                node.right_ = left.size() + 1;
+                size_t right_size;
+                if (unary_op)
+                {
+                    node.right_ = -1;
+                    right_size = 0;
+                }
+                else
+                {
+                    node.right_ = left.size() + 1;
+                    right_size = right.size();
+                }
 
                 std::vector<ct::mat_impl::mat_node> ast;
-                ast.reserve(left.size() + right.size() + 1);
+                ast.reserve(left.size() + right_size + 1);
 
                 ast.emplace_back(node);
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
-                std::copy(right.begin(), right.end(), std::back_inserter(ast));
+
+                if (!unary_op)
+                    std::copy(
+                        right.begin(), right.end(), std::back_inserter(ast));
 
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
@@ -321,6 +365,8 @@ namespace ct {
             RHS const& rhs;
             std::size_t row_len;
             std::size_t col_len;
+            std::shared_ptr<binary_operator> binary_op;
+            std::shared_ptr<unary_operator> unary_op;
             ct::util::Operation op;
         };
 
@@ -334,10 +380,6 @@ namespace ct {
     {
         template <typename LHS, typename RHS>
         friend class mat_impl::mat_expression;
-        template <typename Operand>
-        friend class unary_impl::unary_expression;
-        template <typename LeftOperand, typename RightOperand>
-        friend class binary_impl::binary_expression;
 
     public:
         matrix() = default;
@@ -462,18 +504,6 @@ namespace ct {
         matrix(ct::mat_mul_impl::mat_mul_expr const& expr);
         matrix& operator=(ct::mat_mul_impl::mat_mul_expr const& expr);
 
-        template <typename Operand>
-        matrix(ct::unary_impl::unary_expression<Operand> const& e);
-
-        template <typename Operand>
-        matrix& operator=(ct::unary_impl::unary_expression<Operand> const& e);
-
-        template <typename LeftOperand, typename RightOperand>
-        matrix(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
-
-        template <typename LeftOperand, typename RightOperand>
-        matrix& operator=(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
-
         template <typename LHS, typename RHS>
         matrix& operator=(ct::mat_impl::mat_expression<LHS, RHS> const& e)
         {
@@ -529,6 +559,34 @@ namespace ct {
                 CProxy_get_mat_future::ckNew(fval, row_size_, col_size_);
             std::size_t& sdag_idx = queue.sdag_idx(matrix_shape().shape_id);
             matrix_shape().proxy.get_value(
+                sdag_idx, matrix_shape().matrix_id, mat_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
+        bool any()
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.dispatch(matrix_shape().shape_id);
+            ck::future<bool> fval;
+            CProxy_set_future mat_proxy = CProxy_set_future::ckNew(fval, 1);
+            std::size_t& sdag_idx = queue.sdag_idx(matrix_shape().shape_id);
+            matrix_shape().proxy.any(
+                sdag_idx, matrix_shape().matrix_id, mat_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
+        bool all()
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.dispatch(matrix_shape().shape_id);
+            ck::future<bool> fval;
+            CProxy_set_future mat_proxy = CProxy_set_future::ckNew(fval, 1);
+            std::size_t& sdag_idx = queue.sdag_idx(matrix_shape().shape_id);
+            matrix_shape().proxy.all(
                 sdag_idx, matrix_shape().matrix_id, mat_proxy);
             ++sdag_idx;
             return fval.get();

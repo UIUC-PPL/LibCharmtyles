@@ -9,15 +9,6 @@
 #include <vector>
 
 namespace ct {
-    namespace unary_impl {
-        template <typename Operand>
-        class unary_expression;
-    }    // namespace unary_impl
-
-    namespace binary_impl {
-        template <typename LeftOperand, typename RightOperand>
-        class binary_expression;
-    }    // namespace binary_impl
 
     namespace vec_impl {
 
@@ -248,22 +239,70 @@ namespace ct {
             {
             }
 
+            explicit vec_expression(LHS const& lhs_, RHS const& rhs_,
+                std::size_t vec_len_, ct::util::Operation op_,
+                std::shared_ptr<binary_operator> binary_op_)
+              : lhs(lhs_)
+              , rhs(rhs_)
+              , vec_len(vec_len_)
+              , op(op_)
+              , binary_op(binary_op_)
+            {
+            }
+
+            explicit vec_expression(LHS const& lhs_, std::size_t vec_len_,
+                ct::util::Operation op_,
+                std::shared_ptr<unary_operator> unary_op_)
+              : lhs(lhs_)
+              , rhs(lhs_)
+              , vec_len(vec_len_)
+              , op(op_)
+              , unary_op(unary_op_)
+            {
+            }
+
             std::vector<ct::vec_impl::vec_node> operator()() const
             {
                 std::vector<ct::vec_impl::vec_node> left = lhs();
                 std::vector<ct::vec_impl::vec_node> right = rhs();
 
-                ct::vec_impl::vec_node node{op, vec_len};
+                ct::vec_impl::vec_node node;
+
+                if (binary_op)
+                {
+                    node = ct::vec_impl::vec_node(-1, op, binary_op, vec_len);
+                }
+                else if (unary_op)
+                {
+                    node = ct::vec_impl::vec_node(-1, op, unary_op, vec_len);
+                }
+                else
+                {
+                    node = ct::vec_impl::vec_node(op, vec_len);
+                }
 
                 node.left_ = 1;
-                node.right_ = left.size() + 1;
+                size_t right_size;
+                if (unary_op)
+                {
+                    node.right_ = -1;
+                    right_size = 0;
+                }
+                else
+                {
+                    node.right_ = left.size() + 1;
+                    right_size = right.size();
+                }
 
                 std::vector<ct::vec_impl::vec_node> ast;
-                ast.reserve(left.size() + right.size() + 1);
+                ast.reserve(left.size() + right_size + 1);
 
                 ast.emplace_back(node);
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
-                std::copy(right.begin(), right.end(), std::back_inserter(ast));
+
+                if (!unary_op)
+                    std::copy(
+                        right.begin(), right.end(), std::back_inserter(ast));
 
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
@@ -304,6 +343,8 @@ namespace ct {
             LHS const& lhs;
             RHS const& rhs;
             std::size_t vec_len;
+            std::shared_ptr<binary_operator> binary_op;
+            std::shared_ptr<unary_operator> unary_op;
             ct::util::Operation op;
         };
 
@@ -321,12 +362,6 @@ namespace ct {
     {
         template <typename LHS, typename RHS>
         friend class vec_impl::vec_expression;
-
-        template <typename Operand>
-        friend class unary_impl::unary_expression;
-
-        template <typename LeftOperand, typename RightOperand>
-        friend class binary_impl::binary_expression;
 
         friend class dot_impl::dot_expression;
 
@@ -450,20 +485,6 @@ namespace ct {
         vector(blas_impl::vec_axpy_expr const&);
         vector& operator=(blas_impl::vec_axpy_expr const&);
 
-        template <typename Operand>
-        vector(ct::unary_impl::unary_expression<Operand> const& e);
-
-        template <typename Operand>
-        vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
-
-        template <typename LeftOperand, typename RightOperand>
-        vector(
-            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
-
-        template <typename LeftOperand, typename RightOperand>
-        vector& operator=(
-            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
-
         // Helper functions
     public:
         const ct::vec_impl::vec_shape_t vector_shape() const
@@ -498,6 +519,34 @@ namespace ct {
                 CProxy_get_vec_future::ckNew(fval, size_);
             std::size_t& sdag_idx = queue.sdag_idx(vector_shape().shape_id);
             vector_shape().proxy.get_value(
+                sdag_idx, vector_shape().vector_id, vec_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
+        bool all()
+        {
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.dispatch(vector_shape().shape_id);
+            ck::future<bool> fval;
+            CProxy_set_future vec_proxy = CProxy_set_future::ckNew(fval, 1);
+            std::size_t& sdag_idx = queue.sdag_idx(vector_shape().shape_id);
+            vector_shape().proxy.all(
+                sdag_idx, vector_shape().vector_id, vec_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
+        bool any()
+        {
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.dispatch(vector_shape().shape_id);
+            ck::future<bool> fval;
+            CProxy_set_future vec_proxy = CProxy_set_future::ckNew(fval, 1);
+            std::size_t& sdag_idx = queue.sdag_idx(vector_shape().shape_id);
+            vector_shape().proxy.any(
                 sdag_idx, vector_shape().vector_id, vec_proxy);
             ++sdag_idx;
             return fval.get();

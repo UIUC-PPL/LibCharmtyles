@@ -39,6 +39,11 @@ public:
         }
     }
 
+    void evaluate_bool(bool result)
+    {
+        is_done.set(result);
+    }
+
 private:
     ck::future<bool> is_done;
     int total;

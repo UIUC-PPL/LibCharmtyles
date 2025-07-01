@@ -11,6 +11,8 @@ module libcharmtyles
         entry set_future(ck::future<bool>, int);
 
         entry [reductiontarget] void mark_complete();
+
+        entry [reductiontarget] void evaluate_bool(bool);
     }
 
     chare get_vec_future
@@ -262,6 +264,26 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // get_value
 
+                when all[SDAG_INDEX](int sdag_index, int vector_id, CProxy_set_future proxy) {
+                serial "all" {
+                    bool res = std::all_of(vec_map[vector_id].begin(), vec_map[vector_id].end(), 
+                      [](double val) { return val != 0.0; });
+                    
+                    CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
+                    contribute(sizeof(bool), &res, CkReduction::logical_and_bool, cb);
+                    ++SDAG_INDEX;
+                }} // all
+
+                when any[SDAG_INDEX](int sdag_index, int vector_id, CProxy_set_future proxy) {
+                serial "any" {
+                    bool res = std::any_of(vec_map[vector_id].begin(), vec_map[vector_id].end(), 
+                      [](double val) { return val != 0.0; });
+                    
+                    CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
+                    contribute(sizeof(bool), &res, CkReduction::logical_or_bool, cb);
+                    ++SDAG_INDEX;
+                }} // any
+
             }} // case + for-loop end
         }
 
@@ -279,6 +301,8 @@ module libcharmtyles
         entry void max(int, int, int);
         entry void synchronize(int, CProxy_set_future);
         entry void get_value(int, int, CProxy_get_vec_future);
+        entry void all(int sdag_index, int vector_id, CProxy_set_future proxy);
+        entry void any(int sdag_index, int vector_id, CProxy_set_future proxy);
     }
 
     array[2D] matrix_impl
@@ -488,6 +512,34 @@ module libcharmtyles
                     contribute(arr_portion, CkReduction::set, cb);
                     ++SDAG_INDEX;
                 }} // get_value
+
+                when any[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_set_future proxy) {
+                serial "any" {
+                    ct::util::matrix_view& mat = mat_map[matrix_id];
+                    size_t row_size = mat.rows();
+                    size_t col_size = mat.cols();
+
+                    bool res = std::any_of(mat.data(), mat.data()+(row_size*col_size), 
+                      [](double val) { return val != 0.0; });
+                    
+                    CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
+                    contribute(sizeof(bool), &res , CkReduction::logical_or_bool, cb);
+                    ++SDAG_INDEX;
+                }} // any
+
+                when all[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_set_future proxy) {
+                serial "all" {
+                    ct::util::matrix_view& mat = mat_map[matrix_id];
+                    size_t row_size = mat.rows();
+                    size_t col_size = mat.cols();
+
+                    bool res = std::all_of(mat.data(), mat.data()+(row_size*col_size), 
+                      [](double val) { return val != 0.0; });
+                    
+                    CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
+                    contribute(sizeof(bool), &res, CkReduction::logical_and_bool, cb);
+                    ++SDAG_INDEX;
+                }} // any
             }}
         }
 
@@ -506,5 +558,7 @@ module libcharmtyles
 
         entry void reduce_sum(int, int, int);
         entry void get_value(int sdag_index, int matrix_id, CProxy_get_mat_future proxy);
+        entry void any(int sdag_index, int matrix_id, CProxy_set_future proxy);
+        entry void all(int sdag_index, int matrix_id, CProxy_set_future proxy);
     }
 }
