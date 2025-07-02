@@ -15,21 +15,21 @@ namespace ct {
         };
 
         template <typename... Ts>
+        struct is_vec_type_impl<ct::vec_impl::ter_vec_expression<Ts...>>
+        {
+            constexpr static bool value = true;
+        };
+
+        template <typename... Ts>
         struct is_mat_type_impl<ct::mat_impl::mat_expression<Ts...>>
         {
             constexpr static bool value = true;
         };
 
-        template <typename T>
-        struct is_unary_vec_type
+        template <typename... Ts>
+        struct is_mat_type_impl<ct::mat_impl::ter_mat_expression<Ts...>>
         {
-            constexpr static bool value = std::is_same_v<T, ct::vector>;
-        };
-
-        template <typename T>
-        struct is_unary_mat_type
-        {
-            constexpr static bool value = std::is_same_v<T, ct::matrix>;
+            constexpr static bool value = true;
         };
 
         template <typename LHS, typename RHS>
@@ -40,12 +40,30 @@ namespace ct {
                 is_vec_type_impl<typename std::decay<RHS>::type>::value;
         };
 
+        template <typename LHS, typename RHS, typename THS>
+        struct is_ter_vec_type
+        {
+            constexpr static bool value =
+                is_vec_type_impl<typename std::decay<LHS>::type>::value &&
+                is_vec_type_impl<typename std::decay<RHS>::type>::value &&
+                is_vec_type_impl<typename std::decay<THS>::type>::value;
+        };
+
         template <typename LHS, typename RHS>
         struct is_mat_type
         {
             constexpr static bool value =
                 is_mat_type_impl<typename std::decay<LHS>::type>::value &&
                 is_mat_type_impl<typename std::decay<RHS>::type>::value;
+        };
+
+        template <typename LHS, typename RHS, typename THS>
+        struct is_ter_mat_type
+        {
+            constexpr static bool value =
+                is_mat_type_impl<typename std::decay<LHS>::type>::value &&
+                is_mat_type_impl<typename std::decay<RHS>::type>::value &&
+                is_mat_type_impl<typename std::decay<THS>::type>::value;
         };
 
     }    // namespace traits
@@ -757,6 +775,21 @@ namespace ct {
             return ct::mat_impl::mat_expression<Operand, Operand>{operand,
                 operand.rows(), operand.cols(), ct::util::Operation::unary_expr,
                 unary_op};
+        }
+    }
+
+    template <typename LHS, typename RHS, typename THS>
+    auto where(LHS const& lhs, RHS const& rhs, THS const& ths)
+    {
+        if constexpr (ct::traits::is_ter_vec_type<LHS, RHS, THS>::value)
+        {
+            return ct::vec_impl::ter_vec_expression<LHS, RHS, THS>{
+                lhs, rhs, ths, lhs.size(), ct::util::Operation::where};
+        }
+        else
+        {
+            return ct::mat_impl::ter_mat_expression<LHS, RHS, THS>{lhs, rhs,
+                ths, lhs.rows(), lhs.cols(), ct::util::Operation::where};
         }
     }
 

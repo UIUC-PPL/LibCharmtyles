@@ -316,6 +316,11 @@ namespace ct {
                     {
                         ast[i].right_ += 1;
                     }
+
+                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].ter_ += 1;
+                    }
                 }
 
                 for (int i = 1 + left.size(); i != ast.size(); ++i)
@@ -328,6 +333,11 @@ namespace ct {
                     if (ast[i].right_ != static_cast<std::size_t>(-1))
                     {
                         ast[i].right_ += 1 + left.size();
+                    }
+
+                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].ter_ += 1 + left.size();
                     }
                 }
 
@@ -348,6 +358,114 @@ namespace ct {
             ct::util::Operation op;
         };
 
+        template <typename LHS, typename RHS, typename THS>
+        class ter_vec_expression
+        {
+        public:
+            explicit ter_vec_expression(LHS const& lhs_, RHS const& rhs_,
+                THS const& ths_, std::size_t vec_len_, ct::util::Operation op_)
+              : lhs(lhs_)
+              , rhs(rhs_)
+              , ths(ths_)
+              , op(op_)
+              , vec_len(vec_len_)
+            {
+            }
+
+            std::vector<ct::vec_impl::vec_node> operator()() const
+            {
+                std::vector<ct::vec_impl::vec_node> left = lhs();
+                std::vector<ct::vec_impl::vec_node> right = rhs();
+                std::vector<ct::vec_impl::vec_node> ter = ths();
+                ct::vec_impl::vec_node node;
+
+                node = ct::vec_impl::vec_node(op, vec_len);
+
+                node.left_ = 1;
+                node.right_ = left.size() + 1;
+                node.ter_ = left.size() + right.size() + 1;
+
+                std::vector<ct::vec_impl::vec_node> ast;
+                ast.reserve(left.size() + right.size() + ter.size() + 1);
+
+                ast.emplace_back(node);
+                std::copy(left.begin(), left.end(), std::back_inserter(ast));
+                std::copy(right.begin(), right.end(), std::back_inserter(ast));
+                std::copy(ter.begin(), ter.end(), std::back_inserter(ast));
+
+                // Update left and right neighbors
+                for (int i = 1; i != left.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].left_ += 1;
+                    }
+
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].right_ += 1;
+                    }
+
+                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].ter_ += 1;
+                    }
+                }
+
+                for (int i = 1 + left.size(); i != left.size() + right.size();
+                    ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].left_ += 1 + left.size();
+                    }
+
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].right_ += 1 + left.size();
+                    }
+
+                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].ter_ += 1 + left.size();
+                    }
+                }
+
+                for (int i = 1 + left.size() + right.size(); i != ast.size();
+                    ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].left_ += 1 + left.size() + right.size();
+                    }
+
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].right_ += 1 + left.size() + right.size();
+                    }
+
+                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    {
+                        ast[i].ter_ += 1 + left.size() + right.size();
+                    }
+                }
+
+                return ast;
+            }
+
+        private:
+            std::size_t size() const
+            {
+                return vec_len;
+            }
+
+            LHS const& lhs;
+            RHS const& rhs;
+            THS const& ths;
+            std::size_t vec_len;
+            ct::util::Operation op;
+        };
+
     }    // namespace vec_impl
 
     namespace dot_impl {
@@ -362,6 +480,9 @@ namespace ct {
     {
         template <typename LHS, typename RHS>
         friend class vec_impl::vec_expression;
+
+        template <typename LHS, typename RHS, typename THS>
+        friend class vec_impl::ter_vec_expression;
 
         friend class dot_impl::dot_expression;
 
@@ -484,6 +605,41 @@ namespace ct {
 
         vector(blas_impl::vec_axpy_expr const&);
         vector& operator=(blas_impl::vec_axpy_expr const&);
+
+        template <typename LHS, typename RHS, typename THS>
+        vector(ct::vec_impl::ter_vec_expression<LHS, RHS, THS> const& e)
+        {
+            std::vector<ct::vec_impl::vec_node> instr = e();
+            ct::vec_impl::vec_node& root = instr.front();
+            size_ = root.vec_len_;
+
+            vector_shape_ = ct::vec_impl::get_vector_shape(size_);
+
+            root.name_ = vector_shape_.vector_id;
+            node_ = ct::vec_impl::vec_node{root};
+
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.insert(instr, vector_shape_.shape_id);
+        }
+
+        template <typename LHS, typename RHS, typename THS>
+        vector& operator=(
+            ct::vec_impl::ter_vec_expression<LHS, RHS, THS> const& e)
+        {
+            std::vector<ct::vec_impl::vec_node> instr = e();
+            ct::vec_impl::vec_node& root = instr.front();
+
+            root.name_ = vector_shape_.vector_id;
+
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.insert(instr, vector_shape_.shape_id);
+
+            return *this;
+        }
 
         // Helper functions
     public:

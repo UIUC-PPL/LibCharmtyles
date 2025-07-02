@@ -285,6 +285,7 @@ private:
         case ct::util::Operation::neq:
         case ct::util::Operation::unary_expr:
         case ct::util::Operation::binary_expr:
+        case ct::util::Operation::where:
 
             if (node_id == vec_map.size())
             {
@@ -389,6 +390,15 @@ private:
             return node.binary_expr_->operator()(iter_idx,
                 execute_ast_for_idx(instruction, node.left_, iter_idx),
                 execute_ast_for_idx(instruction, node.right_, iter_idx));
+        case ct::util::Operation::where:
+            if (execute_ast_for_idx(instruction, node.ter_, iter_idx))
+            {
+                return execute_ast_for_idx(instruction, node.left_, iter_idx);
+            }
+            else
+            {
+                return execute_ast_for_idx(instruction, node.right_, iter_idx);
+            }
         default:
             CmiAbort("Operation not implemented");
         }
@@ -573,6 +583,7 @@ private:
         case ct::util::Operation::neq:
         case ct::util::Operation::unary_expr:
         case ct::util::Operation::binary_expr:
+        case ct::util::Operation::where:
 
             if (node_id == mat_map.size())
             {
@@ -675,6 +686,17 @@ private:
             return node.binary_expr_->operator()(iter_i, iter_j,
                 execute_ast_for_idx(instruction, node.left_, iter_i, iter_j),
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
+        case ct::util::Operation::where:
+            if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
+            {
+                return execute_ast_for_idx(
+                    instruction, node.left_, iter_i, iter_j);
+            }
+            else
+            {
+                return execute_ast_for_idx(
+                    instruction, node.right_, iter_i, iter_j);
+            }
         default:
             CmiAbort("Operation not implemented");
         }

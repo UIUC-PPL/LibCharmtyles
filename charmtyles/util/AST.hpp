@@ -41,6 +41,9 @@ namespace ct {
             logical_or = 22,
             logical_not = 23,
 
+            // Ternary
+            where = 25,
+
             // Unary operations
             unary_expr = 30,
             // Binary operations
@@ -119,6 +122,7 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             vec_node() = default;
@@ -197,6 +201,7 @@ namespace ct {
                 p | vec_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
@@ -220,6 +225,7 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             mat_node() = default;
@@ -295,6 +301,7 @@ namespace ct {
                 p | mat_col_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
