@@ -283,6 +283,9 @@ private:
         case ct::util::Operation::lesser:
         case ct::util::Operation::eq:
         case ct::util::Operation::neq:
+        case ct::util::Operation::logical_and:
+        case ct::util::Operation::logical_or:
+        case ct::util::Operation::logical_not:
         case ct::util::Operation::unary_expr:
         case ct::util::Operation::binary_expr:
         case ct::util::Operation::where:
@@ -383,6 +386,14 @@ private:
         case ct::util::Operation::lesser:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) <
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_and:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) &&
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_or:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) ||
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_not:
+            return !execute_ast_for_idx(instruction, node.left_, iter_idx);
         case ct::util::Operation::unary_expr:
             return node.unary_expr_->operator()(iter_idx,
                 execute_ast_for_idx(instruction, node.left_, iter_idx));
@@ -585,6 +596,9 @@ private:
         case ct::util::Operation::neq:
         case ct::util::Operation::unary_expr:
         case ct::util::Operation::binary_expr:
+        case ct::util::Operation::logical_and:
+        case ct::util::Operation::logical_or:
+        case ct::util::Operation::logical_not:
         case ct::util::Operation::where:
 
             if (node_id == mat_map.size())
@@ -690,6 +704,17 @@ private:
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
         case ct::util::Operation::broadcast:
             return node.value_;
+        case ct::util::Operation::logical_and:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) &&
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::logical_or:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) ||
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::logical_not:
+            return !execute_ast_for_idx(
+                instruction, node.left_, iter_i, iter_j);
         case ct::util::Operation::where:
             if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
             {

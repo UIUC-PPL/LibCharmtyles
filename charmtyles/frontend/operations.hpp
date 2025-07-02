@@ -201,6 +201,24 @@ namespace ct {
         return operator_impl(lhs, rhs, ct::util::Operation::leq);
     }
 
+    template <typename LHS, typename RHS>
+    auto operator&&(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::logical_and);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator||(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::logical_or);
+    }
+
+    template <typename LHS>
+    auto operator!(LHS const& lhs)
+    {
+        return operator_impl(lhs, lhs, ct::util::Operation::logical_not);
+    }
+
     inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
     {
         std::size_t lhs_shape_id = lhs.vector_shape().shape_id;

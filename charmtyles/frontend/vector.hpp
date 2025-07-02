@@ -317,7 +317,8 @@ namespace ct {
                 {
                     node = ct::vec_impl::vec_node(-1, op, binary_op, vec_len);
                 }
-                else if (op == ct::util::Operation::unary_expr)
+                else if (op == ct::util::Operation::unary_expr ||
+                    op == ct::util::Operation::logical_not)
                 {
                     node = ct::vec_impl::vec_node(-1, op, unary_op, vec_len);
                 }
@@ -328,7 +329,8 @@ namespace ct {
 
                 node.left_ = 1;
                 size_t right_size;
-                if (op == ct::util::Operation::unary_expr)
+                if (op == ct::util::Operation::unary_expr ||
+                    op == ct::util::Operation::logical_not)
                 {
                     node.right_ = -1;
                     right_size = 0;
