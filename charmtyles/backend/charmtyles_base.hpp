@@ -39,10 +39,103 @@ public:
         }
     }
 
+    void evaluate_bool(bool result)
+    {
+        is_done.set(result);
+    }
+
 private:
     ck::future<bool> is_done;
     int total;
     int counter;
+};
+
+class get_vec_future : public CBase_get_vec_future
+{
+public:
+    get_vec_future(ck::future<std::vector<double>> output_, size_t len_)
+      : output(output_)
+      , len(len_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | len;
+    }
+
+    void construct_vector(CkReductionMsg* msg)
+    {
+        std::vector<double> out(len, 0.);
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t index = (size_t) result[0];
+            size_t len = current->dataSize / sizeof(double);
+            for (size_t i = 1; i < len; i++)
+            {
+                out[index + i - 1] = result[i];
+            }
+            current = current->next();
+        }
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<double>> output;
+    size_t len;
+};
+
+class get_mat_future : public CBase_get_mat_future
+{
+public:
+    get_mat_future(ck::future<std::vector<std::vector<double>>> output_,
+        size_t rows_, size_t cols_)
+      : output(output_)
+      , rows(rows_)
+      , cols(cols_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | rows;
+        p | cols;
+    }
+
+    void construct_matrix(CkReductionMsg* msg)
+    {
+        std::vector<std::vector<double>> out(
+            rows, std::vector<double>(cols, 0.0));
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t row_index = (size_t) result[0];
+            size_t col_index = (size_t) result[1];
+            size_t row_size = (size_t) result[2];
+            size_t col_size = (current->dataSize - (3 * sizeof(double))) /
+                (sizeof(double) * row_size);
+            for (size_t i = 0; i < row_size; i++)
+            {
+                for (size_t j = 0; j < col_size; j++)
+                    out[row_index + i][col_index + j] =
+                        result[3 + i * col_size + j];
+            }
+            current = current->next();
+        }
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<std::vector<double>>> output;
+    size_t rows;
+    size_t cols;
 };
 
 class scalar_impl : public CBase_scalar_impl
@@ -116,6 +209,9 @@ private:
         std::shared_ptr<ct::unary_operator> const& unary_expr =
             node.unary_expr_;
 
+        std::shared_ptr<ct::binary_operator> const& binary_expr =
+            node.binary_expr_;
+
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dist(0., 1.);
@@ -181,6 +277,18 @@ private:
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::divide:
+        case ct::util::Operation::geq:
+        case ct::util::Operation::leq:
+        case ct::util::Operation::greater:
+        case ct::util::Operation::lesser:
+        case ct::util::Operation::eq:
+        case ct::util::Operation::neq:
+        case ct::util::Operation::logical_and:
+        case ct::util::Operation::logical_or:
+        case ct::util::Operation::logical_not:
+        case ct::util::Operation::unary_expr:
+        case ct::util::Operation::binary_expr:
+        case ct::util::Operation::where:
 
             if (node_id == vec_map.size())
             {
@@ -207,26 +315,6 @@ private:
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
-            }
-
-            return;
-
-        case ct::util::Operation::unary_expr:
-            total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                unary_expr->operator()(i, vec_map[node_id][i]);
-                unary_expr->operator()(i + 1, vec_map[node_id][i + 1]);
-                unary_expr->operator()(i + 2, vec_map[node_id][i + 2]);
-                unary_expr->operator()(i + 3, vec_map[node_id][i + 3]);
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                unary_expr->operator()(i, vec_map[node_id][i]);
             }
 
             return;
@@ -280,6 +368,50 @@ private:
         case ct::util::Operation::divide:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) /
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::eq:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) ==
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::neq:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) !=
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::geq:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) >=
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::leq:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) <=
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::greater:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) >
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::lesser:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) <
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_and:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) &&
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_or:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) ||
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::logical_not:
+            return !execute_ast_for_idx(instruction, node.left_, iter_idx);
+        case ct::util::Operation::unary_expr:
+            return node.unary_expr_->operator()(iter_idx,
+                execute_ast_for_idx(instruction, node.left_, iter_idx));
+        case ct::util::Operation::binary_expr:
+            return node.binary_expr_->operator()(iter_idx,
+                execute_ast_for_idx(instruction, node.left_, iter_idx),
+                execute_ast_for_idx(instruction, node.right_, iter_idx));
+        case ct::util::Operation::broadcast:
+            return node.value_;
+        case ct::util::Operation::where:
+            if (execute_ast_for_idx(instruction, node.ter_, iter_idx))
+            {
+                return execute_ast_for_idx(instruction, node.left_, iter_idx);
+            }
+            else
+            {
+                return execute_ast_for_idx(instruction, node.right_, iter_idx);
+            }
         default:
             CmiAbort("Operation not implemented");
         }
@@ -364,6 +496,10 @@ private:
     {
         ct::mat_impl::mat_node const& node = instruction[index];
         std::size_t node_id = node.name_;
+        std::shared_ptr<ct::unary_operator> const& unary_expr =
+            node.unary_expr_;
+        std::shared_ptr<ct::binary_operator> const& binary_expr =
+            node.binary_expr_;
 
         // Useful variables in switch statement
         std::size_t num_rows{0};
@@ -452,6 +588,18 @@ private:
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::divide:
+        case ct::util::Operation::geq:
+        case ct::util::Operation::leq:
+        case ct::util::Operation::greater:
+        case ct::util::Operation::lesser:
+        case ct::util::Operation::eq:
+        case ct::util::Operation::neq:
+        case ct::util::Operation::unary_expr:
+        case ct::util::Operation::binary_expr:
+        case ct::util::Operation::logical_and:
+        case ct::util::Operation::logical_or:
+        case ct::util::Operation::logical_not:
+        case ct::util::Operation::where:
 
             if (node_id == mat_map.size())
             {
@@ -492,6 +640,7 @@ private:
             }
 
             return;
+
         default:
             CmiAbort("Operation not implemented");
         }
@@ -522,6 +671,61 @@ private:
             return execute_ast_for_idx(
                        instruction, node.left_, iter_i, iter_j) /
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::greater:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) >
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::lesser:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) <
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::geq:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) >=
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::leq:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) <=
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::eq:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) ==
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::neq:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) !=
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::unary_expr:
+            return node.unary_expr_->operator()(iter_i, iter_j,
+                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j));
+        case ct::util::Operation::binary_expr:
+            return node.binary_expr_->operator()(iter_i, iter_j,
+                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j),
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
+        case ct::util::Operation::broadcast:
+            return node.value_;
+        case ct::util::Operation::logical_and:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) &&
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::logical_or:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) ||
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
+        case ct::util::Operation::logical_not:
+            return !execute_ast_for_idx(
+                instruction, node.left_, iter_i, iter_j);
+        case ct::util::Operation::where:
+            if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
+            {
+                return execute_ast_for_idx(
+                    instruction, node.left_, iter_i, iter_j);
+            }
+            else
+            {
+                return execute_ast_for_idx(
+                    instruction, node.right_, iter_i, iter_j);
+            }
         default:
             CmiAbort("Operation not implemented");
         }

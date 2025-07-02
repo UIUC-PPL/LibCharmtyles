@@ -1,7 +1,7 @@
 mainmodule base
 {
     extern module libcharmtyles;
-    PUPable sqrt_t;
+    PUPable multiply_t;
 
     mainchare Main
     {

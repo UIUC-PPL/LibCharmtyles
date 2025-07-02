@@ -19,9 +19,10 @@ public:
 
     using ct::unary_operator::unary_operator;
 
-    inline void operator()(std::size_t index, double& value) final
+    virtual double operator()(std::size_t index, double& value) final
     {
         value = 1 / (1 + std::exp(-value));
+        return 1.0;
     }
 
     PUPable_decl(sigmoid_t);

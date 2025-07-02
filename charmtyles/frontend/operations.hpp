@@ -15,7 +15,19 @@ namespace ct {
         };
 
         template <typename... Ts>
+        struct is_vec_type_impl<ct::vec_impl::ter_vec_expression<Ts...>>
+        {
+            constexpr static bool value = true;
+        };
+
+        template <typename... Ts>
         struct is_mat_type_impl<ct::mat_impl::mat_expression<Ts...>>
+        {
+            constexpr static bool value = true;
+        };
+
+        template <typename... Ts>
+        struct is_mat_type_impl<ct::mat_impl::ter_mat_expression<Ts...>>
         {
             constexpr static bool value = true;
         };
@@ -28,6 +40,15 @@ namespace ct {
                 is_vec_type_impl<typename std::decay<RHS>::type>::value;
         };
 
+        template <typename LHS, typename RHS, typename THS>
+        struct is_ter_vec_type
+        {
+            constexpr static bool value =
+                is_vec_type_impl<typename std::decay<LHS>::type>::value &&
+                is_vec_type_impl<typename std::decay<RHS>::type>::value &&
+                is_vec_type_impl<typename std::decay<THS>::type>::value;
+        };
+
         template <typename LHS, typename RHS>
         struct is_mat_type
         {
@@ -36,51 +57,166 @@ namespace ct {
                 is_mat_type_impl<typename std::decay<RHS>::type>::value;
         };
 
+        template <typename LHS, typename RHS, typename THS>
+        struct is_ter_mat_type
+        {
+            constexpr static bool value =
+                is_mat_type_impl<typename std::decay<LHS>::type>::value &&
+                is_mat_type_impl<typename std::decay<RHS>::type>::value &&
+                is_mat_type_impl<typename std::decay<THS>::type>::value;
+        };
+
     }    // namespace traits
 
     template <typename LHS, typename RHS>
-    auto operator+(LHS const& lhs, RHS const& rhs)
+    auto operator_impl(LHS const& lhs, RHS const& rhs, ct::util::Operation op)
     {
         if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
         {
             return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::add};
+                lhs, rhs, lhs.size(), op};
+        }
+        else if constexpr (ct::traits::is_mat_type<LHS, RHS>::value)
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), op};
+        }
+        else if constexpr (traits::is_vec_type_impl<
+                               typename std::decay<LHS>::type>::value ||
+            traits::is_vec_type_impl<typename std::decay<RHS>::type>::value)
+        {
+            if constexpr (std::is_arithmetic_v<typename std::decay<LHS>::type>)
+            {
+                return ct::vec_impl::vec_expression<RHS, RHS>{
+                    lhs, rhs, rhs.size(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::vec_impl::vec_expression<RHS, RHS>{
+                    lhs.get(), rhs, rhs.size(), op};
+            }
+            else if constexpr (std::is_arithmetic_v<
+                                   typename std::decay<RHS>::type>)
+            {
+                return ct::vec_impl::vec_expression<LHS, LHS>{
+                    lhs, rhs, lhs.size(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::vec_impl::vec_expression<LHS, LHS>{
+                    lhs, rhs.get(), lhs.size(), op};
+            }
+            else
+            {
+                CkAbort("Vectors to matrix broadcasting not yet supported");
+            }
+        }
+        else if constexpr (traits::is_mat_type_impl<
+                               typename std::decay<LHS>::type>::value ||
+            traits::is_mat_type_impl<typename std::decay<RHS>::type>::value)
+        {
+            if constexpr (std::is_arithmetic_v<typename std::decay<LHS>::type>)
+            {
+                return ct::mat_impl::mat_expression<RHS, RHS>{
+                    lhs, rhs, rhs.rows(), rhs.cols(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::mat_impl::mat_expression<RHS, RHS>{
+                    lhs.get(), rhs, rhs.rows(), rhs.cols(), op};
+            }
+            else if constexpr (std::is_arithmetic_v<
+                                   typename std::decay<RHS>::type>)
+            {
+                return ct::mat_impl::mat_expression<LHS, LHS>{
+                    lhs, rhs, lhs.rows(), lhs.cols(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::mat_impl::mat_expression<LHS, LHS>{
+                    lhs, rhs, lhs.rows(), lhs.cols(), op};
+            }
         }
         else
         {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::add};
+            CkAbort("At least one operand must be a vector or a matrix");
         }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator+(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::add);
     }
 
     template <typename LHS, typename RHS>
     auto operator-(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::sub};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::sub};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::sub);
     }
 
     template <typename LHS, typename RHS>
     auto operator/(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::divide};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::divide};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::divide);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator>(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::greater);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator<(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::lesser);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator==(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::eq);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator!=(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::neq);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator>=(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::geq);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator<=(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::leq);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator&&(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::logical_and);
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator||(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::logical_or);
+    }
+
+    template <typename LHS>
+    auto operator!(LHS const& lhs)
+    {
+        return operator_impl(lhs, lhs, ct::util::Operation::logical_not);
     }
 
     inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)
@@ -640,11 +776,52 @@ namespace ct {
         return result;
     }
 
-    inline void unary_expr(
-        ct::vector const& vec, std::shared_ptr<unary_operator> unary_operator)
+    template <typename Operand>
+    auto unary_expr(
+        Operand const& operand, std::shared_ptr<unary_operator> unary_op)
     {
-        ct::vec_impl::vec_shape_t vector_shape = vec.vector_shape();
-        ct::vec_impl::vec_node root{vector_shape.vector_id,
-            ct::util::Operation::unary_expr, unary_operator, vec.size()};
+        if constexpr (traits::is_vec_type_impl<
+                          typename std::decay<Operand>::type>::value)
+        {
+            return ct::vec_impl::vec_expression<Operand, Operand>{operand,
+                operand.size(), ct::util::Operation::unary_expr, unary_op};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<Operand, Operand>{operand,
+                operand.rows(), operand.cols(), ct::util::Operation::unary_expr,
+                unary_op};
+        }
+    }
+
+    template <typename LHS, typename RHS, typename THS>
+    auto where(LHS const& lhs, RHS const& rhs, THS const& ths)
+    {
+        if constexpr (ct::traits::is_ter_vec_type<LHS, RHS, THS>::value)
+        {
+            return ct::vec_impl::ter_vec_expression<LHS, RHS, THS>{
+                lhs, rhs, ths, lhs.size(), ct::util::Operation::where};
+        }
+        else
+        {
+            return ct::mat_impl::ter_mat_expression<LHS, RHS, THS>{lhs, rhs,
+                ths, lhs.rows(), lhs.cols(), ct::util::Operation::where};
+        }
+    }
+
+    template <typename LHS, typename RHS>
+    auto binary_expr(LHS const& lhs, RHS const& rhs,
+        std::shared_ptr<binary_operator> binary_op)
+    {
+        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
+        {
+            return ct::vec_impl::vec_expression<LHS, RHS>{lhs, rhs, lhs.size(),
+                ct::util::Operation::binary_expr, binary_op};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{lhs, rhs, lhs.rows(),
+                lhs.cols(), ct::util::Operation::binary_expr, binary_op};
+        }
     }
 }    // namespace ct

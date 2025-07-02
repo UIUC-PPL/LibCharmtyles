@@ -25,11 +25,32 @@ namespace ct {
             sub = 11,
             divide = 12,
 
+            // Relational Operators
+            greater = 13,
+            lesser = 14,
+            geq = 15,
+            leq = 16,
+            eq = 17,
+            neq = 18,
+
+            //Broadcast
+            broadcast = 19,
+
             // Blas
             axpy = 20,
 
+            // Logical
+            logical_and = 21,
+            logical_or = 22,
+            logical_not = 23,
+
+            // Ternary
+            where = 25,
+
             // Unary operations
-            unary_expr = 30
+            unary_expr = 30,
+            // Binary operations
+            binary_expr = 40,
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -95,6 +116,8 @@ namespace ct {
             ct::util::Operation operation_;
             std::shared_ptr<ct::unary_operator> unary_expr_ =
                 std::make_shared<ct::unary_operator>();
+            std::shared_ptr<ct::binary_operator> binary_expr_ =
+                std::make_shared<ct::binary_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -102,9 +125,12 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             vec_node() = default;
+            vec_node(vec_node const& other) = default;
+            vec_node& operator=(vec_node const& other) = default;
 
             explicit vec_node(ct::util::Operation op, std::size_t size)
               : operation_(op)
@@ -130,10 +156,22 @@ namespace ct {
             {
             }
 
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::size_t vec_len)
+              : name_(name)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , vec_len_(vec_len)
+            {
+            }
+
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
             {
@@ -164,10 +202,13 @@ namespace ct {
                 p | name_;
                 p | operation_;
                 p | copy_id_;
+                p | unary_expr_;
+                p | binary_expr_;
                 p | value_;
                 p | vec_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
@@ -179,6 +220,10 @@ namespace ct {
         {
             std::size_t name_ = -1;
             ct::util::Operation operation_;
+            std::shared_ptr<ct::unary_operator> unary_expr_ =
+                std::make_shared<ct::unary_operator>();
+            std::shared_ptr<ct::binary_operator> binary_expr_ =
+                std::make_shared<ct::binary_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -187,6 +232,7 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             mat_node() = default;
@@ -209,6 +255,28 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 double value, std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
@@ -222,22 +290,30 @@ namespace ct {
                 mat_node const& other)
               : name_(matrix_id)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , mat_row_len_(other.mat_row_len_)
               , mat_col_len_(other.mat_col_len_)
             {
             }
 
+            mat_node(mat_node const& other) = default;
+            mat_node& operator=(mat_node const& other) = default;
+
             void pup(PUP::er& p)
             {
                 p | name_;
                 p | operation_;
+                p | unary_expr_;
+                p | binary_expr_;
                 p | copy_id_;
                 p | value_;
                 p | mat_row_len_;
                 p | mat_col_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
