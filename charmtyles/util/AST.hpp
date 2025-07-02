@@ -33,6 +33,9 @@ namespace ct {
             eq = 17,
             neq = 18,
 
+            //Broadcast
+            broadcast = 19,
+
             // Blas
             axpy = 20,
 
@@ -126,6 +129,8 @@ namespace ct {
 
             // Only called when initializing through expression
             vec_node() = default;
+            vec_node(vec_node const& other) = default;
+            vec_node& operator=(vec_node const& other) = default;
 
             explicit vec_node(ct::util::Operation op, std::size_t size)
               : operation_(op)
@@ -165,6 +170,8 @@ namespace ct {
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
             {
@@ -283,11 +290,16 @@ namespace ct {
                 mat_node const& other)
               : name_(matrix_id)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , mat_row_len_(other.mat_row_len_)
               , mat_col_len_(other.mat_col_len_)
             {
             }
+
+            mat_node(mat_node const& other) = default;
+            mat_node& operator=(mat_node const& other) = default;
 
             void pup(PUP::er& p)
             {

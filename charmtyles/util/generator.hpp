@@ -48,6 +48,11 @@ namespace ct {
         {
         }
 
+        virtual void pup(PUP::er& p)
+        {
+            PUP::able::pup(p);
+        }
+
         // Default Operator overload for vectors
         virtual double operator()(std::size_t index, double value)
         {

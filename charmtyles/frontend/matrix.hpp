@@ -251,6 +251,28 @@ namespace ct {
             {
             }
 
+            explicit mat_expression(LHS const& lhs_, double rhs_,
+                std::size_t rows_, std::size_t cols_, ct::util::Operation op_)
+              : lhs(lhs_)
+              , rhs(lhs_)
+              , row_len(rows_)
+              , col_len(cols_)
+              , op(op_)
+              , r_scalar(rhs_)
+            {
+            }
+
+            explicit mat_expression(double lhs_, RHS const& rhs_,
+                std::size_t rows_, std::size_t cols_, ct::util::Operation op_)
+              : lhs(rhs_)
+              , rhs(rhs_)
+              , row_len(rows_)
+              , col_len(cols_)
+              , op(op_)
+              , l_scalar(lhs_)
+            {
+            }
+
             explicit mat_expression(LHS const& lhs_, RHS const& rhs_,
                 std::size_t rows_, std::size_t cols_, ct::util::Operation op_,
                 std::shared_ptr<binary_operator> binary_op_)
@@ -277,17 +299,41 @@ namespace ct {
 
             std::vector<ct::mat_impl::mat_node> operator()() const
             {
-                std::vector<ct::mat_impl::mat_node> left = lhs();
-                std::vector<ct::mat_impl::mat_node> right = rhs();
+                std::vector<ct::mat_impl::mat_node> left;
+                std::vector<ct::mat_impl::mat_node> right;
+
+                if (l_scalar == -1)
+                {
+                    left = lhs();
+                }
+                else
+                {
+                    ct::mat_impl::mat_node temp_node{0,
+                        ct::util::Operation::broadcast, l_scalar, row_len,
+                        col_len};
+                    left = {temp_node};
+                }
+
+                if (r_scalar == -1)
+                {
+                    right = rhs();
+                }
+                else
+                {
+                    ct::mat_impl::mat_node temp_node{0,
+                        ct::util::Operation::broadcast, r_scalar, row_len,
+                        col_len};
+                    right = {temp_node};
+                }
 
                 ct::mat_impl::mat_node node;
 
-                if (binary_op)
+                if (op == ct::util::Operation::binary_expr)
                 {
                     node = ct::mat_impl::mat_node(
                         -1, op, binary_op, row_len, col_len);
                 }
-                else if (unary_op)
+                else if (op == ct::util::Operation::unary_expr)
                 {
                     node = ct::mat_impl::mat_node(
                         -1, op, unary_op, row_len, col_len);
@@ -296,10 +342,9 @@ namespace ct {
                 {
                     node = ct::mat_impl::mat_node(op, row_len, col_len);
                 }
-
                 node.left_ = 1;
                 size_t right_size;
-                if (unary_op)
+                if (op == ct::util::Operation::unary_expr)
                 {
                     node.right_ = -1;
                     right_size = 0;
@@ -316,7 +361,7 @@ namespace ct {
                 ast.emplace_back(node);
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
 
-                if (!unary_op)
+                if (op != ct::util::Operation::unary_expr)
                     std::copy(
                         right.begin(), right.end(), std::back_inserter(ast));
 
@@ -373,6 +418,8 @@ namespace ct {
         private:
             LHS const& lhs;
             RHS const& rhs;
+            double l_scalar = -1;
+            double r_scalar = -1;
             std::size_t row_len;
             std::size_t col_len;
             std::shared_ptr<binary_operator> binary_op;
@@ -478,7 +525,6 @@ namespace ct {
                 return ast;
             }
 
-        private:
             std::size_t rows() const
             {
                 return row_len;
@@ -489,6 +535,7 @@ namespace ct {
                 return col_len;
             }
 
+        private:
             LHS const& lhs;
             RHS const& rhs;
             THS const& ths;

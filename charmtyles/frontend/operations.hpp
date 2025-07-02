@@ -69,138 +69,138 @@ namespace ct {
     }    // namespace traits
 
     template <typename LHS, typename RHS>
-    auto operator+(LHS const& lhs, RHS const& rhs)
+    auto operator_impl(LHS const& lhs, RHS const& rhs, ct::util::Operation op)
     {
         if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
         {
             return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::add};
+                lhs, rhs, lhs.size(), op};
+        }
+        else if constexpr (ct::traits::is_mat_type<LHS, RHS>::value)
+        {
+            return ct::mat_impl::mat_expression<LHS, RHS>{
+                lhs, rhs, lhs.rows(), lhs.cols(), op};
+        }
+        else if constexpr (traits::is_vec_type_impl<
+                               typename std::decay<LHS>::type>::value ||
+            traits::is_vec_type_impl<typename std::decay<RHS>::type>::value)
+        {
+            if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                              double>)
+            {
+                return ct::vec_impl::vec_expression<RHS, RHS>{
+                    lhs, rhs, rhs.size(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::vec_impl::vec_expression<RHS, RHS>{
+                    lhs.get(), rhs, rhs.size(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   double>)
+            {
+                return ct::vec_impl::vec_expression<LHS, LHS>{
+                    lhs, rhs, lhs.size(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::vec_impl::vec_expression<LHS, LHS>{
+                    lhs, rhs.get(), lhs.size(), op};
+            }
+            else
+            {
+                CkAbort("Vectors to matrix broadcasting not yet supported");
+            }
+        }
+        else if constexpr (traits::is_mat_type_impl<
+                               typename std::decay<LHS>::type>::value ||
+            traits::is_mat_type_impl<typename std::decay<RHS>::type>::value)
+        {
+            if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                              double>)
+            {
+                return ct::mat_impl::mat_expression<RHS, RHS>{
+                    lhs, rhs, rhs.rows(), rhs.cols(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<LHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::mat_impl::mat_expression<RHS, RHS>{
+                    lhs.get(), rhs, rhs.rows(), rhs.cols(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   double>)
+            {
+                return ct::mat_impl::mat_expression<LHS, LHS>{
+                    lhs, rhs, lhs.rows(), lhs.cols(), op};
+            }
+            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
+                                   ct::scalar>)
+            {
+                return ct::mat_impl::mat_expression<LHS, LHS>{
+                    lhs, rhs, lhs.rows(), lhs.cols(), op};
+            }
         }
         else
         {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::add};
+            CkAbort("At least one operand must be a vector or a matrix");
         }
+    }
+
+    template <typename LHS, typename RHS>
+    auto operator+(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::add);
     }
 
     template <typename LHS, typename RHS>
     auto operator-(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::sub};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::sub};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::sub);
     }
 
     template <typename LHS, typename RHS>
     auto operator/(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::divide};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::divide};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::divide);
     }
 
     template <typename LHS, typename RHS>
     auto operator>(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::greater};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::greater};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::greater);
     }
 
     template <typename LHS, typename RHS>
     auto operator<(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::lesser};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::lesser};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::lesser);
     }
 
     template <typename LHS, typename RHS>
     auto operator==(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::eq};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::eq};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::eq);
     }
 
     template <typename LHS, typename RHS>
     auto operator!=(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::neq};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::neq};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::neq);
     }
 
     template <typename LHS, typename RHS>
     auto operator>=(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::geq};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::geq};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::geq);
     }
 
     template <typename LHS, typename RHS>
     auto operator<=(LHS const& lhs, RHS const& rhs)
     {
-        if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
-        {
-            return ct::vec_impl::vec_expression<LHS, RHS>{
-                lhs, rhs, lhs.size(), ct::util::Operation::leq};
-        }
-        else
-        {
-            return ct::mat_impl::mat_expression<LHS, RHS>{
-                lhs, rhs, lhs.rows(), lhs.cols(), ct::util::Operation::leq};
-        }
+        return operator_impl(lhs, rhs, ct::util::Operation::leq);
     }
 
     inline ct::scalar dot(ct::vector const& lhs, ct::vector const& rhs)

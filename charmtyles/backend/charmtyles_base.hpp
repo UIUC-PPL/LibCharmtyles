@@ -390,6 +390,8 @@ private:
             return node.binary_expr_->operator()(iter_idx,
                 execute_ast_for_idx(instruction, node.left_, iter_idx),
                 execute_ast_for_idx(instruction, node.right_, iter_idx));
+        case ct::util::Operation::broadcast:
+            return node.value_;
         case ct::util::Operation::where:
             if (execute_ast_for_idx(instruction, node.ter_, iter_idx))
             {
@@ -686,6 +688,8 @@ private:
             return node.binary_expr_->operator()(iter_i, iter_j,
                 execute_ast_for_idx(instruction, node.left_, iter_i, iter_j),
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
+        case ct::util::Operation::broadcast:
+            return node.value_;
         case ct::util::Operation::where:
             if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
             {

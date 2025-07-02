@@ -11,7 +11,6 @@
 namespace ct {
 
     namespace vec_impl {
-
         CT_GENERATE_SINGLETON(std::size_t, vec_shape_id);
         std::size_t get_vec_shape_id()
         {
@@ -239,6 +238,26 @@ namespace ct {
             {
             }
 
+            explicit vec_expression(LHS const& lhs_, double rhs_,
+                std::size_t vec_len_, ct::util::Operation op_)
+              : lhs(lhs_)
+              , rhs(lhs_)
+              , vec_len(vec_len_)
+              , op(op_)
+              , r_scalar(rhs_)
+            {
+            }
+
+            explicit vec_expression(double lhs_, RHS const& rhs_,
+                std::size_t vec_len_, ct::util::Operation op_)
+              : lhs(rhs_)
+              , rhs(rhs_)
+              , vec_len(vec_len_)
+              , op(op_)
+              , l_scalar(lhs_)
+            {
+            }
+
             explicit vec_expression(LHS const& lhs_, RHS const& rhs_,
                 std::size_t vec_len_, ct::util::Operation op_,
                 std::shared_ptr<binary_operator> binary_op_)
@@ -263,16 +282,38 @@ namespace ct {
 
             std::vector<ct::vec_impl::vec_node> operator()() const
             {
-                std::vector<ct::vec_impl::vec_node> left = lhs();
-                std::vector<ct::vec_impl::vec_node> right = rhs();
+                std::vector<ct::vec_impl::vec_node> left;
+                std::vector<ct::vec_impl::vec_node> right;
+
+                if (l_scalar == -1)
+                {
+                    left = lhs();
+                }
+                else
+                {
+                    ct::vec_impl::vec_node temp_node{
+                        0, ct::util::Operation::broadcast, l_scalar, vec_len};
+                    left = {temp_node};
+                }
+
+                if (r_scalar == -1)
+                {
+                    right = rhs();
+                }
+                else
+                {
+                    ct::vec_impl::vec_node temp_node{
+                        0, ct::util::Operation::broadcast, r_scalar, vec_len};
+                    right = {temp_node};
+                }
 
                 ct::vec_impl::vec_node node;
 
-                if (binary_op)
+                if (op == ct::util::Operation::binary_expr)
                 {
                     node = ct::vec_impl::vec_node(-1, op, binary_op, vec_len);
                 }
-                else if (unary_op)
+                else if (op == ct::util::Operation::unary_expr)
                 {
                     node = ct::vec_impl::vec_node(-1, op, unary_op, vec_len);
                 }
@@ -283,7 +324,7 @@ namespace ct {
 
                 node.left_ = 1;
                 size_t right_size;
-                if (unary_op)
+                if (op == ct::util::Operation::unary_expr)
                 {
                     node.right_ = -1;
                     right_size = 0;
@@ -300,7 +341,7 @@ namespace ct {
                 ast.emplace_back(node);
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
 
-                if (!unary_op)
+                if (op != ct::util::Operation::unary_expr)
                     std::copy(
                         right.begin(), right.end(), std::back_inserter(ast));
 
@@ -352,6 +393,8 @@ namespace ct {
         private:
             LHS const& lhs;
             RHS const& rhs;
+            double l_scalar = -1;
+            double r_scalar = -1;
             std::size_t vec_len;
             std::shared_ptr<binary_operator> binary_op;
             std::shared_ptr<unary_operator> unary_op;
@@ -453,12 +496,12 @@ namespace ct {
                 return ast;
             }
 
-        private:
             std::size_t size() const
             {
                 return vec_len;
             }
 
+        private:
             LHS const& lhs;
             RHS const& rhs;
             THS const& ths;
