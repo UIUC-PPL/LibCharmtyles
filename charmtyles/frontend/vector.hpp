@@ -238,23 +238,27 @@ namespace ct {
             {
             }
 
-            explicit vec_expression(LHS const& lhs_, double rhs_,
+            template <typename Numeric,
+                typename = std::enable_if_t<std::is_arithmetic_v<Numeric>>>
+            explicit vec_expression(LHS const& lhs_, Numeric rhs_,
                 std::size_t vec_len_, ct::util::Operation op_)
               : lhs(lhs_)
               , rhs(lhs_)
               , vec_len(vec_len_)
               , op(op_)
-              , r_scalar(rhs_)
+              , r_scalar(static_cast<double>(rhs_))
             {
             }
 
-            explicit vec_expression(double lhs_, RHS const& rhs_,
+            template <typename Numeric,
+                typename = std::enable_if_t<std::is_arithmetic_v<Numeric>>>
+            explicit vec_expression(Numeric lhs_, RHS const& rhs_,
                 std::size_t vec_len_, ct::util::Operation op_)
               : lhs(rhs_)
               , rhs(rhs_)
               , vec_len(vec_len_)
               , op(op_)
-              , l_scalar(lhs_)
+              , l_scalar(static_cast<double>(lhs_))
             {
             }
 

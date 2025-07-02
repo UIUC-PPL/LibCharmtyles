@@ -251,25 +251,29 @@ namespace ct {
             {
             }
 
-            explicit mat_expression(LHS const& lhs_, double rhs_,
+            template <typename Numeric,
+                typename = std::enable_if_t<std::is_arithmetic_v<Numeric>>>
+            explicit mat_expression(LHS const& lhs_, Numeric rhs_,
                 std::size_t rows_, std::size_t cols_, ct::util::Operation op_)
               : lhs(lhs_)
               , rhs(lhs_)
               , row_len(rows_)
               , col_len(cols_)
               , op(op_)
-              , r_scalar(rhs_)
+              , r_scalar(static_cast<double>(rhs_))
             {
             }
 
-            explicit mat_expression(double lhs_, RHS const& rhs_,
+            template <typename Numeric,
+                typename = std::enable_if_t<std::is_arithmetic_v<Numeric>>>
+            explicit mat_expression(Numeric lhs_, RHS const& rhs_,
                 std::size_t rows_, std::size_t cols_, ct::util::Operation op_)
               : lhs(rhs_)
               , rhs(rhs_)
               , row_len(rows_)
               , col_len(cols_)
               , op(op_)
-              , l_scalar(lhs_)
+              , l_scalar(static_cast<double>(lhs_))
             {
             }
 

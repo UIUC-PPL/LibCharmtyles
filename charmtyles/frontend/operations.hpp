@@ -85,8 +85,7 @@ namespace ct {
                                typename std::decay<LHS>::type>::value ||
             traits::is_vec_type_impl<typename std::decay<RHS>::type>::value)
         {
-            if constexpr (std::is_same_v<typename std::decay<LHS>::type,
-                              double>)
+            if constexpr (std::is_arithmetic_v<typename std::decay<LHS>::type>)
             {
                 return ct::vec_impl::vec_expression<RHS, RHS>{
                     lhs, rhs, rhs.size(), op};
@@ -97,8 +96,8 @@ namespace ct {
                 return ct::vec_impl::vec_expression<RHS, RHS>{
                     lhs.get(), rhs, rhs.size(), op};
             }
-            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
-                                   double>)
+            else if constexpr (std::is_arithmetic_v<
+                                   typename std::decay<RHS>::type>)
             {
                 return ct::vec_impl::vec_expression<LHS, LHS>{
                     lhs, rhs, lhs.size(), op};
@@ -118,8 +117,7 @@ namespace ct {
                                typename std::decay<LHS>::type>::value ||
             traits::is_mat_type_impl<typename std::decay<RHS>::type>::value)
         {
-            if constexpr (std::is_same_v<typename std::decay<LHS>::type,
-                              double>)
+            if constexpr (std::is_arithmetic_v<typename std::decay<LHS>::type>)
             {
                 return ct::mat_impl::mat_expression<RHS, RHS>{
                     lhs, rhs, rhs.rows(), rhs.cols(), op};
@@ -130,8 +128,8 @@ namespace ct {
                 return ct::mat_impl::mat_expression<RHS, RHS>{
                     lhs.get(), rhs, rhs.rows(), rhs.cols(), op};
             }
-            else if constexpr (std::is_same_v<typename std::decay<RHS>::type,
-                                   double>)
+            else if constexpr (std::is_arithmetic_v<
+                                   typename std::decay<RHS>::type>)
             {
                 return ct::mat_impl::mat_expression<LHS, LHS>{
                     lhs, rhs, lhs.rows(), lhs.cols(), op};
