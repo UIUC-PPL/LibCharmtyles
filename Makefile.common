@@ -1,11 +1,11 @@
 # point these to absolute paths
-CHARM_DIR = /Users/advaittahilyani/charm
-BASE_DIR = /Users/advaittahilyani/PPL/LibCharmtyles
-EIGEN_DIR = /opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3
+CHARM_DIR = /home/ridam_jain61/Documents/UIUC_PPL/charm/netlrts-linux-x86_64
+BASE_DIR = /home/ridam_jain61/Documents/UIUC_PPL/fixed_lbct/LibCharmtyles
+EIGEN_DIR = /usr/include/eigen3
 
 # common options
 CHARMC = $(CHARM_DIR)/bin/charmc -DUSE_ESSL_WRAPPER=0
-OPTS	= -c++-option -std=c++17 -g -O0 -fno-omit-frame-pointer -march=native -DNDEBUG -I$(EIGEN_DIR)
-LD_OPTS= -g -O0 -fno-omit-frame-pointer
+OPTS	= -c++-option -std=c++17 -O3 -march=native -DNDEBUG -I$(EIGEN_DIR)
+LD_OPTS =
 
 INCS = -I$(BASE_DIR)
