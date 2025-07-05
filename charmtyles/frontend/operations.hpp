@@ -4,6 +4,7 @@
 #include <charmtyles/frontend/vector.hpp>
 
 #include <type_traits>
+#include <stdexcept>
 
 namespace ct {
 
@@ -651,6 +652,106 @@ namespace ct {
 
         return result;
     }
+
+    // Get average of every k-th element
+    inline ct::scalar get_avg(ct::vector const& vec, std::size_t k)
+    {
+        
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            ct::scalar total = sum(vec);
+            double total_val = total.get();
+            return ct::scalar(total_val / static_cast<double>(vec.size()));
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_avg_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
+
+    // Get maximum of every k-th element
+    inline ct::scalar get_max(ct::vector const& vec, std::size_t k)
+    {
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            return max(vec);
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_max_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
+
+    // Get minimum of every k-th element
+    inline ct::scalar get_min(ct::vector const& vec, std::size_t k)
+    {
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            return min(vec);
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ct::scalar result;
+
+        std::size_t& scal_sdag_idx =
+            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_min_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
+        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+
+        ++scal_sdag_idx;
+        ++vec_sdag_idx;
+
+        return result;
+    }
+
     namespace unary_impl {
         template <typename Operand>
         class unary_expression

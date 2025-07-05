@@ -505,6 +505,28 @@ namespace ct {
             return fval.get();
         }
 
+        
+        std::vector<double> get(std::size_t k)
+        {
+            
+            if (k == 0) return std::vector<double>();
+            if (k >= size_) return get();
+            
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.dispatch(vector_shape().shape_id);
+            ck::future<std::vector<double>> fval;
+            CProxy_get_partial_vec_future vec_proxy =
+                CProxy_get_partial_vec_future::ckNew(fval, k);
+            std::size_t& sdag_idx =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue)
+                    .sdag_idx(vector_shape().shape_id);
+            vector_shape().proxy.get_partial_value(
+                sdag_idx, vector_shape().vector_id, k, static_cast<int>(size_), vec_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
     private:
         std::vector<ct::vec_impl::vec_node> operator()() const
         {
