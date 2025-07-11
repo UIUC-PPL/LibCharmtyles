@@ -17,23 +17,51 @@ public:
 
     void benchmark()
     {
-
-        // Test 1: Basic get_avg function
-        ckout << "1. Testing get_avg function:" << endl;
+        // basic functionality
+        std::vector<double> vec = {1,2,3,4,5,6};
+        ct::vector ctvec = ct::from_vector(vec);
+        ct::sync();
         
-        ct::vector vec1(10, 5.0);
-        std::vector<double> veck = vec1.get(2);
-        for (double val : veck) {
-            ckout << val << " ";
+        ckout << "Original vector: [1,2,3,4,5,6]" << endl;
+        ckout << "Testing with k=3 chunks: [1,2], [3,4], [5,6]" << endl;
+        
+        // original get(k) function
+        std::vector<double> get3vec = ctvec.get(3);
+        ckout << "get(3) result: ";
+        for (int i = 0; i < 3; i++) {
+            ckout << get3vec[i] << " ";
         }
         ckout << endl;
-        ct::scalar avg_result = ct::get_avg(vec1, 3);
-        double avg_value = avg_result.get();
-        
-        ckout << "   Created vector of size 10 with all elements = 5.0" << endl;
-        ckout << "   Average result: " << avg_value << endl;
-        
 
+        // new chunk-based functions
+        ct::vector avg_result = ct::get_avg(ctvec, 3);
+        ct::vector min_result = ct::get_min(ctvec, 3);  
+        ct::vector max_result = ct::get_max(ctvec, 3);
+        
+        ct::sync();
+        
+        std::vector<double> get3avg = avg_result.get();
+        std::vector<double> get3min = min_result.get();
+        std::vector<double> get3max = max_result.get();
+
+        ckout << "Chunk averages (expected [1.5, 3.5, 5.5]): ";
+        for (int i = 0; i < 3; i++) {
+            ckout << get3avg[i] << " ";
+        }
+        ckout << endl;
+
+        ckout << "Chunk minimums (expected [1, 3, 5]): ";
+        for (int i = 0; i < 3; i++) {
+            ckout << get3min[i] << " ";
+        }
+        ckout << endl;
+
+        ckout << "Chunk maximums (expected [2, 4, 6]): ";
+        for (int i = 0; i < 3; i++) {
+            ckout << get3max[i] << " ";
+        }
+        ckout << endl;
+        
         CkExit();
     }
 };

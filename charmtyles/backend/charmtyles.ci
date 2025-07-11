@@ -29,6 +29,7 @@ module libcharmtyles
     }
 
     PUPable ct::generator;
+    PUPable ct::data_generator;
     PUPable ct::unary_operator;
     PUPable ct::binary_operator;
 
@@ -409,6 +410,189 @@ module libcharmtyles
 
                     ++SDAG_INDEX;
                 }} // get_min_partial
+
+                // Chunk-based statistics methods
+                when get_avg_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_avg_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                    
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        // chunk boundaries
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double sum = 0.0;
+                            int count = 0;
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                sum += vec_map[vector_id][local_idx];
+                                count++;
+                            }
+                            if (count > 0) {
+                                double avg = sum / count;
+                                chunk_data.push_back({static_cast<size_t>(chunk_id), avg});
+                            }
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // [count, chunk_id1, avg1, chunk_id2, avg2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);      
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                     
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_avg_chunks
+
+                when get_max_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_max_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                   
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        // chunk boundaries
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double max_val = std::numeric_limits<double>::lowest();
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                max_val = std::max(max_val, vec_map[vector_id][local_idx]);
+                            }
+                            chunk_data.push_back({static_cast<size_t>(chunk_id), max_val});
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // Format: [count, chunk_id1, max1, chunk_id2, max2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);      
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                    
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_max_chunks
+
+                when get_min_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_min_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                   
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double min_val = std::numeric_limits<double>::max();
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                min_val = std::min(min_val, vec_map[vector_id][local_idx]);
+                            }
+                            chunk_data.push_back({static_cast<size_t>(chunk_id), min_val});
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // Format: [count, chunk_id1, min1, chunk_id2, min2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);     
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                     
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_min_chunks
             }}
         }
 
@@ -430,6 +614,9 @@ module libcharmtyles
         entry void get_avg_partial(int, int, int, int, int);
         entry void get_max_partial(int, int, int, int, int);
         entry void get_min_partial(int, int, int, int, int);
+        entry void get_avg_chunks(int, int, int, int, CProxy_get_partial_vec_future);
+        entry void get_max_chunks(int, int, int, int, CProxy_get_partial_vec_future);
+        entry void get_min_chunks(int, int, int, int, CProxy_get_partial_vec_future);
     }
 
     array[2D] matrix_impl

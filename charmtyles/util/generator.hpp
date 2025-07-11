@@ -1,6 +1,7 @@
 #pragma once
 
 #include "charm++.h"
+#include <vector>
 
 namespace ct {
 
@@ -33,6 +34,46 @@ namespace ct {
         {
             return 0.;
         }
+    };
+
+    class data_generator : public generator
+    {
+    public:
+        data_generator() = default;
+        ~data_generator() {}
+
+        using ct::generator::generator;
+
+        data_generator(const std::vector<double>& data)
+          : data_(data)
+        {
+        }
+
+        // returns the element at dimX
+        double generate(int dimX) final
+        {
+            return data_[dimX];
+        }
+
+        double generate(int row_id, int col_id) final
+        {
+            return 0.0; // Not used
+        }
+
+        PUPable_decl(data_generator);
+        data_generator(CkMigrateMessage* m)
+          : ct::generator(m)
+        {
+        }
+
+        void pup(PUP::er& p) final
+        {
+            ct::generator::pup(p);
+            p | data_;
+        }
+
+    private:
+        std::vector<double> data_;
     };
 
     class unary_operator : public PUP::able

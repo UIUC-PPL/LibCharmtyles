@@ -653,17 +653,15 @@ namespace ct {
         return result;
     }
 
-    // Get average of every k-th element
-    inline ct::scalar get_avg(ct::vector const& vec, std::size_t k)
+    
+    inline ct::vector get_avg(ct::vector const& vec, std::size_t k)
     {
-        
         if (k == 0) {
             throw std::invalid_argument("k must be greater than 0");
         }
         if (k >= vec.size()) {
-            ct::scalar total = sum(vec);
-            double total_val = total.get();
-            return ct::scalar(total_val / static_cast<double>(vec.size()));
+            
+            return vec;  // Return the original vector
         }
         
         ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
@@ -672,30 +670,34 @@ namespace ct {
             CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
         queue.dispatch(vec_info.shape_id);
 
-        ct::scalar result;
-
-        std::size_t& scal_sdag_idx =
-            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
         std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
 
         CProxy_vector_impl dispatch_proxy = vec_info.proxy;
-        dispatch_proxy.get_avg_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
-        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+        dispatch_proxy.get_avg_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
 
-        ++scal_sdag_idx;
         ++vec_sdag_idx;
 
+        std::vector<double> chunk_avgs = fval.get();
+        
+         
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_avgs);
+        ct::vector result{k, gen};
+        
         return result;
     }
 
-    // Get maximum of every k-th element
-    inline ct::scalar get_max(ct::vector const& vec, std::size_t k)
+    
+    inline ct::vector get_max(ct::vector const& vec, std::size_t k)
     {
         if (k == 0) {
             throw std::invalid_argument("k must be greater than 0");
         }
         if (k >= vec.size()) {
-            return max(vec);
+            
+            return vec;  // Return the original vector
         }
         
         ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
@@ -704,30 +706,34 @@ namespace ct {
             CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
         queue.dispatch(vec_info.shape_id);
 
-        ct::scalar result;
-
-        std::size_t& scal_sdag_idx =
-            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
         std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
 
         CProxy_vector_impl dispatch_proxy = vec_info.proxy;
-        dispatch_proxy.get_max_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
-        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+        dispatch_proxy.get_max_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
 
-        ++scal_sdag_idx;
         ++vec_sdag_idx;
 
+        std::vector<double> chunk_maxs = fval.get();
+        
+          
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_maxs);
+        ct::vector result{k, gen};
+        
         return result;
     }
 
-    // Get minimum of every k-th element
-    inline ct::scalar get_min(ct::vector const& vec, std::size_t k)
+    
+    inline ct::vector get_min(ct::vector const& vec, std::size_t k)
     {
         if (k == 0) {
             throw std::invalid_argument("k must be greater than 0");
         }
         if (k >= vec.size()) {
-            return min(vec);
+            
+            return vec;  // Return the original vector
         }
         
         ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
@@ -736,19 +742,22 @@ namespace ct {
             CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
         queue.dispatch(vec_info.shape_id);
 
-        ct::scalar result;
-
-        std::size_t& scal_sdag_idx =
-            CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
         std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
 
         CProxy_vector_impl dispatch_proxy = vec_info.proxy;
-        dispatch_proxy.get_min_partial(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), scal_sdag_idx);
-        scalar_impl_proxy.update_scalar(scal_sdag_idx, result.scalar_id());
+        dispatch_proxy.get_min_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
 
-        ++scal_sdag_idx;
         ++vec_sdag_idx;
 
+        std::vector<double> chunk_mins = fval.get();
+        
+          
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_mins);
+        ct::vector result{k, gen};
+        
         return result;
     }
 
@@ -1158,4 +1167,11 @@ namespace ct {
             std::shared_ptr<binary_operator> binary_op;
         };
     }
+
+    // Helper function to create ct::vector from std::vector<double>
+    inline ct::vector from_vector(const std::vector<double>& data)
+    {
+        return ct::vector(data.size(), std::make_shared<data_generator>(data));
+    }
+
 }    // namespace ct
