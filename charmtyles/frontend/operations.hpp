@@ -1174,4 +1174,145 @@ namespace ct {
         return ct::vector(data.size(), std::make_shared<data_generator>(data));
     }
 
+    namespace lu_impl
+    {
+        class lu_l_expr
+        {
+            friend class ct::matrix;
+
+        public:
+            lu_l_expr(ct::matrix const& source_)
+              : source(source_)
+            {
+            }
+
+            std::size_t rows() const
+            {
+                return source.rows();
+            }
+
+            std::size_t cols() const
+            {
+                return source.rows();
+            }
+
+        private:
+            ct::matrix const& source;
+        };
+
+        class lu_u_expr
+        {
+            friend class ct::matrix;
+
+        public:
+            lu_u_expr(ct::matrix const& source_)
+              : source(source_)
+            {
+            }
+
+            std::size_t rows() const
+            {
+                return source.rows();
+            }
+
+            std::size_t cols() const
+            {
+                return source.cols();
+            }
+
+        private:
+            ct::matrix const& source;
+        };
+
+        class lu_p_expr
+        {
+            friend class ct::matrix;
+
+        public:
+            lu_p_expr(ct::matrix const& source_)
+              : source(source_)
+            {
+            }
+
+            std::size_t rows() const
+            {
+                return source.rows();
+            }
+
+            std::size_t cols() const
+            {
+                return source.rows();
+            }
+
+        private:
+            ct::matrix const& source;
+        };
+    }
+
+    inline matrix::matrix(ct::lu_impl::lu_l_expr const& expr)
+    {
+        // Copy the shape
+        row_size_ = expr.rows();
+        col_size_ = expr.cols();
+        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+        
+        // Create a node for LU L 
+        node_ = ct::mat_impl::mat_node(matrix_shape_.matrix_id, ct::util::Operation::lu_l, 
+                                     expr.source.node_);
+                                     
+        // Queue the operation
+        ct::mat_impl::mat_instr_queue_t& queue = 
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        queue.insert({node_}, matrix_shape_.shape_id);
+    }
+
+    inline matrix::matrix(ct::lu_impl::lu_u_expr const& expr)
+    {
+        // Copy the shape
+        row_size_ = expr.rows();
+        col_size_ = expr.cols(); 
+        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+        
+        // Create a node for LU U 
+        node_ = ct::mat_impl::mat_node(matrix_shape_.matrix_id, ct::util::Operation::lu_u, 
+                                     expr.source.node_);
+                                     
+        // Queue the operation
+        ct::mat_impl::mat_instr_queue_t& queue = 
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        queue.insert({node_}, matrix_shape_.shape_id);
+    }
+
+    inline matrix::matrix(ct::lu_impl::lu_p_expr const& expr)
+    {
+        // Copy the shape
+        row_size_ = expr.rows();
+        col_size_ = expr.cols();
+        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+        
+        // Create a node for LU P 
+        node_ = ct::mat_impl::mat_node(matrix_shape_.matrix_id, ct::util::Operation::lu_p, 
+                                     expr.source.node_);
+                                     
+        // Queue the operation
+        ct::mat_impl::mat_instr_queue_t& queue = 
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        queue.insert({node_}, matrix_shape_.shape_id);
+    }
+
+    inline ct::lu_impl::lu_l_expr get_L(matrix const& a)
+    {
+        return lu_impl::lu_l_expr(a);
+    }
+
+    inline ct::lu_impl::lu_u_expr get_U(matrix const& a)
+    {
+        return lu_impl::lu_u_expr(a);
+    }
+
+    inline ct::lu_impl::lu_p_expr get_P(matrix const& a)
+    {
+        return lu_impl::lu_p_expr(a);
+    }
+
 }    // namespace ct
