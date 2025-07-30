@@ -166,6 +166,12 @@ namespace ct {
     }
 
     template <typename LHS, typename RHS>
+    auto operator*(LHS const& lhs, RHS const& rhs)
+    {
+        return operator_impl(lhs, rhs, ct::util::Operation::multiply);
+    }
+
+    template <typename LHS, typename RHS>
     auto operator>(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::greater);

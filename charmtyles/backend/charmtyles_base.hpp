@@ -276,6 +276,7 @@ private:
 
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
+        case ct::util::Operation::multiply:
         case ct::util::Operation::divide:
         case ct::util::Operation::geq:
         case ct::util::Operation::leq:
@@ -356,17 +357,17 @@ private:
         {
         case ct::util::Operation::noop:
             return vec_map[node.name_][iter_idx];
-
         case ct::util::Operation::add:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) +
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
-
         case ct::util::Operation::sub:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) -
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
-
         case ct::util::Operation::divide:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) /
+                execute_ast_for_idx(instruction, node.right_, iter_idx);
+        case ct::util::Operation::multiply:
+            return execute_ast_for_idx(instruction, node.left_, iter_idx) *
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
         case ct::util::Operation::eq:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) ==
@@ -587,6 +588,7 @@ private:
 
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
+        case ct::util::Operation::multiply:
         case ct::util::Operation::divide:
         case ct::util::Operation::geq:
         case ct::util::Operation::leq:
@@ -666,10 +668,13 @@ private:
             return execute_ast_for_idx(
                        instruction, node.left_, iter_i, iter_j) -
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-
+        case ct::util::Operation::multiply:
+            return execute_ast_for_idx(
+                       instruction, node.left_, iter_i, iter_j) *
+                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
         case ct::util::Operation::divide:
             return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) -
+                       instruction, node.left_, iter_i, iter_j) /
                 execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
         case ct::util::Operation::greater:
             return execute_ast_for_idx(

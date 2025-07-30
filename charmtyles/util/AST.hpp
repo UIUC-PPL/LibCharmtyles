@@ -21,6 +21,7 @@ namespace ct {
             copy = 4,
 
             // Middle/Head Nodes
+            multiply = 9,
             add = 10,
             sub = 11,
             divide = 12,

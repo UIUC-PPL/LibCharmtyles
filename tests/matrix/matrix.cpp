@@ -10,16 +10,15 @@ public:
 
     using ct::unary_operator::unary_operator;
 
-    inline void operator()(std::size_t index, double& value) override final
+    inline double operator()(std::size_t index, double value) override final
     {
-        value = 1.0;
+        return 1.0;
     }
 
-    inline void operator()(
-        std::size_t rows, std::size_t cols, double& value) override final
+    inline double operator()(
+        std::size_t rows, std::size_t cols, double value) override final
     {
-        printf("HELLO\n");
-        value = 0.0;
+        return 0.0;
     }
 
     PUPable_decl(sqrt_t);
