@@ -261,6 +261,7 @@ namespace ct {
               , col_len(cols_)
               , op(op_)
               , r_scalar(static_cast<double>(rhs_))
+              , is_rhs_scalar(true)
             {
             }
 
@@ -274,6 +275,7 @@ namespace ct {
               , col_len(cols_)
               , op(op_)
               , l_scalar(static_cast<double>(lhs_))
+              , is_lhs_scalar(true)
             {
             }
 
@@ -306,7 +308,7 @@ namespace ct {
                 std::vector<ct::mat_impl::mat_node> left;
                 std::vector<ct::mat_impl::mat_node> right;
 
-                if (l_scalar == -1)
+                if (!is_lhs_scalar)
                 {
                     left = lhs();
                 }
@@ -318,7 +320,7 @@ namespace ct {
                     left = {temp_node};
                 }
 
-                if (r_scalar == -1)
+                if (!is_rhs_scalar)
                 {
                     right = rhs();
                 }
@@ -424,6 +426,8 @@ namespace ct {
             RHS const& rhs;
             double l_scalar = -1;
             double r_scalar = -1;
+            bool is_lhs_scalar = false;
+            bool is_rhs_scalar = false;
             std::size_t row_len;
             std::size_t col_len;
             std::shared_ptr<binary_operator> binary_op;

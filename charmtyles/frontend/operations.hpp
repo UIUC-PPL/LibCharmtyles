@@ -138,7 +138,7 @@ namespace ct {
                                    ct::scalar>)
             {
                 return ct::mat_impl::mat_expression<LHS, LHS>{
-                    lhs, rhs, lhs.rows(), lhs.cols(), op};
+                    lhs, rhs.get(), lhs.rows(), lhs.cols(), op};
             }
         }
         else
