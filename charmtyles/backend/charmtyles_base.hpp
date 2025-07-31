@@ -8,6 +8,7 @@
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
 class CProxy_scalar_impl;
+class CProxy_get_partial_vec_future;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
 
@@ -136,6 +137,58 @@ private:
     ck::future<std::vector<std::vector<double>>> output;
     size_t rows;
     size_t cols;
+};
+
+class get_partial_vec_future : public CBase_get_partial_vec_future
+{
+public:
+    get_partial_vec_future(ck::future<std::vector<double>> output_, size_t k_)
+      : output(output_)
+      , k(k_)
+    {
+    }
+
+    void pup(PUP::er& p)
+    {
+        p | output;
+        p | k;
+    }
+
+    void construct_partial_vector(CkReductionMsg* msg)
+    {
+        std::vector<double> out(k, 0.0);
+
+        CkReduction::setElement* current =
+            (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            double* result = (double*) &current->data;
+            size_t len = current->dataSize / sizeof(double);
+
+            if (len > 0)
+            {
+                int count = (int) result[0];
+                // [count, sample_index1, value1, sample_index2, value2, ...]
+                for (int i = 0; i < count && (1 + 2 * i + 1) < len; i++)
+                {
+                    size_t sample_index = (size_t) result[1 + 2 * i];
+                    double value = result[1 + 2 * i + 1];
+
+                    if (sample_index < k)
+                    {
+                        out[sample_index] = value;
+                    }
+                }
+            }
+            current = current->next();
+        }
+
+        output.set(out);
+    }
+
+private:
+    ck::future<std::vector<double>> output;
+    size_t k;
 };
 
 class scalar_impl : public CBase_scalar_impl

@@ -12,6 +12,8 @@
 #include <charmtyles/frontend/operations.hpp>
 #include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
+#include <charmtyles/frontend/basic_unary_operators.hpp>
+#include <charmtyles/frontend/basic_binary_operators.hpp>
 
 namespace ct {
 
