@@ -1,4 +1,5 @@
 #include <charmtyles/charmtyles.hpp>
+#include <vector>
 
 #include "base.decl.h"
 
@@ -74,6 +75,18 @@ public:
         double underlying_val = scal1.get();
 
         ckout << "Result of Vector dot product: " << underlying_val << endl;
+
+        // Test our new from_vector functionality
+        std::vector<double> test_data = {1.1, 2.2, 3.3, 4.4, 5.5};
+        ct::vector custom_vec = ct::from_vector(test_data);
+        ct::sync();
+        
+        std::vector<double> result = custom_vec.get();
+        ckout << "Custom vector elements: ";
+        for (const auto& val : result) {
+            ckout << val << " ";
+        }
+        ckout << endl;
 
         CkExit();
     }

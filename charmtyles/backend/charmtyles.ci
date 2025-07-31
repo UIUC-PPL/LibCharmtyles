@@ -3,6 +3,7 @@ module libcharmtyles
     include "charmtyles/util/AST.hpp";
     include "charmtyles/util/generator.hpp";
     include "Eigen/Core";
+    include "limits";
 
     readonly CProxy_scalar_impl scalar_impl_proxy;
 
@@ -20,6 +21,13 @@ module libcharmtyles
         entry [reductiontarget] void construct_vector(CkReductionMsg *msg);
     }
 
+    chare get_partial_vec_future
+    {
+        entry get_partial_vec_future(ck::future<std::vector<double>>, size_t);
+
+        entry [reductiontarget] void construct_partial_vector(CkReductionMsg *msg);
+    }
+
     chare get_mat_future
     {
         entry get_mat_future(ck::future<std::vector<std::vector<double>>>, size_t, size_t);
@@ -28,7 +36,9 @@ module libcharmtyles
     }
 
     PUPable ct::generator;
+    PUPable ct::data_generator;
     PUPable ct::unary_operator;
+    PUPable ct::binary_operator;
 
     chare scalar_impl
     {
@@ -261,7 +271,336 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // get_value
 
-            }} // case + for-loop end
+                when get_partial_value[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_partial_value" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    double stride = static_cast<double>(n) / static_cast<double>(k);
+                    
+                   
+                    std::vector<std::pair<size_t, double>> samples;
+                    
+                    for (int i = 0; i < k; ++i) {
+                        size_t global_index = static_cast<size_t>(i * stride);
+                        
+                        // Check if this global index falls within chares range
+                        if (global_index >= start_index && global_index < end_index) {
+                            size_t local_index = global_index - start_index;
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
+                        }
+                    }
+                    
+                    if (!samples.empty()) {
+                        // [count, sample_index1, value1, sample_index2, value2, ...]
+                        std::vector<double> arr_portion(1 + 2 * samples.size());
+                        arr_portion[0] = static_cast<double>(samples.size());
+                        
+                        for (size_t i = 0; i < samples.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(samples[i].first);      // sample index (0..k-1)
+                            arr_portion[1 + 2*i + 1] = samples[i].second;                     // value
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        // contribute empty
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+                    ++SDAG_INDEX;
+                }} // get_partial_value
+
+                when get_avg_partial[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, int scal_sdag_idx) {
+                serial "get_avg_partial" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    double stride = static_cast<double>(n) / static_cast<double>(k);
+                    
+                    
+                    std::vector<std::pair<size_t, double>> samples;
+                    
+                    for (int i = 0; i < k; ++i) {
+                        size_t global_index = static_cast<size_t>(i * stride);
+                        
+                        // Check if this global index falls within chares range
+                        if (global_index >= start_index && global_index < end_index) {
+                            size_t local_index = global_index - start_index;
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
+                        }
+                    }
+                    
+                    double result = 0.0;
+                    if (!samples.empty()) {
+                        // Compute average
+                        for (const auto& sample : samples) {
+                            result += sample.second;
+                        }
+                        result /= static_cast<double>(samples.size());
+                    }
+                    
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }} // get_avg_partial
+
+                when get_max_partial[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, int scal_sdag_idx) {
+                serial "get_max_partial" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    double stride = static_cast<double>(n) / static_cast<double>(k);
+                    
+                    
+                    std::vector<std::pair<size_t, double>> samples;
+                    
+                    for (int i = 0; i < k; ++i) {
+                        size_t global_index = static_cast<size_t>(i * stride);
+                        
+                        // Check if this global index falls within chares range
+                        if (global_index >= start_index && global_index < end_index) {
+                            size_t local_index = global_index - start_index;
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
+                        }
+                    }
+                    
+                    double result = std::numeric_limits<double>::lowest();
+                    if (!samples.empty()) {
+                        // Find maximum
+                        for (const auto& sample : samples) {
+                            result = std::max(result, sample.second);
+                        }
+                    }
+                    
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::max_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }} // get_max_partial
+
+                when get_min_partial[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, int scal_sdag_idx) {
+                serial "get_min_partial" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    double stride = static_cast<double>(n) / static_cast<double>(k);
+                    
+                    
+                    std::vector<std::pair<size_t, double>> samples;
+                    
+                    for (int i = 0; i < k; ++i) {
+                        size_t global_index = static_cast<size_t>(i * stride);
+                        
+                        // Check if this global index falls within chares range
+                        if (global_index >= start_index && global_index < end_index) {
+                            size_t local_index = global_index - start_index;
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
+                        }
+                    }
+                    
+                    double result = std::numeric_limits<double>::max();
+                    if (!samples.empty()) {
+                        // Find minimum
+                        for (const auto& sample : samples) {
+                            result = std::min(result, sample.second);
+                        }
+                    }
+                    
+                    CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
+                    contribute(sizeof(double), &result, CkReduction::min_double, cb, scal_sdag_idx);
+
+                    ++SDAG_INDEX;
+                }} // get_min_partial
+
+                // Chunk-based statistics methods
+                when get_avg_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_avg_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                    
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        // chunk boundaries
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double sum = 0.0;
+                            int count = 0;
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                sum += vec_map[vector_id][local_idx];
+                                count++;
+                            }
+                            if (count > 0) {
+                                double avg = sum / count;
+                                chunk_data.push_back({static_cast<size_t>(chunk_id), avg});
+                            }
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // [count, chunk_id1, avg1, chunk_id2, avg2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);      
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                     
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_avg_chunks
+
+                when get_max_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_max_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                   
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        // chunk boundaries
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double max_val = std::numeric_limits<double>::lowest();
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                max_val = std::max(max_val, vec_map[vector_id][local_idx]);
+                            }
+                            chunk_data.push_back({static_cast<size_t>(chunk_id), max_val});
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // Format: [count, chunk_id1, max1, chunk_id2, max2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);      
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                    
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_max_chunks
+
+                when get_min_chunks[SDAG_INDEX](int sdag_index, int vector_id, int k, int n, CProxy_get_partial_vec_future proxy) {
+                serial "get_min_chunks" {
+                    size_t start_index = thisIndex * vec_block_size;
+                    size_t end_index = start_index + vec_map[vector_id].size();
+                    
+                    
+                    size_t base_chunk_size = n / k;
+                    size_t remainder = n % k;
+                    
+                    
+                    std::vector<std::pair<size_t, double>> chunk_data;  
+                    
+                   
+                    for (int chunk_id = 0; chunk_id < k; ++chunk_id) {
+                        
+                        size_t chunk_start = chunk_id * base_chunk_size;
+                        size_t chunk_end;
+                        if (chunk_id == k - 1) {
+                            chunk_end = chunk_start + base_chunk_size + remainder;  
+                        } else {
+                            chunk_end = chunk_start + base_chunk_size;
+                        }
+                        
+                        
+                        size_t intersect_start = std::max(chunk_start, start_index);
+                        size_t intersect_end = std::min(chunk_end, end_index);
+                        
+                        if (intersect_start < intersect_end) {
+                            
+                            double min_val = std::numeric_limits<double>::max();
+                            for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
+                                size_t local_idx = global_idx - start_index;
+                                min_val = std::min(min_val, vec_map[vector_id][local_idx]);
+                            }
+                            chunk_data.push_back({static_cast<size_t>(chunk_id), min_val});
+                        }
+                    }
+                    
+                    if (!chunk_data.empty()) {
+                        // Format: [count, chunk_id1, min1, chunk_id2, min2, ...]
+                        std::vector<double> arr_portion(1 + 2 * chunk_data.size());
+                        arr_portion[0] = static_cast<double>(chunk_data.size());
+                        
+                        for (size_t i = 0; i < chunk_data.size(); ++i) {
+                            arr_portion[1 + 2*i] = static_cast<double>(chunk_data[i].first);     
+                            arr_portion[1 + 2*i + 1] = chunk_data[i].second;                     
+                        }
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(arr_portion, CkReduction::set, cb);
+                    } else {
+                        
+                        CkCallback cb(CkReductionTarget(get_partial_vec_future, construct_partial_vector), proxy);
+                        contribute(0, (double*)NULL, CkReduction::set, cb);
+                    }
+
+                    ++SDAG_INDEX;
+                }} // get_min_chunks
+            }}
         }
 
         entry void generator_init(int, int, int, std::shared_ptr<ct::generator>);
@@ -278,6 +617,13 @@ module libcharmtyles
         entry void max(int, int, int);
         entry void synchronize(int, CProxy_set_future);
         entry void get_value(int, int, CProxy_get_vec_future);
+        entry void get_partial_value(int, int, int, int, CProxy_get_partial_vec_future);
+        entry void get_avg_partial(int, int, int, int, int);
+        entry void get_max_partial(int, int, int, int, int);
+        entry void get_min_partial(int, int, int, int, int);
+        entry void get_avg_chunks(int, int, int, int, CProxy_get_partial_vec_future);
+        entry void get_max_chunks(int, int, int, int, CProxy_get_partial_vec_future);
+        entry void get_min_chunks(int, int, int, int, CProxy_get_partial_vec_future);
     }
 
     array[2D] matrix_impl

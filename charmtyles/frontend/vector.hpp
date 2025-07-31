@@ -14,6 +14,11 @@ namespace ct {
         class unary_expression;
     }    // namespace unary_impl
 
+    namespace binary_impl {
+        template <typename LeftOperand, typename RightOperand>
+        class binary_expression;
+    }    // namespace binary_impl
+
     namespace vec_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, vec_shape_id);
@@ -320,6 +325,9 @@ namespace ct {
         template <typename Operand>
         friend class unary_impl::unary_expression;
 
+        template <typename LeftOperand, typename RightOperand>
+        friend class binary_impl::binary_expression;
+
         friend class dot_impl::dot_expression;
 
     public:
@@ -448,6 +456,14 @@ namespace ct {
         template <typename Operand>
         vector& operator=(ct::unary_impl::unary_expression<Operand> const& e);
 
+        template <typename LeftOperand, typename RightOperand>
+        vector(
+            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+
+        template <typename LeftOperand, typename RightOperand>
+        vector& operator=(
+            ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+
         // Helper functions
     public:
         const ct::vec_impl::vec_shape_t vector_shape() const
@@ -483,6 +499,28 @@ namespace ct {
             std::size_t& sdag_idx = queue.sdag_idx(vector_shape().shape_id);
             vector_shape().proxy.get_value(
                 sdag_idx, vector_shape().vector_id, vec_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
+        
+        std::vector<double> get(std::size_t k)
+        {
+            
+            if (k == 0) return std::vector<double>();
+            if (k >= size_) return get();
+            
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.dispatch(vector_shape().shape_id);
+            ck::future<std::vector<double>> fval;
+            CProxy_get_partial_vec_future vec_proxy =
+                CProxy_get_partial_vec_future::ckNew(fval, k);
+            std::size_t& sdag_idx =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue)
+                    .sdag_idx(vector_shape().shape_id);
+            vector_shape().proxy.get_partial_value(
+                sdag_idx, vector_shape().vector_id, k, static_cast<int>(size_), vec_proxy);
             ++sdag_idx;
             return fval.get();
         }

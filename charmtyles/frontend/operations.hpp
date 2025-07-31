@@ -4,6 +4,7 @@
 #include <charmtyles/frontend/vector.hpp>
 
 #include <type_traits>
+#include <stdexcept>
 
 namespace ct {
 
@@ -651,6 +652,115 @@ namespace ct {
 
         return result;
     }
+
+    
+    inline ct::vector get_avg(ct::vector const& vec, std::size_t k)
+    {
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            
+            return vec;  // Return the original vector
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_avg_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
+
+        ++vec_sdag_idx;
+
+        std::vector<double> chunk_avgs = fval.get();
+        
+         
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_avgs);
+        ct::vector result{k, gen};
+        
+        return result;
+    }
+
+    
+    inline ct::vector get_max(ct::vector const& vec, std::size_t k)
+    {
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            
+            return vec;  // Return the original vector
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_max_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
+
+        ++vec_sdag_idx;
+
+        std::vector<double> chunk_maxs = fval.get();
+        
+          
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_maxs);
+        ct::vector result{k, gen};
+        
+        return result;
+    }
+
+    
+    inline ct::vector get_min(ct::vector const& vec, std::size_t k)
+    {
+        if (k == 0) {
+            throw std::invalid_argument("k must be greater than 0");
+        }
+        if (k >= vec.size()) {
+            
+            return vec;  // Return the original vector
+        }
+        
+        ct::vec_impl::vec_shape_t vec_info = vec.vector_shape();
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+        queue.dispatch(vec_info.shape_id);
+
+        ck::future<std::vector<double>> fval;
+        CProxy_get_partial_vec_future vec_proxy = CProxy_get_partial_vec_future::ckNew(fval, k);
+        
+        std::size_t& vec_sdag_idx = queue.sdag_idx(vec_info.shape_id);
+
+        CProxy_vector_impl dispatch_proxy = vec_info.proxy;
+        dispatch_proxy.get_min_chunks(vec_sdag_idx, vec_info.vector_id, static_cast<int>(k), static_cast<int>(vec.size()), vec_proxy);
+
+        ++vec_sdag_idx;
+
+        std::vector<double> chunk_mins = fval.get();
+        
+          
+        std::shared_ptr<ct::data_generator> gen = std::make_shared<ct::data_generator>(chunk_mins);
+        ct::vector result{k, gen};
+        
+        return result;
+    }
+
     namespace unary_impl {
         template <typename Operand>
         class unary_expression
@@ -841,4 +951,227 @@ namespace ct {
     {
         return ct::unary_impl::unary_expression<Operand>(operand, unary_op);
     }
+
+    // Binary expression constructors and assignment operators for vectors
+    template <typename LeftOperand, typename RightOperand>
+    vector::vector(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
+    {
+        std::vector<ct::vec_impl::vec_node> instr = e();
+        ct::vec_impl::vec_node& root = instr.front();
+        size_ = root.vec_len_;
+
+        vector_shape_ = ct::vec_impl::get_vector_shape(size_);
+
+        root.name_ = vector_shape_.vector_id;
+        node_ = ct::vec_impl::vec_node{root};
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+        queue.insert(instr, vector_shape_.shape_id);
+    }
+
+    template <typename LeftOperand, typename RightOperand>
+    vector& vector::operator=(
+        ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
+    {
+        std::vector<ct::vec_impl::vec_node> instr = e();
+        ct::vec_impl::vec_node& root = instr.front();
+
+        root.name_ = vector_shape_.vector_id;
+
+        ct::vec_impl::vec_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+        queue.insert(instr, vector_shape_.shape_id);
+
+        return *this;
+    }
+
+    // Binary expression constructors and assignment operators for matrices
+    template <typename LeftOperand, typename RightOperand>
+    matrix::matrix(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
+    {
+        std::vector<ct::mat_impl::mat_node> instr = e();
+        ct::mat_impl::mat_node& root = instr.front();
+        row_size_ = root.mat_row_len_;
+        col_size_ = root.mat_col_len_;
+
+        matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+
+        root.name_ = matrix_shape_.matrix_id;
+        node_ = ct::mat_impl::mat_node{root};
+
+        ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+        queue.insert(instr, matrix_shape_.shape_id);
+    }
+
+    template <typename LeftOperand, typename RightOperand>
+    matrix& matrix::operator=(
+        ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e)
+    {
+        std::vector<ct::mat_impl::mat_node> instr = e();
+        ct::mat_impl::mat_node& root = instr.front();
+
+        root.name_ = matrix_shape_.matrix_id;
+
+        ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+        queue.insert(instr, matrix_shape_.shape_id);
+
+        return *this;
+    }
+
+    // Global binary_expr function
+    template <typename LeftOperand, typename RightOperand>
+    auto binary_expr(LeftOperand& left_operand, RightOperand& right_operand, 
+                     std::shared_ptr<binary_operator> binary_op)
+    {
+        return ct::binary_impl::binary_expression<LeftOperand, RightOperand>(
+            left_operand, right_operand, binary_op);
+    }
+
+    namespace binary_impl {
+    template <typename LeftOperand, typename RightOperand>
+    class binary_expression
+        {
+        public:
+            explicit binary_expression(LeftOperand const& left_operand_,
+                                    RightOperand const& right_operand_,
+                                    std::shared_ptr<binary_operator> binary_op_)
+            : left_operand(left_operand_)
+            , right_operand(right_operand_)
+            , binary_op(binary_op_)
+            {
+            }
+
+            // Create AST 
+            auto operator()() const
+            {
+                if constexpr (ct::traits::is_unary_vec_type<LeftOperand>::value)
+                {
+                    return create_vec_ast();
+                }
+                else if constexpr (ct::traits::is_unary_mat_type<LeftOperand>::value)
+                {
+                    return create_mat_ast();
+                }
+            }
+
+            std::size_t size() const { return left_operand.size(); }
+            std::size_t rows() const { return left_operand.rows(); }
+            std::size_t cols() const { return left_operand.cols(); }
+
+        private:
+            // Vector AST 
+            std::vector<ct::vec_impl::vec_node> create_vec_ast() const
+            {
+                
+                std::vector<ct::vec_impl::vec_node> left_ast = left_operand();
+                std::vector<ct::vec_impl::vec_node> right_ast = right_operand();
+                
+                ct::vec_impl::vec_node& left_root = left_ast.front();
+                ct::vec_impl::vec_node& right_root = right_ast.front();
+
+                
+                ct::vec_impl::vec_node binary_node{left_root.name_,
+                    ct::util::Operation::binary_expr, binary_op,
+                    left_root.vec_len_};
+
+                
+                binary_node.left_ = 1; 
+                binary_node.right_ = 1 + left_ast.size(); 
+
+                
+                std::vector<ct::vec_impl::vec_node> ast;
+                ast.reserve(1 + left_ast.size() + right_ast.size());
+                
+                ast.emplace_back(binary_node);
+                std::copy(left_ast.begin(), left_ast.end(), std::back_inserter(ast));
+                std::copy(right_ast.begin(), right_ast.end(), std::back_inserter(ast));
+
+                
+                for (int i = 1; i != 1 + left_ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1;
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1;
+                }
+
+                
+                for (int i = 1 + left_ast.size(); i != ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1 + left_ast.size();
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1 + left_ast.size();
+                }
+
+                return ast;
+            }
+
+            // Matrix AST 
+            std::vector<ct::mat_impl::mat_node> create_mat_ast() const
+            {
+               
+                std::vector<ct::mat_impl::mat_node> left_ast = left_operand();
+                std::vector<ct::mat_impl::mat_node> right_ast = right_operand();
+                
+                ct::mat_impl::mat_node& left_root = left_ast.front();
+                ct::mat_impl::mat_node& right_root = right_ast.front();
+
+                
+                ct::mat_impl::mat_node binary_node{left_root.name_,
+                    ct::util::Operation::binary_expr, binary_op,
+                    left_root.mat_row_len_, left_root.mat_col_len_};
+
+                
+                binary_node.left_ = 1;  
+                binary_node.right_ = 1 + left_ast.size();  
+
+                
+                std::vector<ct::mat_impl::mat_node> ast;
+                ast.reserve(1 + left_ast.size() + right_ast.size());
+                
+                ast.emplace_back(binary_node);
+                std::copy(left_ast.begin(), left_ast.end(), std::back_inserter(ast));
+                std::copy(right_ast.begin(), right_ast.end(), std::back_inserter(ast));
+
+                
+                for (int i = 1; i != 1 + left_ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1;
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1;
+                }
+
+                
+                for (int i = 1 + left_ast.size(); i != ast.size(); ++i)
+                {
+                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                        ast[i].left_ += 1 + left_ast.size();
+                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                        ast[i].right_ += 1 + left_ast.size();
+                }
+
+                return ast;
+            }
+
+            LeftOperand const& left_operand;
+            RightOperand const& right_operand;
+            std::shared_ptr<binary_operator> binary_op;
+        };
+    }
+
+    // Helper function to create ct::vector from std::vector<double>
+    inline ct::vector from_vector(const std::vector<double>& data)
+    {
+        return ct::vector(data.size(), std::make_shared<data_generator>(data));
+    }
+
 }    // namespace ct

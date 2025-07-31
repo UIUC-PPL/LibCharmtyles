@@ -1,6 +1,7 @@
 #pragma once
 
 #include "charm++.h"
+#include <vector>
 
 namespace ct {
 
@@ -35,6 +36,46 @@ namespace ct {
         }
     };
 
+    class data_generator : public generator
+    {
+    public:
+        data_generator() = default;
+        ~data_generator() {}
+
+        using ct::generator::generator;
+
+        data_generator(const std::vector<double>& data)
+          : data_(data)
+        {
+        }
+
+        // returns the element at dimX
+        double generate(int dimX) final
+        {
+            return data_[dimX];
+        }
+
+        double generate(int row_id, int col_id) final
+        {
+            return 0.0; // Not used
+        }
+
+        PUPable_decl(data_generator);
+        data_generator(CkMigrateMessage* m)
+          : ct::generator(m)
+        {
+        }
+
+        void pup(PUP::er& p) final
+        {
+            ct::generator::pup(p);
+            p | data_;
+        }
+
+    private:
+        std::vector<double> data_;
+    };
+
     class unary_operator : public PUP::able
     {
     public:
@@ -59,6 +100,30 @@ namespace ct {
             std::size_t row_id, std::size_t col_id, double& value)
         {
             return -1.0;
+        }
+    };
+
+    class binary_operator : public PUP::able
+    {
+    public:
+        PUPable_decl(binary_operator);
+        
+        binary_operator() = default;
+        virtual ~binary_operator() = default;
+        
+        binary_operator(CkMigrateMessage* m) : PUP::able(m) {}
+        
+        
+        virtual double operator()(std::size_t index, double& left_val, double& right_val)
+        {
+            return -1.0; 
+        }
+        
+        
+        virtual double operator()(std::size_t row_id, std::size_t col_id, 
+                                double& left_val, double& right_val)
+        {
+            return -1.0; 
         }
     };
 
