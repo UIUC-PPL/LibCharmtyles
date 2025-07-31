@@ -21,12 +21,32 @@ namespace ct {
             copy = 4,
 
             // Middle/Head Nodes
+            multiply = 9,
             add = 10,
             sub = 11,
             divide = 12,
 
+            // Relational Operators
+            greater = 13,
+            lesser = 14,
+            geq = 15,
+            leq = 16,
+            eq = 17,
+            neq = 18,
+
+            //Broadcast
+            broadcast = 19,
+
             // Blas
             axpy = 20,
+
+            // Logical
+            logical_and = 21,
+            logical_or = 22,
+            logical_not = 23,
+
+            // Ternary
+            where = 25,
 
             // Unary operations
             unary_expr = 30,
@@ -106,9 +126,12 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             vec_node() = default;
+            vec_node(vec_node const& other) = default;
+            vec_node& operator=(vec_node const& other) = default;
 
             explicit vec_node(ct::util::Operation op, std::size_t size)
               : operation_(op)
@@ -148,6 +171,8 @@ namespace ct {
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
             {
@@ -184,6 +209,7 @@ namespace ct {
                 p | vec_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
@@ -207,6 +233,7 @@ namespace ct {
 
             std::size_t left_ = -1;
             std::size_t right_ = -1;
+            std::size_t ter_ = -1;
 
             // Only called when initializing through expression
             mat_node() = default;
@@ -264,11 +291,16 @@ namespace ct {
                 mat_node const& other)
               : name_(matrix_id)
               , operation_(op)
+              , unary_expr_(other.unary_expr_)
+              , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , mat_row_len_(other.mat_row_len_)
               , mat_col_len_(other.mat_col_len_)
             {
             }
+
+            mat_node(mat_node const& other) = default;
+            mat_node& operator=(mat_node const& other) = default;
 
             void pup(PUP::er& p)
             {
@@ -282,6 +314,7 @@ namespace ct {
                 p | mat_col_len_;
                 p | left_;
                 p | right_;
+                p | ter_;
             }
         };
 
