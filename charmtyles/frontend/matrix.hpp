@@ -519,6 +519,21 @@ namespace ct {
             p | node_;
         }
 
+        std::vector<std::vector<double>> get()
+        {
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.dispatch(matrix_shape().shape_id);
+            ck::future<std::vector<std::vector<double>>> fval;
+            CProxy_get_mat_future mat_proxy =
+                CProxy_get_mat_future::ckNew(fval, row_size_, col_size_);
+            std::size_t& sdag_idx = queue.sdag_idx(matrix_shape().shape_id);
+            matrix_shape().proxy.get_value(
+                sdag_idx, matrix_shape().matrix_id, mat_proxy);
+            ++sdag_idx;
+            return fval.get();
+        }
+
     private:
         std::vector<ct::mat_impl::mat_node> operator()() const
         {
