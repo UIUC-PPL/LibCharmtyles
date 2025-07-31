@@ -36,15 +36,15 @@ namespace ct {
         }
     };
 
-    class data_generator : public generator
+    class from_vector_generator : public generator
     {
     public:
-        data_generator() = default;
-        ~data_generator() {}
+        from_vector_generator() = default;
+        ~from_vector_generator() {}
 
         using ct::generator::generator;
 
-        data_generator(const std::vector<double>& data)
+        from_vector_generator(const std::vector<double>& data)
           : data_(data)
         {
         }
@@ -57,11 +57,11 @@ namespace ct {
 
         double generate(int row_id, int col_id) final
         {
-            return 0.0; // Not used
+            return 0.0;    // Not used
         }
 
-        PUPable_decl(data_generator);
-        data_generator(CkMigrateMessage* m)
+        PUPable_decl(from_vector_generator);
+        from_vector_generator(CkMigrateMessage* m)
           : ct::generator(m)
         {
         }
@@ -74,6 +74,46 @@ namespace ct {
 
     private:
         std::vector<double> data_;
+    };
+
+    class from_matrix_generator : public generator
+    {
+    public:
+        from_matrix_generator() = default;
+        ~from_matrix_generator() {}
+
+        using ct::generator::generator;
+
+        from_matrix_generator(const std::vector<std::vector<double>>& data)
+          : data_(data)
+        {
+        }
+
+        // returns the element at dimX
+        double generate(int dimX) final
+        {
+            return 0.0;    // Not used
+        }
+
+        double generate(int row_id, int col_id) final
+        {
+            return data_[row_id][col_id];    // Not used
+        }
+
+        PUPable_decl(from_matrix_generator);
+        from_matrix_generator(CkMigrateMessage* m)
+          : ct::generator(m)
+        {
+        }
+
+        void pup(PUP::er& p) final
+        {
+            ct::generator::pup(p);
+            p | data_;
+        }
+
+    private:
+        std::vector<std::vector<double>> data_;
     };
 
     class unary_operator : public PUP::able

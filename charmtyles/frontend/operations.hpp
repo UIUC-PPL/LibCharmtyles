@@ -814,8 +814,8 @@ namespace ct {
 
         std::vector<double> chunk_avgs = fval.get();
 
-        std::shared_ptr<ct::data_generator> gen =
-            std::make_shared<ct::data_generator>(chunk_avgs);
+        std::shared_ptr<ct::from_vector_generator> gen =
+            std::make_shared<ct::from_vector_generator>(chunk_avgs);
         ct::vector result{k, gen};
 
         return result;
@@ -852,8 +852,8 @@ namespace ct {
 
         std::vector<double> chunk_maxs = fval.get();
 
-        std::shared_ptr<ct::data_generator> gen =
-            std::make_shared<ct::data_generator>(chunk_maxs);
+        std::shared_ptr<ct::from_vector_generator> gen =
+            std::make_shared<ct::from_vector_generator>(chunk_maxs);
         ct::vector result{k, gen};
 
         return result;
@@ -890,8 +890,8 @@ namespace ct {
 
         std::vector<double> chunk_mins = fval.get();
 
-        std::shared_ptr<ct::data_generator> gen =
-            std::make_shared<ct::data_generator>(chunk_mins);
+        std::shared_ptr<ct::from_vector_generator> gen =
+            std::make_shared<ct::from_vector_generator>(chunk_mins);
         ct::vector result{k, gen};
 
         return result;
@@ -949,7 +949,14 @@ namespace ct {
     // Helper function to create ct::vector from std::vector<double>
     inline ct::vector from_vector(const std::vector<double>& data)
     {
-        return ct::vector(data.size(), std::make_shared<data_generator>(data));
+        return ct::vector(
+            data.size(), std::make_shared<from_vector_generator>(data));
+    }
+
+    inline ct::matrix from_matrix(const std::vector<std::vector<double>>& data)
+    {
+        return ct::matrix(data.size(), data[0].size(),
+            std::make_shared<from_matrix_generator>(data));
     }
 
 }    // namespace ct
