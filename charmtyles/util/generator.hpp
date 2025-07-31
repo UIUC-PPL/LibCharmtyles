@@ -44,6 +44,11 @@ namespace ct {
 
         using ct::generator::generator;
 
+        from_vector_generator(const double* data, uint64_t size)
+          : data_(std::vector<double>(data, data + size))
+        {
+        }
+
         from_vector_generator(const std::vector<double>& data)
           : data_(data)
         {
@@ -83,6 +88,17 @@ namespace ct {
         ~from_matrix_generator() {}
 
         using ct::generator::generator;
+
+        from_matrix_generator(const double* data, uint16_t rows, uint16_t cols)
+        {
+            data_.resize(rows);
+            for (uint16_t i = 0; i < rows; ++i)
+            {
+                data_[i].resize(cols);
+                std::copy(
+                    data + i * cols, data + (i + 1) * cols, data_[i].begin());
+            }
+        }
 
         from_matrix_generator(const std::vector<std::vector<double>>& data)
           : data_(data)
