@@ -28,6 +28,11 @@ namespace ct {
             // Blas
             axpy = 20,
 
+            // LU decomposition
+            lu_l = 50,
+            lu_u = 51,
+            lu_p = 52,
+
             // Unary operations
             unary_expr = 30,
             // Binary operations

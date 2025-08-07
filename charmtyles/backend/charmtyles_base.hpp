@@ -4,6 +4,7 @@
 #include <charmtyles/util/generator.hpp>
 #include <charmtyles/util/matrix_view.hpp>
 #include <charmtyles/util/sizes.hpp>
+#include <Eigen/LU>
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
@@ -773,6 +774,76 @@ private:
             }
 
             return;
+
+        case ct::util::Operation::lu_l:
+        case ct::util::Operation::lu_u:
+        case ct::util::Operation::lu_p:
+        {
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+                mat = ct::util::matrix_view{num_rows, num_cols};
+                mat_map.emplace_back(std::move(mat));
+            }
+
+            std::size_t input_id = node.copy_id_;
+            Eigen::MatrixXd input_matrix(mat_map[input_id].rows(), mat_map[input_id].cols());
+            
+            for (std::size_t i = 0; i < mat_map[input_id].rows(); ++i)
+            {
+                for (std::size_t j = 0; j < mat_map[input_id].cols(); ++j)
+                {
+                    input_matrix(i, j) = mat_map[input_id](i, j);
+                }
+            }
+
+            Eigen::PartialPivLU<Eigen::MatrixXd> lu_solver(input_matrix);
+            
+            if (node.operation_ == ct::util::Operation::lu_l)
+            {
+                Eigen::MatrixXd L = lu_solver.matrixLU().triangularView<Eigen::StrictlyLower>();
+                for (std::size_t i = 0; i < L.rows(); ++i)
+                {
+                    L(i, i) = 1.0;
+                }
+                
+                for (std::size_t i = 0; i < mat_map[node_id].rows(); ++i)
+                {
+                    for (std::size_t j = 0; j < mat_map[node_id].cols(); ++j)
+                    {
+                        mat_map[node_id](i, j) = (i < L.rows() && j < L.cols()) ? L(i, j) : 0.0;
+                    }
+                }
+            }
+            else if (node.operation_ == ct::util::Operation::lu_u)
+            {
+                Eigen::MatrixXd U = lu_solver.matrixLU().triangularView<Eigen::Upper>();
+                
+                for (std::size_t i = 0; i < mat_map[node_id].rows(); ++i)
+                {
+                    for (std::size_t j = 0; j < mat_map[node_id].cols(); ++j)
+                    {
+                        mat_map[node_id](i, j) = (i < U.rows() && j < U.cols()) ? U(i, j) : 0.0;
+                    }
+                }
+            }
+            else if (node.operation_ == ct::util::Operation::lu_p)
+            {
+                Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm = lu_solver.permutationP();
+                Eigen::MatrixXd P = perm.toDenseMatrix().cast<double>();
+                
+                for (std::size_t i = 0; i < mat_map[node_id].rows(); ++i)
+                {
+                    for (std::size_t j = 0; j < mat_map[node_id].cols(); ++j)
+                    {
+                        mat_map[node_id](i, j) = (i < P.rows() && j < P.cols()) ? P(i, j) : 0.0;
+                    }
+                }
+            }
+
+            return;
+        }
 
         default:
             CmiAbort("Operation not implemented");

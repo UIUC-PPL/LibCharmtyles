@@ -15,6 +15,11 @@ namespace ct {
         template <typename LeftOperand, typename RightOperand>
         class binary_expression;
     }    // namespace binary_impl
+    namespace lu_impl {
+        class lu_l_expr;
+        class lu_u_expr;
+        class lu_p_expr;
+    }    // namespace lu_impl
     namespace mat_impl {
 
         CT_GENERATE_SINGLETON(std::size_t, mat_shape_id);
@@ -338,6 +343,9 @@ namespace ct {
         friend class unary_impl::unary_expression;
         template <typename LeftOperand, typename RightOperand>
         friend class binary_impl::binary_expression;
+        friend class lu_impl::lu_l_expr;
+        friend class lu_impl::lu_u_expr;
+        friend class lu_impl::lu_p_expr;
 
     public:
         matrix() = default;
@@ -469,10 +477,14 @@ namespace ct {
         matrix& operator=(ct::unary_impl::unary_expression<Operand> const& e);
 
         template <typename LeftOperand, typename RightOperand>
-        matrix(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+        matrix& operator=(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
 
         template <typename LeftOperand, typename RightOperand>
-        matrix& operator=(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+        matrix(ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
+
+        matrix(ct::lu_impl::lu_l_expr const& expr);
+        matrix(ct::lu_impl::lu_u_expr const& expr);
+        matrix(ct::lu_impl::lu_p_expr const& expr);
 
         template <typename LHS, typename RHS>
         matrix& operator=(ct::mat_impl::mat_expression<LHS, RHS> const& e)

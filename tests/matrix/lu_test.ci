@@ -1,0 +1,14 @@
+mainmodule lu_test
+{
+    extern module libcharmtyles;
+
+    PUPable test_matrix_generator;
+    PUPable unit_vector_generator;
+
+    mainchare Main
+    {
+        entry Main(CkArgMsg*);
+    
+        entry [threaded] void benchmark();
+    };
+}
