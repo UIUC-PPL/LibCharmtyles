@@ -1,7 +1,6 @@
-mainmodule base
+mainmodule where
 {
     extern module libcharmtyles;
-    PUPable sqrt_t;
 
     mainchare Main
     {

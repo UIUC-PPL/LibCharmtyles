@@ -2,6 +2,37 @@
 
 #include "base.decl.h"
 
+class sqrt_t : public ct::unary_operator
+{
+public:
+    sqrt_t() = default;
+    ~sqrt_t() {}
+
+    using ct::unary_operator::unary_operator;
+
+    inline double operator()(std::size_t index, double value) override final
+    {
+        return 1.0;
+    }
+
+    inline double operator()(
+        std::size_t rows, std::size_t cols, double value) override final
+    {
+        return 0.0;
+    }
+
+    PUPable_decl(sqrt_t);
+    sqrt_t(CkMigrateMessage* m)
+      : ct::unary_operator(m)
+    {
+    }
+
+    void pup(PUP::er& p) final
+    {
+        ct::unary_operator::pup(p);
+    }
+};
+
 class Main : public CBase_Main
 {
 public:
@@ -17,6 +48,7 @@ public:
 
     void benchmark()
     {
+        std::shared_ptr<ct::unary_operator> sqrt_ = std::make_shared<sqrt_t>();
         constexpr std::size_t mat_row_1 = 1 << 11;
         constexpr std::size_t mat_col_1 = 1 << 11;
 
@@ -76,8 +108,10 @@ public:
 
         ct::matrix x{1 << 13, 1 << 13, 1.0};
         ct::vector y{1 << 13, 2.0};
+        // y = ct::unary_expr(y, sqrt_);
+        // x = ct::unary_expr(x, sqrt_);
         ct::vector x_dot_y = ct::dot(x, y);
-        ct::sync();
+        // ct::sync();
 
         end = CkWallTimer();
 
@@ -106,15 +140,15 @@ public:
         ckout << "[Result] MatMul over 2 matrices: " << eres << endl;
         start = CkWallTimer();
 
-        ct::matrix m1{1 << 10, 1 << 10, 0};
-        ct::matrix m2{1 << 10, 1 << 10, 0};
+        ct::matrix m1{1 << 10, 1 << 10, 1};
+        ct::matrix m2{1 << 10, 1 << 10, 1};
         ct::matrix m3 = m1 * m2;
         ct::sync(m1.matrix_shape());
 
         end = CkWallTimer();
         ckout << "Execution Time (mat-mul): " << end - start << endl;
 
-        ct::vector v1{1 << 10, 0};
+        ct::vector v1{1 << 10, 1};
         ct::vector vres = ct::dot(m3, v1);
         ct::scalar sval = ct::dot(vres, vres);
         double uval = sval.get();
