@@ -915,6 +915,24 @@ namespace ct {
         }
     }
 
+    template <typename Operand>
+    auto custom_expr(
+        Operand const& operand, std::shared_ptr<custom_operator> custom_op)
+    {
+        if constexpr (traits::is_vec_type_impl<
+                          typename std::decay<Operand>::type>::value)
+        {
+            return ct::vec_impl::vec_expression<Operand, Operand>{operand,
+                operand.size(), ct::util::Operation::custom_expr, custom_op};
+        }
+        else
+        {
+            return ct::mat_impl::mat_expression<Operand, Operand>{operand,
+                operand.rows(), operand.cols(),
+                ct::util::Operation::custom_expr, custom_op};
+        }
+    }
+
     template <typename LHS, typename RHS, typename THS>
     auto where(LHS const& lhs, RHS const& rhs, THS const& ths)
     {

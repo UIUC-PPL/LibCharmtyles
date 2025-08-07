@@ -1,6 +1,7 @@
 #pragma once
 
 #include "charm++.h"
+#include "matrix_view.hpp"
 #include <vector>
 
 namespace ct {
@@ -192,6 +193,37 @@ namespace ct {
             double left_val, double right_val)
         {
             return -1.0;
+        }
+    };
+
+    class custom_operator : public PUP::able
+    {
+    public:
+        PUPable_decl(custom_operator);
+
+        custom_operator() = default;
+        virtual ~custom_operator() = default;
+
+        custom_operator(CkMigrateMessage* m)
+          : PUP::able(m)
+        {
+        }
+
+        virtual void pup(PUP::er& p)
+        {
+            PUP::able::pup(p);
+        }
+
+        virtual void operator()(std::size_t length, std::vector<double>& lhs,
+            std::vector<double>& rhs)
+        {
+            lhs = rhs;
+        }
+
+        virtual void operator()(std::size_t rows, std::size_t cols,
+            ct::util::matrix_view& lhs, ct::util::matrix_view& rhs)
+        {
+            lhs = rhs;
         }
     };
 

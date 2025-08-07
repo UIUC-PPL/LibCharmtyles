@@ -395,6 +395,21 @@ private:
 
             return;
         }
+        case ct::util::Operation::custom_expr:
+        {
+            if (node_id == vec_map.size())
+            {
+                vec_dim = get_vec_dim(node.vec_len_);
+
+                vec_map.emplace_back(std::vector<double>(vec_dim));
+            }
+
+            const ct::vec_impl::vec_node& node = instruction[0];
+            node.custom_expr_->operator()(vec_dim, vec_map[node_id],
+                vec_map[instruction[node.left_].name_]);
+            return;
+        }
+
         default:
             CmiAbort("Operation not implemented");
         }
@@ -695,6 +710,24 @@ private:
             }
 
             return;
+
+        case ct::util::Operation::custom_expr:
+        {
+            if (node_id == mat_map.size())
+            {
+                num_rows = get_mat_rows(node.mat_row_len_);
+                num_cols = get_mat_cols(node.mat_col_len_);
+
+                mat = ct::util::matrix_view{num_rows, num_cols};
+
+                mat_map.emplace_back(std::move(mat));
+            }
+
+            const ct::mat_impl::mat_node& node = instruction[0];
+            node.custom_expr_->operator()(num_rows, num_cols, mat_map[node_id],
+                mat_map[instruction[node.left_].name_]);
+            return;
+        }
 
         default:
             CmiAbort("Operation not implemented");

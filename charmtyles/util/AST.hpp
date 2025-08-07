@@ -52,6 +52,7 @@ namespace ct {
             unary_expr = 30,
             // Binary operations
             binary_expr = 40,
+            custom_expr = 50
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -119,6 +120,8 @@ namespace ct {
                 std::make_shared<ct::unary_operator>();
             std::shared_ptr<ct::binary_operator> binary_expr_ =
                 std::make_shared<ct::binary_operator>();
+            std::shared_ptr<ct::custom_operator> custom_expr_ =
+                std::make_shared<ct::custom_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -167,6 +170,16 @@ namespace ct {
             {
             }
 
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::size_t vec_len)
+              : name_(name)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , vec_len_(vec_len)
+            {
+            }
+
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
@@ -205,6 +218,7 @@ namespace ct {
                 p | copy_id_;
                 p | unary_expr_;
                 p | binary_expr_;
+                p | custom_expr_;
                 p | value_;
                 p | vec_len_;
                 p | left_;
@@ -225,6 +239,8 @@ namespace ct {
                 std::make_shared<ct::unary_operator>();
             std::shared_ptr<ct::binary_operator> binary_expr_ =
                 std::make_shared<ct::binary_operator>();
+            std::shared_ptr<ct::custom_operator> custom_expr_ =
+                std::make_shared<ct::custom_operator>();
             std::size_t copy_id_ = -1;
             double value_ = 0.;
 
@@ -278,6 +294,17 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::size_t rows, std::size_t cols)
+              : name_(matrix_id)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , mat_row_len_(rows)
+              , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 double value, std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
@@ -308,6 +335,7 @@ namespace ct {
                 p | operation_;
                 p | unary_expr_;
                 p | binary_expr_;
+                p | custom_expr_;
                 p | copy_id_;
                 p | value_;
                 p | mat_row_len_;

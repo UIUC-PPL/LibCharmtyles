@@ -303,6 +303,18 @@ namespace ct {
             {
             }
 
+            explicit mat_expression(LHS const& lhs_, std::size_t rows_,
+                std::size_t cols_, ct::util::Operation op_,
+                std::shared_ptr<custom_operator> custom_op_)
+              : lhs(lhs_)
+              , rhs(lhs_)
+              , row_len(rows_)
+              , col_len(cols_)
+              , op(op_)
+              , custom_op(custom_op_)
+            {
+            }
+
             std::vector<ct::mat_impl::mat_node> operator()() const
             {
                 std::vector<ct::mat_impl::mat_node> left;
@@ -344,13 +356,20 @@ namespace ct {
                     node = ct::mat_impl::mat_node(
                         -1, op, unary_op, row_len, col_len);
                 }
+                else if (op == ct::util::Operation::custom_expr)
+                {
+                    node = ct::mat_impl::mat_node(
+                        -1, op, custom_op, row_len, col_len);
+                }
                 else
                 {
                     node = ct::mat_impl::mat_node(op, row_len, col_len);
                 }
                 node.left_ = 1;
                 size_t right_size;
-                if (op == ct::util::Operation::unary_expr)
+                if (op == ct::util::Operation::unary_expr ||
+                    op == ct::util::Operation::logical_not ||
+                    op == ct::util::Operation::custom_expr)
                 {
                     node.right_ = -1;
                     right_size = 0;
@@ -432,6 +451,7 @@ namespace ct {
             std::size_t col_len;
             std::shared_ptr<binary_operator> binary_op;
             std::shared_ptr<unary_operator> unary_op;
+            std::shared_ptr<custom_operator> custom_op;
             ct::util::Operation op;
         };
 
