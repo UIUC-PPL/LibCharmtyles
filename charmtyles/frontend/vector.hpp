@@ -464,6 +464,101 @@ namespace ct {
         vector& operator=(
             ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
 
+        // In-place ops with another vector
+        vector& operator+=(vector const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_add;
+            node_.copy_id_ = other.node_.name_;
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(node_, vector_shape_.shape_id);
+            return *this;
+        }
+
+        vector& operator-=(vector const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_sub;
+            node_.copy_id_ = other.node_.name_;
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(node_, vector_shape_.shape_id);
+            return *this;
+        }
+
+        vector& operator/=(vector const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_divide;
+            node_.copy_id_ = other.node_.name_;
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(node_, vector_shape_.shape_id);
+            return *this;
+        }
+
+        // In-place ops with expression (E must yield AST like existing + / -)
+        template <typename LHS, typename RHS>
+        vector& operator+=(ct::vec_impl::vec_expression<LHS, RHS> const& e)
+        {
+            auto instr = e();
+            instr.front().name_ = vector_shape_.vector_id;
+            ct::vec_impl::vec_node root{ct::util::Operation::inplace_add, size_};
+            root.left_ = static_cast<std::size_t>(-1);
+            root.right_ = 1;
+            root.name_ = vector_shape_.vector_id;
+            instr.insert(instr.begin(), root);
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+            }
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(instr, vector_shape_.shape_id);
+            return *this;
+        }
+
+        template <typename LHS, typename RHS>
+        vector& operator-=(ct::vec_impl::vec_expression<LHS, RHS> const& e)
+        {
+            auto instr = e();
+            instr.front().name_ = vector_shape_.vector_id;
+            ct::vec_impl::vec_node root{ct::util::Operation::inplace_sub, size_};
+            root.left_ = static_cast<std::size_t>(-1);
+            root.right_ = 1;
+            root.name_ = vector_shape_.vector_id;
+            instr.insert(instr.begin(), root);
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+            }
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(instr, vector_shape_.shape_id);
+            return *this;
+        }
+
+        template <typename LHS, typename RHS>
+        vector& operator/=(ct::vec_impl::vec_expression<LHS, RHS> const& e)
+        {
+            auto instr = e();
+            instr.front().name_ = vector_shape_.vector_id;
+            ct::vec_impl::vec_node root{ct::util::Operation::inplace_divide, size_};
+            root.left_ = static_cast<std::size_t>(-1);
+            root.right_ = 1;
+            root.name_ = vector_shape_.vector_id;
+            instr.insert(instr.begin(), root);
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+            }
+            ct::vec_impl::vec_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(instr, vector_shape_.shape_id);
+            return *this;
+        }
+
         // Helper functions
     public:
         const ct::vec_impl::vec_shape_t vector_shape() const

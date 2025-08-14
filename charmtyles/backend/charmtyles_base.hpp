@@ -259,6 +259,10 @@ private:
 
         std::shared_ptr<ct::binary_operator> const& binary_expr =
             node.binary_expr_;
+        auto safe_div_vec = [&](std::size_t idx, double denom) {
+            if (denom != 0.0) vec_map[node_id][idx] /= denom;
+            else CmiAbort("divide by zero");
+        };
 
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -355,89 +359,108 @@ private:
 
             return;
         case ct::util::Operation::inplace_add:
+            copy_id = node.copy_id_;
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-
                 vec_map.emplace_back(std::vector<double>(vec_dim));
             }
-
             total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
+            unrolled_size = total_size / 4;
             remainder_start = unrolled_size * 4;
+            
+            for (std::size_t i = 0; i != remainder_start; i += 4){
+                if (copy_id == static_cast<std::size_t>(-1))
+                {
+                    vec_map[node_id][i]     += execute_ast_for_idx(instruction, 1, i);
+                    vec_map[node_id][i + 1] += execute_ast_for_idx(instruction, 1, i + 1);
+                    vec_map[node_id][i + 2] += execute_ast_for_idx(instruction, 1, i + 2);
+                    vec_map[node_id][i + 3] += execute_ast_for_idx(instruction, 1, i + 3);
+                } else {
+                    vec_map[node_id][i]     += vec_map[copy_id][i];
+                    vec_map[node_id][i + 1] += vec_map[copy_id][i + 1];
+                    vec_map[node_id][i + 2] += vec_map[copy_id][i + 2];
+                    vec_map[node_id][i + 3] += vec_map[copy_id][i + 3];
+                }
+            }
 
             for (std::size_t i = 0; i != remainder_start; i += 4)
             {
-                vec_map[node_id][i] += execute_ast_for_idx(instruction, 0, i);
-                vec_map[node_id][i + 1] +=
-                    execute_ast_for_idx(instruction, 0, i + 1);
-                vec_map[node_id][i + 2] +=
-                    execute_ast_for_idx(instruction, 0, i + 2);
-                vec_map[node_id][i + 3] +=
-                    execute_ast_for_idx(instruction, 0, i + 3);
+                if (copy_id == static_cast<std::size_t>(-1))
+                    vec_map[node_id][i] += execute_ast_for_idx(instruction, 1, i);
+                else
+                    vec_map[node_id][i] += vec_map[copy_id][i];
             }
+                
+            return;
 
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] += execute_ast_for_idx(instruction, 0, i);
-            }
-        return;
         case ct::util::Operation::inplace_sub:
+            copy_id = node.copy_id_;
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-
                 vec_map.emplace_back(std::vector<double>(vec_dim));
             }
-
             total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
+            unrolled_size = total_size / 4;
             remainder_start = unrolled_size * 4;
+            for (std::size_t i = 0; i != remainder_start; i += 4){
+                if (copy_id == static_cast<std::size_t>(-1))
+                {
+                    vec_map[node_id][i]     -= execute_ast_for_idx(instruction, 1, i);
+                    vec_map[node_id][i + 1] -= execute_ast_for_idx(instruction, 1, i + 1);
+                    vec_map[node_id][i + 2] -= execute_ast_for_idx(instruction, 1, i + 2);
+                    vec_map[node_id][i + 3] -= execute_ast_for_idx(instruction, 1, i + 3);
+                } else {
+                    vec_map[node_id][i]     -= vec_map[copy_id][i];
+                    vec_map[node_id][i + 1] -= vec_map[copy_id][i + 1];
+                    vec_map[node_id][i + 2] -= vec_map[copy_id][i + 2];
+                    vec_map[node_id][i + 3] -= vec_map[copy_id][i + 3];
+                }
+            }
 
             for (std::size_t i = 0; i != remainder_start; i += 4)
             {
-                vec_map[node_id][i] -= execute_ast_for_idx(instruction, 0, i);
-                vec_map[node_id][i + 1] -=
-                    execute_ast_for_idx(instruction, 0, i + 1);
-                vec_map[node_id][i + 2] -=
-                    execute_ast_for_idx(instruction, 0, i + 2);
-                vec_map[node_id][i + 3] -=
-                    execute_ast_for_idx(instruction, 0, i + 3);
+                if (copy_id == static_cast<std::size_t>(-1))
+                    vec_map[node_id][i] -= execute_ast_for_idx(instruction, 1, i);
+                else
+                    vec_map[node_id][i] -= vec_map[copy_id][i];
             }
 
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] -= execute_ast_for_idx(instruction, 0, i);
-            }
-        return;
         case ct::util::Operation::inplace_divide:
+            copy_id = node.copy_id_;
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-
                 vec_map.emplace_back(std::vector<double>(vec_dim));
             }
-
             total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
+            unrolled_size = total_size / 4;
             remainder_start = unrolled_size * 4;
+            for (std::size_t i = 0; i != remainder_start; i += 4){
+                if (copy_id == static_cast<std::size_t>(-1))
+                {
+                    safe_div_vec(i, execute_ast_for_idx(instruction, 1, i));
+                    safe_div_vec(i + 1, execute_ast_for_idx(instruction, 1, i + 1));
+                    safe_div_vec(i + 2, execute_ast_for_idx(instruction, 1, i + 2));
+                    safe_div_vec(i + 3, execute_ast_for_idx(instruction, 1, i + 3));
+                } else {
+                    safe_div_vec(i, vec_map[copy_id][i]);
+                    safe_div_vec(i + 1, vec_map[copy_id][i + 1]);
+                    safe_div_vec(i + 2, vec_map[copy_id][i + 2]);
+                    safe_div_vec(i + 3, vec_map[copy_id][i + 3]);
+                }
+            }
 
             for (std::size_t i = 0; i != remainder_start; i += 4)
             {
-                vec_map[node_id][i] /= execute_ast_for_idx(instruction, 0, i);
-                vec_map[node_id][i + 1] /=
-                    execute_ast_for_idx(instruction, 0, i + 1);
-                vec_map[node_id][i + 2] /=
-                    execute_ast_for_idx(instruction, 0, i + 2);
-                vec_map[node_id][i + 3] /=
-                    execute_ast_for_idx(instruction, 0, i + 3);
+                if (copy_id == static_cast<std::size_t>(-1))
+                    safe_div_vec(i, execute_ast_for_idx(instruction, 1, i));
+                else
+                    safe_div_vec(i, vec_map[copy_id][i]);
             }
+            return;
 
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] /= execute_ast_for_idx(instruction, 0, i);
-            }
-        return;
         case ct::util::Operation::unary_expr:
             if (node_id == vec_map.size())
             {
