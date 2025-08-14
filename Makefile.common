@@ -1,6 +1,6 @@
 # point these to absolute paths
-CHARM_DIR = /home/ridam_jain61/Documents/UIUC_PPL/charm/netlrts-linux-x86_64
-BASE_DIR = /home/ridam_jain61/Documents/UIUC_PPL/fixed_lbct/LibCharmtyles
+CHARM_DIR = /home/anant/winter2024/lbp/study/charm/netlrts-linux-x86_64-smp
+BASE_DIR = /home/anant/sem7/libcharm_tiles
 EIGEN_DIR = /usr/include/eigen3
 
 # common options
