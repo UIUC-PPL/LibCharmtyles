@@ -832,7 +832,7 @@ private:
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    if(copy_id == std::static_cast<size_t>(-1))
+                    if(copy_id == static_cast<std::size_t>(-1))
                         mat_map[node_id](i, j) += execute_ast_for_idx(instruction, 1, i, j);
                     else
                         mat_map[node_id](i, j) += mat_map[copy_id](i, j);
@@ -927,9 +927,9 @@ private:
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
                     if (copy_id == static_cast<std::size_t>(-1))
-                        safe_div(i, j, execute_ast_for_idx(instruction, 1, i, j));
+                        mat_map[node_id](i, j) /= execute_ast_for_idx(instruction, 1, i, j);
                     else
-                        safe_div(i, j, mat_map[copy_id](i, j));
+                        mat_map[node_id](i, j) /= mat_map[copy_id](i, j);
                 }
             }
             return;
