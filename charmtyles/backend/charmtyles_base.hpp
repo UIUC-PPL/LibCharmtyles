@@ -259,10 +259,6 @@ private:
 
         std::shared_ptr<ct::binary_operator> const& binary_expr =
             node.binary_expr_;
-        auto safe_div_vec = [&](std::size_t idx, double denom) {
-            if (denom != 0.0) vec_map[node_id][idx] /= denom;
-            else CmiAbort("divide by zero");
-        };
 
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -384,7 +380,7 @@ private:
                 }
             }
 
-            for (std::size_t i = 0; i != remainder_start; i += 4)
+            for (std::size_t i = 0; i != total_size; i += 4)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     vec_map[node_id][i] += execute_ast_for_idx(instruction, 1, i);
@@ -419,7 +415,7 @@ private:
                 }
             }
 
-            for (std::size_t i = 0; i != remainder_start; i += 4)
+            for (std::size_t i = 0; i != total_size; i += 4)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     vec_map[node_id][i] -= execute_ast_for_idx(instruction, 1, i);
@@ -440,19 +436,19 @@ private:
             for (std::size_t i = 0; i != remainder_start; i += 4){
                 if (copy_id == static_cast<std::size_t>(-1))
                 {
-                    safe_div_vec(i, execute_ast_for_idx(instruction, 1, i));
-                    safe_div_vec(i + 1, execute_ast_for_idx(instruction, 1, i + 1));
-                    safe_div_vec(i + 2, execute_ast_for_idx(instruction, 1, i + 2));
-                    safe_div_vec(i + 3, execute_ast_for_idx(instruction, 1, i + 3));
+                    vec_map[node_id][i] /= execute_ast_for_idx(instruction, 1, i);
+                    vec_map[node_id][i + 1] /= execute_ast_for_idx(instruction,1, i + 1);
+                    vec_map[node_id][i + 2] /= execute_ast_for_idx(instruction, 1, i + 2);
+                    vec_map[node_id][i + 3] /= execute_ast_for_idx(instruction, 1, i + 3);
                 } else {
-                    safe_div_vec(i, vec_map[copy_id][i]);
-                    safe_div_vec(i + 1, vec_map[copy_id][i + 1]);
-                    safe_div_vec(i + 2, vec_map[copy_id][i + 2]);
-                    safe_div_vec(i + 3, vec_map[copy_id][i + 3]);
+                    vec_map[node_id][i] /= vec_map[copy_id][i];
+                    vec_map[node_id][i + 1] /= vec_map[copy_id][i + 1];
+                    vec_map[node_id][i + 2] /= vec_map[copy_id][i + 2];
+                    vec_map[node_id][i + 3] /= vec_map[copy_id][i + 3];
                 }
             }
 
-            for (std::size_t i = 0; i != remainder_start; i += 4)
+            for (std::size_t i = 0; i != total_size; i += 4)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     safe_div_vec(i, execute_ast_for_idx(instruction, 1, i));
@@ -675,12 +671,6 @@ private:
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
         ct::util::matrix_view mat{};
-        auto safe_div = [&](std::size_t I, std::size_t J, double denom) {
-            if (denom != 0.0) mat_map[node_id](I, J) /= denom;
-            else {
-                CmiAbort("divide by zero");
-            }
-        };
 
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -870,14 +860,14 @@ private:
                 {
                     if (copy_id == static_cast<std::size_t>(-1))
                     {
-                        mat_map[node_id](i, j)     -= execute_ast_for_idx(instruction, 1, i,     j);
+                        mat_map[node_id](i, j) -= execute_ast_for_idx(instruction, 1, i,j);
                         mat_map[node_id](i + 1, j) -= execute_ast_for_idx(instruction, 1, i + 1, j);
                         mat_map[node_id](i + 2, j) -= execute_ast_for_idx(instruction, 1, i + 2, j);
                         mat_map[node_id](i + 3, j) -= execute_ast_for_idx(instruction, 1, i + 3, j);
                     }
                     else
                     {
-                        mat_map[node_id](i, j)     -= mat_map[copy_id](i,     j);
+                        mat_map[node_id](i, j) -= mat_map[copy_id](i,j);
                         mat_map[node_id](i + 1, j) -= mat_map[copy_id](i + 1, j);
                         mat_map[node_id](i + 2, j) -= mat_map[copy_id](i + 2, j);
                         mat_map[node_id](i + 3, j) -= mat_map[copy_id](i + 3, j);
@@ -917,17 +907,17 @@ private:
                 {
                     if (copy_id == static_cast<std::size_t>(-1))
                     {
-                        safe_div(i,     j, execute_ast_for_idx(instruction, 1, i,     j));
-                        safe_div(i + 1, j, execute_ast_for_idx(instruction, 1, i + 1, j));
-                        safe_div(i + 2, j, execute_ast_for_idx(instruction, 1, i + 2, j));
-                        safe_div(i + 3, j, execute_ast_for_idx(instruction, 1, i + 3, j));
+                        mat_map[node_id](i,j)/= execute_ast_for_idx(instruction, 1, i, j);
+                        mat_map[node_id](i + 1, j) /= execute_ast_for_idx(instruction, 1, i + 1, j);
+                        mat_map[node_id](i +2, j) /= execute_ast_for_idx(instruction, 1, i + 2, j);
+                        mat_map[node_id](i + 3, j) /= execute_ast_for_idx(instruction, 1, i + 3, j);
                     }
                     else
                     {
-                        safe_div(i,     j, mat_map[copy_id](i,     j));
-                        safe_div(i + 1, j, mat_map[copy_id](i + 1, j));
-                        safe_div(i + 2, j, mat_map[copy_id](i + 2, j));
-                        safe_div(i + 3, j, mat_map[copy_id](i + 3, j));
+                        mat_map[node_id](i, j) /= mat_map[copy_id](i, j);
+                        mat_map[node_id](i + 1, j) /= mat_map[copy_id](i + 1, j);
+                        mat_map[node_id](i + 2, j) /= mat_map[copy_id](i + 2, j);
+                        mat_map[node_id](i + 3, j) /= mat_map[copy_id](i + 3, j);
                     }
                 }
             }
