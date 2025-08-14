@@ -1,6 +1,6 @@
 include Makefile.common
 
-all: libs
+all: libs tests
 
 .PHONY: libs tests clean
 

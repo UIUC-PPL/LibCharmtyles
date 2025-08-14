@@ -451,9 +451,9 @@ private:
             for (std::size_t i = 0; i != total_size; i += 4)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
-                    safe_div_vec(i, execute_ast_for_idx(instruction, 1, i));
+                    vec_map[node_id][i] /= execute_ast_for_idx(instruction, 1, i);
                 else
-                    safe_div_vec(i, vec_map[copy_id][i]);
+                    vec_map[node_id][i] /= vec_map[copy_id][i];
             }
             return;
 
@@ -832,7 +832,7 @@ private:
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    if(copy_id == -1)
+                    if(copy_id == std::static_cast<size_t>(-1))
                         mat_map[node_id](i, j) += execute_ast_for_idx(instruction, 1, i, j);
                     else
                         mat_map[node_id](i, j) += mat_map[copy_id](i, j);
