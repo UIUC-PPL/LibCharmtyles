@@ -365,7 +365,7 @@ private:
             unrolled_size = total_size / 4;
             remainder_start = unrolled_size * 4;
             
-            for (std::size_t i = 0; i != remainder_start; i += 4){
+            for (std::size_t i = 0; i != remainder_start; i += 4) {
                 if (copy_id == static_cast<std::size_t>(-1))
                 {
                     vec_map[node_id][i]     += execute_ast_for_idx(instruction, 1, i);
@@ -750,7 +750,6 @@ private:
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::divide:
-            // if the matrix is being declared here
             if (node_id == mat_map.size())
             {
                 num_rows = get_mat_rows(node.mat_row_len_);
@@ -811,16 +810,12 @@ private:
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
                     if(copy_id == -1) {
-                        mat_map[node_id](i, j) +=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                        mat_map[node_id](i + 1, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 1, j);
-                        mat_map[node_id](i + 2, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 2, j);
-                        mat_map[node_id](i + 3, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 3, j);
+                        mat_map[node_id](i    , j) += execute_ast_for_idx(instruction, 1, i, j);
+                        mat_map[node_id](i + 1, j) += execute_ast_for_idx(instruction, 1, i + 1, j);
+                        mat_map[node_id](i + 2, j) += execute_ast_for_idx(instruction, 1, i + 2, j);
+                        mat_map[node_id](i + 3, j) += execute_ast_for_idx(instruction, 1, i + 3, j);
                     } else {
-                        mat_map[node_id](i, j) += mat_map[copy_id](i, j);
+                        mat_map[node_id](i    , j) += mat_map[copy_id](i, j);
                         mat_map[node_id](i + 1, j) += mat_map[copy_id](i + 1, j);
                         mat_map[node_id](i + 2, j) += mat_map[copy_id](i + 2, j);
                         mat_map[node_id](i + 3, j) += mat_map[copy_id](i + 3, j);
@@ -860,14 +855,14 @@ private:
                 {
                     if (copy_id == static_cast<std::size_t>(-1))
                     {
-                        mat_map[node_id](i, j) -= execute_ast_for_idx(instruction, 1, i,j);
+                        mat_map[node_id](i    , j) -= execute_ast_for_idx(instruction, 1, i,j);
                         mat_map[node_id](i + 1, j) -= execute_ast_for_idx(instruction, 1, i + 1, j);
                         mat_map[node_id](i + 2, j) -= execute_ast_for_idx(instruction, 1, i + 2, j);
                         mat_map[node_id](i + 3, j) -= execute_ast_for_idx(instruction, 1, i + 3, j);
                     }
                     else
                     {
-                        mat_map[node_id](i, j) -= mat_map[copy_id](i,j);
+                        mat_map[node_id](i    , j) -= mat_map[copy_id](i,j);
                         mat_map[node_id](i + 1, j) -= mat_map[copy_id](i + 1, j);
                         mat_map[node_id](i + 2, j) -= mat_map[copy_id](i + 2, j);
                         mat_map[node_id](i + 3, j) -= mat_map[copy_id](i + 3, j);
@@ -907,14 +902,14 @@ private:
                 {
                     if (copy_id == static_cast<std::size_t>(-1))
                     {
-                        mat_map[node_id](i,j)/= execute_ast_for_idx(instruction, 1, i, j);
+                        mat_map[node_id](i    , j) /= execute_ast_for_idx(instruction, 1, i, j);
                         mat_map[node_id](i + 1, j) /= execute_ast_for_idx(instruction, 1, i + 1, j);
-                        mat_map[node_id](i +2, j) /= execute_ast_for_idx(instruction, 1, i + 2, j);
+                        mat_map[node_id](i + 2, j) /= execute_ast_for_idx(instruction, 1, i + 2, j);
                         mat_map[node_id](i + 3, j) /= execute_ast_for_idx(instruction, 1, i + 3, j);
                     }
                     else
                     {
-                        mat_map[node_id](i, j) /= mat_map[copy_id](i, j);
+                        mat_map[node_id](i    , j) /= mat_map[copy_id](i, j);
                         mat_map[node_id](i + 1, j) /= mat_map[copy_id](i + 1, j);
                         mat_map[node_id](i + 2, j) /= mat_map[copy_id](i + 2, j);
                         mat_map[node_id](i + 3, j) /= mat_map[copy_id](i + 3, j);

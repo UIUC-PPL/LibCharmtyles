@@ -57,12 +57,12 @@ namespace ct {
         template <typename ASTNode>
         void parse_ast(std::vector<ASTNode> const& instr, std::size_t index)
         {
-            if (index ==0 && instr[index].operation_ == ct::util::Operation::inplace_add){
+            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_add){
                 ckout << instr[index].name_ << " += ";
                 parse_ast(instr, instr[index].right_);
                 return;
             }
-            if (index ==0 && instr[index].operation_ == ct::util::Operation::inplace_sub){
+            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_sub){
                 ckout << instr[index].name_ << " -= ";
                 parse_ast(instr, instr[index].right_);
                 return;

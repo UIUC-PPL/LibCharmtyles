@@ -464,7 +464,6 @@ namespace ct {
         vector& operator=(
             ct::binary_impl::binary_expression<LeftOperand, RightOperand> const& e);
 
-        // In-place ops with another vector
         vector& operator+=(vector const& other)
         {
             node_.operation_ = ct::util::Operation::inplace_add;
@@ -495,7 +494,6 @@ namespace ct {
             return *this;
         }
 
-        // In-place ops with expression (E must yield AST like existing + / -)
         template <typename LHS, typename RHS>
         vector& operator+=(ct::vec_impl::vec_expression<LHS, RHS> const& e)
         {
@@ -508,7 +506,7 @@ namespace ct {
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
                 if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
@@ -529,7 +527,7 @@ namespace ct {
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
                 if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
@@ -550,7 +548,7 @@ namespace ct {
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_ != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
+                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
                 if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =

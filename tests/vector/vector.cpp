@@ -57,6 +57,9 @@ public:
         vec14 = vec11 - vec13 + vec14;
         vec114 = vec111 - vec113 + vec114;
 
+        // in-place operation
+        ct::vector vec115 += vec111 += vec112 - vec113;
+
         ct::sync();
         end = CkWallTimer();
 
