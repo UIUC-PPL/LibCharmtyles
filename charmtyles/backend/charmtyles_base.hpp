@@ -778,7 +778,7 @@ private:
 
             return;
         case ct::util::Operation::inplace_add:
-            copy_id = node.copy_id_;  
+            copy_id = node.copy_id_;
             if (node_id == mat_map.size())
             {
                 num_rows = get_mat_rows(node.mat_row_len_);
@@ -797,7 +797,7 @@ private:
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    if(copy_id==-1){
+                    if(copy_id == -1) {
                         mat_map[node_id](i, j) +=
                             execute_ast_for_idx(instruction, 1, i, j);
                         mat_map[node_id](i + 1, j) +=
@@ -806,7 +806,7 @@ private:
                             execute_ast_for_idx(instruction, 1, i + 2, j);
                         mat_map[node_id](i + 3, j) +=
                             execute_ast_for_idx(instruction, 1, i + 3, j);
-                    } else{
+                    } else {
                         mat_map[node_id](i, j) += mat_map[copy_id](i, j);
                         mat_map[node_id](i + 1, j) += mat_map[copy_id](i + 1, j);
                         mat_map[node_id](i + 2, j) += mat_map[copy_id](i + 2, j);
@@ -819,8 +819,10 @@ private:
             {
                 for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
                 {
-                    mat_map[node_id](i, j) +=
-                        execute_ast_for_idx(instruction, 0, i, j);
+                    if(copy_id == -1)
+                        mat_map[node_id](i, j) += execute_ast_for_idx(instruction, 1, i, j);
+                    else
+                        mat_map[node_id](i, j) += mat_map[copy_id](i, j);
                 }
             }
 
