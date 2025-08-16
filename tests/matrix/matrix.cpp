@@ -61,7 +61,8 @@ public:
         mat114 = mat111 - mat113 + mat114;
 
         // in-place operation
-        ct::matrix mat115 += mat111 += mat112 - mat113;
+        ct::matrix mat115 = mat112 -= mat113;
+        mat115 += mat111 += mat112;
 
         ct::sync();
         end = CkWallTimer();

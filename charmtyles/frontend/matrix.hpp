@@ -560,10 +560,7 @@ namespace ct {
             
             ct::mat_impl::mat_instr_queue_t& queue =
             CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-            queue.print_instructions();
-            
             queue.insert(instr, matrix_shape_.shape_id);
-            queue.print_instructions();
 
             return *this;
         }
@@ -598,10 +595,7 @@ namespace ct {
             
             ct::mat_impl::mat_instr_queue_t& queue =
             CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-            queue.print_instructions();
-            
             queue.insert(instr, matrix_shape_.shape_id);
-            queue.print_instructions();
 
             return *this;
         }
@@ -636,10 +630,7 @@ namespace ct {
             
             ct::mat_impl::mat_instr_queue_t& queue =
             CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-            queue.print_instructions();
-            
             queue.insert(instr, matrix_shape_.shape_id);
-            queue.print_instructions();
 
             return *this;
         }
