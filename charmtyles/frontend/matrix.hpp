@@ -430,6 +430,44 @@ namespace ct {
             return *this;
         }
 
+        matrix& operator+=(matrix const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_add;
+            node_.copy_id_ = other.node_.name_;
+
+            ct::mat_impl::mat_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(node_, matrix_shape_.shape_id);
+
+            return *this;
+        }
+
+        matrix& operator-=(matrix const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_sub;
+            node_.copy_id_ = other.node_.name_;
+
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(node_, matrix_shape_.shape_id);
+
+            return *this;
+        }
+
+        matrix& operator/=(matrix const& other)
+        {
+            node_.operation_ = ct::util::Operation::inplace_divide;
+            node_.copy_id_ = other.node_.name_;
+
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(node_, matrix_shape_.shape_id);
+
+            return *this;
+        }
+
         // TODO: Figure out why this is necessary!
         matrix(matrix&& other)
           : row_size_(other.row_size_)
@@ -485,6 +523,113 @@ namespace ct {
             ct::mat_impl::mat_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
 
+            queue.insert(instr, matrix_shape_.shape_id);
+
+            return *this;
+        }
+
+        template <typename LHS, typename RHS>
+        matrix& operator+=(ct::mat_impl::mat_expression<LHS, RHS> const& e)
+        {
+            std::vector<ct::mat_impl::mat_node> instr = e();
+            ct::mat_impl::mat_node& root = instr.front();
+            
+            root.name_ = matrix_shape_.matrix_id;
+
+            // make new root to account for the inplace operation
+            ct::mat_impl::mat_node new_root{ct::util::Operation::inplace_add, row_size_, col_size_};
+            new_root.left_ = -1;
+            new_root.right_ = 1;
+            new_root.mat_row_len_ = row_size_;
+            new_root.mat_col_len_ = col_size_;
+            new_root.name_ = matrix_shape_.matrix_id;
+            instr.insert(instr.begin(), new_root);
+
+            // increment the indices by 1 to account for the new node added
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1))
+                {
+                    instr[i].left_ += 1;
+                }
+                if (instr[i].right_ != static_cast<std::size_t>(-1))
+                {   
+                    instr[i].right_ += 1;
+                }
+            }
+            
+            ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.insert(instr, matrix_shape_.shape_id);
+
+            return *this;
+        }
+
+        template <typename LHS, typename RHS>
+        matrix& operator-=(ct::mat_impl::mat_expression<LHS, RHS> const& e)
+        {
+            std::vector<ct::mat_impl::mat_node> instr = e();
+            ct::mat_impl::mat_node& root = instr.front();
+            
+            root.name_ = matrix_shape_.matrix_id;
+
+            ct::mat_impl::mat_node new_root{ct::util::Operation::inplace_sub, row_size_, col_size_};
+            new_root.left_ = -1;
+            new_root.right_ = 1;
+            new_root.mat_row_len_ = row_size_;
+            new_root.mat_col_len_ = col_size_;
+            new_root.name_ = matrix_shape_.matrix_id;
+            instr.insert(instr.begin(), new_root);
+
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1))
+                {
+                    instr[i].left_ += 1;
+                }
+                if (instr[i].right_ != static_cast<std::size_t>(-1))
+                {   
+                    instr[i].right_ += 1;
+                }
+            }
+            
+            ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.insert(instr, matrix_shape_.shape_id);
+
+            return *this;
+        }
+        
+        template <typename LHS, typename RHS>
+        matrix& operator/=(ct::mat_impl::mat_expression<LHS, RHS> const& e)
+        {
+            std::vector<ct::mat_impl::mat_node> instr = e();
+            ct::mat_impl::mat_node& root = instr.front();
+            
+            root.name_ = matrix_shape_.matrix_id;
+
+            ct::mat_impl::mat_node new_root{ct::util::Operation::inplace_divide, row_size_, col_size_};
+            new_root.left_ = -1;
+            new_root.right_ = 1;
+            new_root.mat_row_len_ = row_size_;
+            new_root.mat_col_len_ = col_size_;
+            new_root.name_ = matrix_shape_.matrix_id;
+            instr.insert(instr.begin(), new_root);
+
+            for (std::size_t i = 1; i < instr.size(); ++i)
+            {
+                if (instr[i].left_ != static_cast<std::size_t>(-1))
+                {
+                    instr[i].left_ += 1;
+                }
+                if (instr[i].right_ != static_cast<std::size_t>(-1))
+                {   
+                    instr[i].right_ += 1;
+                }
+            }
+            
+            ct::mat_impl::mat_instr_queue_t& queue =
+            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
             queue.insert(instr, matrix_shape_.shape_id);
 
             return *this;
