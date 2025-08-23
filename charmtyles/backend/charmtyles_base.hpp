@@ -389,7 +389,6 @@ private:
             }
                 
             return;
-
         case ct::util::Operation::inplace_sub:
             copy_id = node.copy_id_;
             if (node_id == vec_map.size())
@@ -422,7 +421,7 @@ private:
                 else
                     vec_map[node_id][i] -= vec_map[copy_id][i];
             }
-
+            return;
         case ct::util::Operation::inplace_divide:
             copy_id = node.copy_id_;
             if (node_id == vec_map.size())
@@ -456,7 +455,6 @@ private:
                     vec_map[node_id][i] /= vec_map[copy_id][i];
             }
             return;
-
         case ct::util::Operation::unary_expr:
             if (node_id == vec_map.size())
             {
