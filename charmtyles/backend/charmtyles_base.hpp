@@ -380,7 +380,7 @@ private:
                 }
             }
 
-            for (std::size_t i = remainder_start; i != total_size; i += 4)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     vec_map[node_id][i] += execute_ast_for_idx(instruction, 1, i);
@@ -415,7 +415,7 @@ private:
                 }
             }
 
-            for (std::size_t i = remainder_start; i != total_size; i += 4)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     vec_map[node_id][i] -= execute_ast_for_idx(instruction, 1, i);
@@ -448,7 +448,7 @@ private:
                 }
             }
 
-            for (std::size_t i = remainder_start; i != total_size; i += 4)
+            for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                     vec_map[node_id][i] /= execute_ast_for_idx(instruction, 1, i);
