@@ -30,9 +30,6 @@ namespace ct {
             inplace_divide = 15,
 
             // Relational Operators
-            greater = 13,
-            lesser = 14,
-            geq = 15,
             leq = 16,
             eq = 17,
             neq = 18,
@@ -50,6 +47,11 @@ namespace ct {
 
             // Ternary
             where = 25,
+
+            //Leftover Relational
+            greater = 26,
+            lesser = 27,
+            geq = 28,
 
             // Unary operations
             unary_expr = 30,
@@ -78,17 +80,23 @@ namespace ct {
         template <typename ASTNode>
         void parse_ast(std::vector<ASTNode> const& instr, std::size_t index)
         {
-            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_add){
+            if (index == 0 &&
+                instr[index].operation_ == ct::util::Operation::inplace_add)
+            {
                 ckout << instr[index].name_ << " += ";
                 parse_ast(instr, instr[index].right_);
                 return;
             }
-            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_sub){
+            if (index == 0 &&
+                instr[index].operation_ == ct::util::Operation::inplace_sub)
+            {
                 ckout << instr[index].name_ << " -= ";
                 parse_ast(instr, instr[index].right_);
                 return;
             }
-            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_divide){
+            if (index == 0 &&
+                instr[index].operation_ == ct::util::Operation::inplace_divide)
+            {
                 ckout << instr[index].name_ << " /= ";
                 parse_ast(instr, instr[index].right_);
                 return;
