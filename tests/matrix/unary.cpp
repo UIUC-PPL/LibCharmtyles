@@ -12,7 +12,7 @@ public:
 
     inline double operator()(std::size_t index, double value) override final
     {
-        return value + 5;
+        return 1.0;
     }
 
     inline double operator()(
@@ -20,13 +20,12 @@ public:
     {
         if (rows == cols)
         {
-            return value + 3;
+            return 1.0;
         }
         else
         {
-            return value + 4;
+            return 0.;
         }
-        return 1;
     }
 
     PUPable_decl(identity_t);
@@ -59,7 +58,7 @@ public:
         std::shared_ptr<ct::unary_operator> identity =
             std::make_shared<identity_t>();
         ct::matrix orig{1000, 1000, 1.0};
-        ct::matrix identity_mat = ct::unary_expr(orig + orig > orig, identity);
+        ct::matrix identity_mat = ct::unary_expr(orig, identity);
         ct::vector v1{1000, 1.0};
         ct::vector cpy = ct::unary_expr(v1, identity);
         ct::vector vres = ct::dot(orig, v1);

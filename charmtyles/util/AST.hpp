@@ -25,6 +25,9 @@ namespace ct {
             add = 10,
             sub = 11,
             divide = 12,
+            inplace_add = 13,
+            inplace_sub = 14,
+            inplace_divide = 15,
 
             // Relational Operators
             greater = 13,
@@ -75,6 +78,21 @@ namespace ct {
         template <typename ASTNode>
         void parse_ast(std::vector<ASTNode> const& instr, std::size_t index)
         {
+            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_add){
+                ckout << instr[index].name_ << " += ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            }
+            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_sub){
+                ckout << instr[index].name_ << " -= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            }
+            if (index == 0 && instr[index].operation_ == ct::util::Operation::inplace_divide){
+                ckout << instr[index].name_ << " /= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            }
             if (index == 0 && !is_init_type(instr[index].operation_))
                 ckout << instr[index].name_ << " = ";
 
