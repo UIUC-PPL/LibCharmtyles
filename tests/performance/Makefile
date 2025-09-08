@@ -23,7 +23,8 @@ jacobi: jacobi.cpp
 
 logistic: logistic.cpp
 	$(CHARMC) -E logistic.ci
-	$(CHARMC) $< -L$(LIBS_DIR)/charmtyles -lcharmtyles -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend -o $@.out $(OPTS)
+	$(CHARMC) -c $< -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend $(OPTS) -o logistic.o
+	$(CHARMC) logistic.o -L$(LIBS_DIR)/charmtyles -lcharmtyles -o $@.out $(LD_OPTS)
 
 clean:
 	rm *.decl.h *.def.h *.out charmrun

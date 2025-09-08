@@ -2,6 +2,7 @@
 #include <string>
 
 #include "cg.decl.h"
+#include <string>
 
 class cg_generator : public ct::generator
 {
