@@ -9,7 +9,7 @@ libs: libcharmtyles.a
 libcharmtyles.a: charmtyles.o
 	$(CHARMC) $(LD_OPTS) -o $@ $< -I$(BASE_DIR); rm charmtyles.o
 
-charmtyles.o: charmtyles.hpp
+charmtyles.o: frontend/charmtyles.cpp charmtyles.hpp
 	cd backend; $(CHARMC) charmtyles.ci;
 	$(CHARMC) -c $< -I$(BASE_DIR) $(OPTS)
 

@@ -17,8 +17,6 @@
 
 namespace ct {
 
-    CProxy_KokkosGroup kokkosMgmt;
-
     void init()
     {
         scalar_impl_proxy = CProxy_scalar_impl::ckNew();
@@ -37,12 +35,6 @@ namespace ct {
         col_len = 1 << 10;
 
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
-
-        kokkosMgmt = CProxy_KokkosGroup::ckNew();
-    }
-
-    void finalize() {
-        kokkosMgmt.finalize();
     }
 
     void sync(ct::mat_impl::mat_shape_t const& matrix_shape)

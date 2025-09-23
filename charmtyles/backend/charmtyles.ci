@@ -121,13 +121,13 @@ module libcharmtyles
 
                     std::size_t vec_dim = get_vec_dim(total_len);
 
-                    Kokkos::View<double*> gen_vec("Label", vec_dim);
+                    std::vector<double> gen_vec(vec_dim);
 
                     for (int dimX = 0; dimX != vec_dim; ++dimX)
                     {
-                        gen_vec(dimX) = gen_ptr->generate(thisIndex * vec_block_size + dimX);
+                        gen_vec[dimX] = gen_ptr->generate(thisIndex * vec_block_size + dimX);
                     }
-                    vec_map.emplace_back(gen_vec);
+                    vec_map.emplace_back(std::move(gen_vec));
 
                     ++SDAG_INDEX;
                 }}
@@ -161,8 +161,8 @@ module libcharmtyles
                 when dot[SDAG_INDEX](int sdag_index,
                     int lhs_id, int rhs_id, int scal_sdag_idx) {
                 serial "vector_dot" {
-                    Kokkos::View<double*> lhs = vec_map[lhs_id];
-                    Kokkos::View<double*> rhs = vec_map[rhs_id];
+                    std::vector<double>& lhs = vec_map[lhs_id];
+                    std::vector<double>& rhs = vec_map[rhs_id];
 
                     Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
                     Eigen::Map<Eigen::VectorXd> erhs(rhs.data(), rhs.size());
@@ -190,14 +190,14 @@ module libcharmtyles
                     if (vector_idx == vec_map.size())
                         vec_map.emplace_back(std::vector<double>(len));
 
-                    std::copy(result, result + len, vec_map[vector_idx].data());
+                    std::copy(result, result + len, vec_map[vector_idx].begin());
 
                     ++SDAG_INDEX;
                 }}} // update index + update vector
 
                 when reduce_sum[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
                 serial "reduce_sum" {
-                    Kokkos::View<double*> lhs = vec_map[vector_id];
+                    std::vector<double>& lhs = vec_map[vector_id];
 
                     Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
 
@@ -211,7 +211,7 @@ module libcharmtyles
 
                 when norm_p[SDAG_INDEX](int sdag_idx, int vector_id, int p, int scal_sdag_idx) {
                 serial "norm_p" {
-                    Kokkos::View<double*> lhs = vec_map[vector_id];
+                    std::vector<double>& lhs = vec_map[vector_id];
 
                     Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
 
@@ -225,7 +225,7 @@ module libcharmtyles
 
                 when min[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
                 serial "min" {
-                    Kokkos::View<double*> lhs = vec_map[vector_id];
+                    std::vector<double>& lhs = vec_map[vector_id];
 
                     Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
 
@@ -240,7 +240,7 @@ module libcharmtyles
 
                 when max[SDAG_INDEX](int sdag_idx, int vector_id, int scal_sdag_idx) {
                 serial "max" {
-                    Kokkos::View<double*> lhs = vec_map[vector_id];
+                    std::vector<double>& lhs = vec_map[vector_id];
 
                     Eigen::Map<Eigen::ArrayXd> elhs(lhs.data(), lhs.size());
 
@@ -268,7 +268,7 @@ module libcharmtyles
 
                     std::vector<double> arr_portion(vec_size + 1);
                     arr_portion[0] = static_cast<double>(index);
-                    std::copy(vec_map[vector_id].data(), vec_map[vector_id].data() + vec_map[vector_id].size(), arr_portion.begin() + 1);
+                    std::copy(vec_map[vector_id].begin(), vec_map[vector_id].end(), arr_portion.begin() + 1);
                     
                     CkCallback cb(CkReductionTarget(get_vec_future, construct_vector), proxy);
                     contribute(arr_portion, CkReduction::set, cb);
@@ -277,7 +277,7 @@ module libcharmtyles
 
                 when all[SDAG_INDEX](int sdag_index, int vector_id, CProxy_set_future proxy) {
                 serial "all" {
-                    bool res = std::all_of(vec_map[vector_id].data(), vec_map[vector_id].data() + vec_map[vector_id].size(), 
+                    bool res = std::all_of(vec_map[vector_id].begin(), vec_map[vector_id].end(), 
                       [](double val) { return val != 0.0; });
                     
                     CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
@@ -287,7 +287,7 @@ module libcharmtyles
 
                 when any[SDAG_INDEX](int sdag_index, int vector_id, CProxy_set_future proxy) {
                 serial "any" {
-                    bool res = std::any_of(vec_map[vector_id].data(), vec_map[vector_id].data() + vec_map[vector_id].size(), 
+                    bool res = std::any_of(vec_map[vector_id].begin(), vec_map[vector_id].end(), 
                       [](double val) { return val != 0.0; });
                     
                     CkCallback cb(CkReductionTarget(set_future, evaluate_bool), proxy);
@@ -312,7 +312,7 @@ module libcharmtyles
                         // Check if this global index falls within chares range
                         if (global_index >= start_index && global_index < end_index) {
                             size_t local_index = global_index - start_index;
-                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id](local_index)});
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
                         }
                     }
                     
@@ -353,7 +353,7 @@ module libcharmtyles
                         // Check if this global index falls within chares range
                         if (global_index >= start_index && global_index < end_index) {
                             size_t local_index = global_index - start_index;
-                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id](local_index)});
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
                         }
                     }
                     
@@ -389,7 +389,7 @@ module libcharmtyles
                         // Check if this global index falls within chares range
                         if (global_index >= start_index && global_index < end_index) {
                             size_t local_index = global_index - start_index;
-                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id](local_index)});
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
                         }
                     }
                     
@@ -424,7 +424,7 @@ module libcharmtyles
                         // Check if this global index falls within chares range
                         if (global_index >= start_index && global_index < end_index) {
                             size_t local_index = global_index - start_index;
-                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id](local_index)});
+                            samples.push_back({static_cast<size_t>(i), vec_map[vector_id][local_index]});
                         }
                     }
                     
@@ -476,7 +476,7 @@ module libcharmtyles
                             int count = 0;
                             for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
                                 size_t local_idx = global_idx - start_index;
-                                sum += vec_map[vector_id](local_idx);
+                                sum += vec_map[vector_id][local_idx];
                                 count++;
                             }
                             if (count > 0) {
@@ -539,7 +539,7 @@ module libcharmtyles
                             double max_val = std::numeric_limits<double>::lowest();
                             for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
                                 size_t local_idx = global_idx - start_index;
-                                max_val = std::max(max_val, vec_map[vector_id](local_idx));
+                                max_val = std::max(max_val, vec_map[vector_id][local_idx]);
                             }
                             chunk_data.push_back({static_cast<size_t>(chunk_id), max_val});
                         }
@@ -598,7 +598,7 @@ module libcharmtyles
                             double min_val = std::numeric_limits<double>::max();
                             for (size_t global_idx = intersect_start; global_idx < intersect_end; ++global_idx) {
                                 size_t local_idx = global_idx - start_index;
-                                min_val = std::min(min_val, vec_map[vector_id](local_idx));
+                                min_val = std::min(min_val, vec_map[vector_id][local_idx]);
                             }
                             chunk_data.push_back({static_cast<size_t>(chunk_id), min_val});
                         }
@@ -908,9 +908,4 @@ module libcharmtyles
         entry void any(int sdag_index, int matrix_id, CProxy_set_future proxy);
         entry void all(int sdag_index, int matrix_id, CProxy_set_future proxy);
     }
-
-    group KokkosGroup {
-        entry KokkosGroup();
-        entry void finalize();
-    };
 }
