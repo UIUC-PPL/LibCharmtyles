@@ -7,19 +7,8 @@
 #include <type_traits>
 
 namespace ct {
+
     namespace traits {
-        template <typename T>
-        struct is_vec_type_impl
-        {
-            constexpr static bool value = false;
-        };
-
-        template <>
-        struct is_vec_type_impl<ct::vector>
-        {
-            constexpr static bool value = true;
-        };
-
         template <typename... Ts>
         struct is_vec_type_impl<ct::vec_impl::vec_expression<Ts...>>
         {
@@ -28,18 +17,6 @@ namespace ct {
 
         template <typename... Ts>
         struct is_vec_type_impl<ct::vec_impl::ter_vec_expression<Ts...>>
-        {
-            constexpr static bool value = true;
-        };
-
-        template <typename T>
-        struct is_mat_type_impl
-        {
-            constexpr static bool value = false;
-        };
-
-        template <>
-        struct is_mat_type_impl<ct::matrix>
         {
             constexpr static bool value = true;
         };
@@ -89,6 +66,7 @@ namespace ct {
                 is_mat_type_impl<typename std::decay<RHS>::type>::value &&
                 is_mat_type_impl<typename std::decay<THS>::type>::value;
         };
+
     }    // namespace traits
 
     template <typename LHS, typename RHS>
@@ -96,7 +74,6 @@ namespace ct {
     {
         if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
         {
-            ckout << "I NEED TO LEARN MORE" << endl;
             return ct::vec_impl::vec_expression<LHS, RHS>{
                 lhs, rhs, lhs.size(), op};
         }
@@ -174,7 +151,6 @@ namespace ct {
     template <typename LHS, typename RHS>
     auto operator+(LHS const& lhs, RHS const& rhs)
     {
-        ckout << "HUZZAH" << endl;
         return operator_impl(lhs, rhs, ct::util::Operation::add);
     }
 

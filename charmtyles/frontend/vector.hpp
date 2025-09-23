@@ -20,11 +20,6 @@ namespace ct {
             return curr_id;
         }
 
-        /**
-         * NOTE:
-         *      shape_id  is the number of vector shapes that exist
-         *      vector_id is the number of vectors of that particular shape that exist
-         */
         struct vec_shape_t
         {
             std::size_t shape_id;
@@ -809,6 +804,7 @@ namespace ct {
         }
 
         // Helper functions
+    public:
         const ct::vec_impl::vec_shape_t vector_shape() const
         {
             return vector_shape_;
@@ -910,4 +906,20 @@ namespace ct {
         ct::vec_impl::vec_shape_t vector_shape_;
         ct::vec_impl::vec_node node_;
     };
+
+    namespace traits {
+        template <typename T>
+        struct is_vec_type_impl
+        {
+            constexpr static bool value = false;
+        };
+
+        template <>
+        struct is_vec_type_impl<ct::vector>
+        {
+            constexpr static bool value = true;
+        };
+
+    }    // namespace traits
+
 }    // namespace ct
