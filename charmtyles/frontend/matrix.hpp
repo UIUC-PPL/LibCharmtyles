@@ -995,20 +995,4 @@ namespace ct {
         ct::mat_impl::mat_shape_t matrix_shape_;
         ct::mat_impl::mat_node node_;
     };
-
-    namespace traits {
-        template <typename T>
-        struct is_mat_type_impl
-        {
-            constexpr static bool value = false;
-        };
-
-        template <>
-        struct is_mat_type_impl<ct::matrix>
-        {
-            constexpr static bool value = true;
-        };
-
-    }    // namespace traits
-
 }    // namespace ct
