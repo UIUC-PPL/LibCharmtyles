@@ -14,6 +14,8 @@ public:
 
         ct::init();
         thisProxy.benchmark();
+        ct::finalize();
+        CkExit();
     }
 
     void benchmark()
@@ -97,8 +99,6 @@ public:
         //     ckout << val << " ";
         // }
         // ckout << endl;
-
-        CkExit();
     }
 };
 

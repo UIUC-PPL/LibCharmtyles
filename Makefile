@@ -5,7 +5,7 @@ all: libs tests
 .PHONY: libs tests clean
 
 libs:
-	cd charmtyles; make
+	cd charmtyles; mkdir build; cd build; cmake ..; make
 
 tests: libs
 	cd tests; make

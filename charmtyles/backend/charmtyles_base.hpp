@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Kokkos_Core.hpp>
+
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
 #include <charmtyles/util/matrix_view.hpp>
@@ -280,7 +282,8 @@ private:
             vec_dim = get_vec_dim(node.vec_len_);
 
             // TODO: Do Random Initialization here
-            vec_map.emplace_back(std::vector<double>(vec_dim));
+            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+            vec_map.emplace_back(vec);
 
             for (double& val : vec_map[node.name_])
             {
@@ -297,7 +300,9 @@ private:
             vec_dim = get_vec_dim(node.vec_len_);
 
             // TODO: Do Random Initialization here
-            vec_map.emplace_back(std::vector<double>(vec_dim, node.value_));
+            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+            Kokkos::deep_copy(vec, node.value_);
+            vec_map.emplace_back(vec);
 
             return;
 
@@ -314,15 +319,15 @@ private:
 
             for (std::size_t i = 0; i != remainder_start; i += 4)
             {
-                vec_map[node_id][i] = vec_map[copy_id][i];
-                vec_map[node_id][i + 1] = vec_map[copy_id][i + 1];
-                vec_map[node_id][i + 2] = vec_map[copy_id][i + 2];
-                vec_map[node_id][i + 3] = vec_map[copy_id][i + 3];
+                vec_map[node_id](i) = vec_map[copy_id](i);
+                vec_map[node_id](i + 1) = vec_map[copy_id](i + 1);
+                vec_map[node_id](i + 2) = vec_map[copy_id](i + 2);
+                vec_map[node_id](i + 3) = vec_map[copy_id](i + 3);
             }
 
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
-                vec_map[node_id][i] = vec_map[copy_id][i];
+                vec_map[node_id](i) = vec_map[copy_id](i);
             }
 
             return;
@@ -348,28 +353,13 @@ private:
             {
                 vec_dim = get_vec_dim(node.vec_len_);
 
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
 
-            total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
-                vec_map[node_id][i + 1] =
-                    execute_ast_for_idx(instruction, 0, i + 1);
-                vec_map[node_id][i + 2] =
-                    execute_ast_for_idx(instruction, 0, i + 2);
-                vec_map[node_id][i + 3] =
-                    execute_ast_for_idx(instruction, 0, i + 3);
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
-            }
+            Kokkos::parallel_for("bohahahhaa", vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
+                vec_map[node_id](i) = execute_ast_for_idx(instruction, 0, i);
+            });
 
             return;
         case ct::util::Operation::inplace_add:
@@ -377,7 +367,8 @@ private:
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
             total_size = vec_map[node_id].size();
             unrolled_size = total_size / 4;
@@ -387,31 +378,31 @@ private:
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                 {
-                    vec_map[node_id][i] +=
+                    vec_map[node_id](i) +=
                         execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] +=
+                    vec_map[node_id](i + 1) +=
                         execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] +=
+                    vec_map[node_id](i + 2) +=
                         execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] +=
+                    vec_map[node_id](i + 3) +=
                         execute_ast_for_idx(instruction, 1, i + 3);
                 }
                 else
                 {
-                    vec_map[node_id][i] += vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] += vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] += vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] += vec_map[copy_id][i + 3];
+                    vec_map[node_id](i) += vec_map[copy_id](i);
+                    vec_map[node_id](i + 1) += vec_map[copy_id](i + 1);
+                    vec_map[node_id](i + 2) += vec_map[copy_id](i + 2);
+                    vec_map[node_id](i + 3) += vec_map[copy_id](i + 3);
                 }
             }
 
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] +=
+                    vec_map[node_id](i) +=
                         execute_ast_for_idx(instruction, 1, i);
                 else
-                    vec_map[node_id][i] += vec_map[copy_id][i];
+                    vec_map[node_id](i) += vec_map[copy_id](i);
             }
 
             return;
@@ -420,7 +411,8 @@ private:
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
             total_size = vec_map[node_id].size();
             unrolled_size = total_size / 4;
@@ -429,31 +421,31 @@ private:
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                 {
-                    vec_map[node_id][i] -=
+                    vec_map[node_id](i) -=
                         execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] -=
+                    vec_map[node_id](i + 1) -=
                         execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] -=
+                    vec_map[node_id](i + 2) -=
                         execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] -=
+                    vec_map[node_id](i + 3) -=
                         execute_ast_for_idx(instruction, 1, i + 3);
                 }
                 else
                 {
-                    vec_map[node_id][i] -= vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] -= vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] -= vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] -= vec_map[copy_id][i + 3];
+                    vec_map[node_id](i) -= vec_map[copy_id](i);
+                    vec_map[node_id](i + 1) -= vec_map[copy_id](i + 1);
+                    vec_map[node_id](i + 2) -= vec_map[copy_id](i + 2);
+                    vec_map[node_id](i + 3) -= vec_map[copy_id](i + 3);
                 }
             }
 
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] -=
+                    vec_map[node_id](i) -=
                         execute_ast_for_idx(instruction, 1, i);
                 else
-                    vec_map[node_id][i] -= vec_map[copy_id][i];
+                    vec_map[node_id](i) -= vec_map[copy_id](i);
             }
             return;
         case ct::util::Operation::inplace_divide:
@@ -461,7 +453,8 @@ private:
             if (node_id == vec_map.size())
             {
                 vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
             total_size = vec_map[node_id].size();
             unrolled_size = total_size / 4;
@@ -470,31 +463,31 @@ private:
             {
                 if (copy_id == static_cast<std::size_t>(-1))
                 {
-                    vec_map[node_id][i] /=
+                    vec_map[node_id](i) /=
                         execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] /=
+                    vec_map[node_id](i + 1) /=
                         execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] /=
+                    vec_map[node_id](i + 2) /=
                         execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] /=
+                    vec_map[node_id](i + 3) /=
                         execute_ast_for_idx(instruction, 1, i + 3);
                 }
                 else
                 {
-                    vec_map[node_id][i] /= vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] /= vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] /= vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] /= vec_map[copy_id][i + 3];
+                    vec_map[node_id](i) /= vec_map[copy_id](i);
+                    vec_map[node_id](i + 1) /= vec_map[copy_id](i + 1);
+                    vec_map[node_id](i + 2) /= vec_map[copy_id](i + 2);
+                    vec_map[node_id](i + 3) /= vec_map[copy_id](i + 3);
                 }
             }
 
             for (std::size_t i = remainder_start; i != total_size; ++i)
             {
                 if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] /=
+                    vec_map[node_id](i) /=
                         execute_ast_for_idx(instruction, 1, i);
                 else
-                    vec_map[node_id][i] /= vec_map[copy_id][i];
+                    vec_map[node_id](i) /= vec_map[copy_id](i);
             }
             return;
         case ct::util::Operation::axpy:
@@ -503,7 +496,8 @@ private:
             {
                 vec_dim = get_vec_dim(node.vec_len_);
 
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
 
             double alpha = node.value_;
@@ -525,7 +519,8 @@ private:
             {
                 vec_dim = get_vec_dim(node.vec_len_);
 
-                vec_map.emplace_back(std::vector<double>(vec_dim));
+                Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+                vec_map.emplace_back(vec);
             }
 
             const ct::vec_impl::vec_node& node = instruction[0];
@@ -548,7 +543,7 @@ private:
         switch (node.operation_)
         {
         case ct::util::Operation::noop:
-            return vec_map[node.name_][iter_idx];
+            return vec_map[node.name_](iter_idx);
         case ct::util::Operation::add:
             return execute_ast_for_idx(instruction, node.left_, iter_idx) +
                 execute_ast_for_idx(instruction, node.right_, iter_idx);
@@ -628,7 +623,7 @@ public:
 
 private:
     int num_chares;
-    std::vector<std::vector<double>> vec_map;
+    std::vector<Kokkos::View<double*>> vec_map;
 
     int SDAG_INDEX;
     int vec_block_size;
@@ -1139,4 +1134,29 @@ private:
     int col_block_len;
     int SDAG_INDEX;
     int block;
+};
+
+class KokkosGroup : public CBase_KokkosGroup {
+private:
+    int device;
+    cudaStream_t stream;
+public:
+  KokkosGroup() {
+    Kokkos::initialize();
+    int n_devices;
+    cudaGetDeviceCount(&n_devices);
+    device = CkMyPe() % n_devices;
+    cudaSetDevice(device);
+    cudaStreamCreate(&stream);
+  }
+
+  cudaStream_t getStream() {
+    return stream;
+  }
+
+  void finalize() {
+    Kokkos::finalize();
+    cudaSetDevice(device);
+    cudaStreamDestroy(&stream);
+  }
 };
