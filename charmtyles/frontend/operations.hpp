@@ -96,7 +96,6 @@ namespace ct {
     {
         if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
         {
-            ckout << "I NEED TO LEARN MORE" << endl;
             return ct::vec_impl::vec_expression<LHS, RHS>{
                 lhs, rhs, lhs.size(), op};
         }
@@ -174,7 +173,6 @@ namespace ct {
     template <typename LHS, typename RHS>
     auto operator+(LHS const& lhs, RHS const& rhs)
     {
-        ckout << "HUZZAH" << endl;
         return operator_impl(lhs, rhs, ct::util::Operation::add);
     }
 
