@@ -11,8 +11,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Kokkos)
 
 message(STATUS "CHARMC = ${CHARMC}")
-
-set(CMAKE_CXX_COMPILER "${CHARMC}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPTS} ${LD_OPTS}")
 
 add_custom_command(
@@ -23,6 +21,6 @@ add_custom_command(
     COMMENT "Processing charmtyles ci files"
 )
 
-add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h)
-target_include_directories(vector.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
-target_link_libraries(vector.out Kokkos::kokkos)
+add_library(vector OBJECT vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h)
+target_include_directories(vector PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR} ${CHARM_DIR}/include)
+target_link_libraries(vector Kokkos::kokkos)
