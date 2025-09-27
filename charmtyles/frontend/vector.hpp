@@ -57,9 +57,7 @@ namespace ct {
         class vec_instr_queue_t
         {
         public:
-            // ast_t represents a single instruction like x = a + b
             using ast_t = std::vector<vec_node>;
-            // instr_t represents a list of instructions to be executed sequentially
             using instr_t = std::vector<ast_t>;
 
             vec_instr_queue_t() = default;
@@ -184,7 +182,6 @@ namespace ct {
 
         private:
             // Shape -> Instructions -> AST (per instruction)
-            // shape_vector_queue_[i] gives all instructions for shape i
             std::vector<instr_t> shape_vector_queue_;
             std::vector<std::size_t> sdag_index_;
         };
