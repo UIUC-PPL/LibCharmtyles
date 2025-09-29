@@ -441,11 +441,9 @@ private:
             Kokkos::View<double*> y = vec_map[node.right_];
             Kokkos::View<double*> res = vec_map[node.name_];
 
-            Eigen::Map<Eigen::VectorXd> ex(x.data(), x.size());
-            Eigen::Map<Eigen::VectorXd> ey(y.data(), y.size());
-            Eigen::Map<Eigen::VectorXd> er(res.data(), res.size());
-
-            er = alpha * ex + ey;
+            Kokkos::parallel_for(
+                "axpy", x.extent(0),
+                KOKKOS_LAMBDA(const int i) { res(i) = alpha * x(i) + y(i); });
 
             return;
         }
