@@ -164,10 +164,14 @@ module libcharmtyles
                     Kokkos::View<double*> lhs = vec_map[lhs_id];
                     Kokkos::View<double*> rhs = vec_map[rhs_id];
 
-                    Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
-                    Eigen::Map<Eigen::VectorXd> erhs(rhs.data(), rhs.size());
-
-                    double result = elhs.dot(erhs);
+                    double result = 0.0;
+                    Kokkos::parallel_reduce(
+                        lhs.size(),
+                        KOKKOS_LAMBDA(const int i, double &local_sum) {
+                            local_sum += lhs(i) * rhs(i);
+                        },
+                        result
+                    );
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
