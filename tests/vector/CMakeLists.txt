@@ -3,6 +3,9 @@ project(charmTyles)
 
 include(${CMAKE_SOURCE_DIR}/../../config.cmake)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(BUILD_SHARED_LIBS ON)
+
 include(FetchContent)
 FetchContent_Declare(
   Kokkos
@@ -23,6 +26,14 @@ add_custom_command(
     COMMENT "Processing charmtyles ci files"
 )
 
-add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h)
+add_custom_command(
+    OUTPUT  ${CMAKE_SOURCE_DIR}/base.decl.h
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}
+            ${CHARMC} ${CMAKE_SOURCE_DIR}/base.ci
+    DEPENDS ${CMAKE_SOURCE_DIR}/base.ci
+    COMMENT "Processing base ci files"
+)
+
+add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
 target_include_directories(vector.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
 target_link_libraries(vector.out Kokkos::kokkos)

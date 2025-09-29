@@ -3,6 +3,9 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 #include <ctime>
+#include <sstream>
+#include <fstream>
+#include <iomanip>
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
@@ -249,10 +252,20 @@ private:
             execute_instruction(ast);
     }
 
+#define CHECK_IF_EXIST_ELSE_ADD(node_id)                                       \
+    if (node_id == vec_map.size())                                             \
+    {                                                                          \
+        vec_dim = get_vec_dim(node.vec_len_);                                  \
+                                                                               \
+        Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);   \
+        vec_map.emplace_back(vec);                                             \
+    }
+
     void execute_instruction(
         std::vector<ct::vec_impl::vec_node> const& instruction,
         std::size_t index = 0)
     {
+        codegen_prologue();
         ct::vec_impl::vec_node const& node = instruction[index];
         std::size_t node_id = node.name_;
 
@@ -343,98 +356,66 @@ private:
         case ct::util::Operation::logical_not:
         case ct::util::Operation::unary_expr:
         case ct::util::Operation::binary_expr:
-        case ct::util::Operation::where:
+        case ct::util::Operation::where: {
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
 
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
-
-            Kokkos::parallel_for(
-                "binop_" + std::to_string(node_id), vec_map[node_id].size(),
-                KOKKOS_LAMBDA(int i) {
-                    vec_map[node_id](i) =
-                        execute_ast_for_idx(instruction, 0, i);
-                });
-
-            return;
+            long long resid = codegen_ast(instruction, 0);
+            kk << "vec_map[" << node_id << "](i) = tmp" << -resid << ";\n";
+        } break;
         case ct::util::Operation::inplace_add:
         {
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
-            Kokkos::parallel_for(
-                "inplace_add_" + std::to_string(node_id),
-                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        vec_map[node_id](i) +=
-                            execute_ast_for_idx(instruction, 0, i);
-                    else
+            if(copy_id == static_cast<std::size_t>(-1)) {
+                long long resid = codegen_ast(instruction, 0);
+                kk << "vec_map[" << node_id << "](i) += tmp" << -resid << ";\n";
+            } else {
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                         vec_map[node_id](i) += vec_map[copy_id](i);
-                });
-        }
-            return;
+                    });
+                return;
+            }
+        } break;
         case ct::util::Operation::inplace_sub:
         {
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
-            Kokkos::parallel_for(
-                "inplace_sub_" + std::to_string(node_id),
-                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        vec_map[node_id](i) -=
-                            execute_ast_for_idx(instruction, 0, i);
-                    else
+            if(copy_id == static_cast<std::size_t>(-1)) {
+                long long resid = codegen_ast(instruction, 0);
+                kk << "vec_map[" << node_id << "](i) -= tmp" << -resid << ";\n";
+            } else {
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                         vec_map[node_id](i) -= vec_map[copy_id](i);
-                });
-        }
-            return;
+                    });
+                return;
+            }
+        } break;
         case ct::util::Operation::inplace_divide:
         {
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
-            Kokkos::parallel_for(
-                "inplace_divide_" + std::to_string(node_id),
-                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        vec_map[node_id](i) /=
-                            execute_ast_for_idx(instruction, 0, i);
-                    else
+            if(copy_id == static_cast<std::size_t>(-1)) {
+                long long resid = codegen_ast(instruction, 0);
+                kk << "vec_map[" << node_id << "](i) /= tmp" << -resid << ";\n";
+            } else {
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                         vec_map[node_id](i) /= vec_map[copy_id](i);
-                });
-        }
-            return;
+                    });
+                return;
+            }
+        } break;
         case ct::util::Operation::axpy:
         {
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
 
             double alpha = node.value_;
             Kokkos::View<double*> x = vec_map[node.left_];
@@ -449,14 +430,7 @@ private:
         }
         case ct::util::Operation::custom_expr:
         {
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                Kokkos::View<double*> vec(
-                    "vec" + std::to_string(node_id), vec_dim);
-                vec_map.emplace_back(vec);
-            }
+            CHECK_IF_EXIST_ELSE_ADD(node_id);
 
             const ct::vec_impl::vec_node& node = instruction[0];
             /***
@@ -471,74 +445,199 @@ private:
         default:
             CmiAbort("Operation not implemented");
         }
-    }
+        codegen_epilogue(vec_map[node_id].size());
+}
 
-    double execute_ast_for_idx(
+void codegen_prologue() {
+        kk.str("");
+        kkTmpVar = 0;
+}
+
+std::string kernel_hash(const std::string &data) {
+    const uint64_t FNV_OFFSET = 0xcbf29ce484222325ULL;
+    const uint64_t FNV_PRIME  = 0x100000001b3ULL;
+    uint64_t hash = FNV_OFFSET;
+    for (unsigned char c : data) {
+        hash ^= static_cast<uint64_t>(c);
+        hash *= FNV_PRIME;
+    }
+    std::ostringstream oss;
+    oss << std::hex << std::setw(16) << std::setfill('0') << hash;
+    return oss.str();
+}
+
+void codegen_epilogue(std::size_t vec_dim) {
+    std::string kernel_ops = kk.str();
+    std::string hash = kernel_hash(kernel_ops);
+    if(kernel_cache.find(hash) != kernel_cache.end()) {
+        void* functor = kernel_cache[hash];
+        ((void (*)(std::vector<Kokkos::View<double*>>, std::size_t)) functor)(vec_map, vec_dim);
+        return;
+    }
+    std::string file_name = std::string("kernel-")   + hash + ".cc";
+    std::string lib_name  = std::string("libkernel-") + hash + ".so";
+    std::string kernel = R"(
+#include <Kokkos_Core.hpp>
+
+struct ASTFunctor {
+    std::vector<Kokkos::View<double*>> vec_map;
+
+    KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map)
+        : vec_map(_vec_map) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const int i) const {
+)" + kernel_ops + R"(
+    }
+};
+
+extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::size_t vec_dim) {
+    ASTFunctor kernel(vec_map);
+    Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
+}
+)";
+
+    std::fstream ofs(file_name, std::ios::out);
+    if (!ofs.is_open())
+    {
+        ckout << "Cannot open file: kernel.cc" << '\n';
+        return;
+    }
+    ofs << kernel;
+    ofs.close();
+    system(std::string("g++ -O3 -march=native -std=c++20 -I$PWD/_deps/kokkos-src/tpls/mdspan/include "
+           "-I$PWD/_deps/kokkos-src/core/src -I$PWD/_deps/kokkos-build -shared "
+           "-fPIC -o " + lib_name + " " + file_name + " -L$PWD/_deps/kokkos-build/core/src "
+           "-lkokkoscore").c_str());
+
+    void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
+    if (!handle)
+    {
+        ckout << "Cannot open library: " << dlerror() << '\n';
+        return;
+    }
+    else
+    {
+        ckout << "Library loaded successfully" << endl;
+    }
+    void* functor = dlsym(handle, "run_kernel");
+    if (!functor)
+    {
+        ckout << "Cannot load symbol 'kernel': " << dlerror() << '\n';
+        dlclose(handle);
+        return;
+    }
+    else
+    {
+        ckout << "Symbol loaded successfully" << endl;
+    }
+    ((void (*)(std::vector<Kokkos::View<double*>>, std::size_t)) functor)(vec_map, vec_dim);
+    kernel_cache[hash] = functor;
+}
+
+#define BINOP_CODEGEN(op)                                                      \
+    {                                                                          \
+        long long leftid = codegen_ast(instruction, node.left_);               \
+        long long rightid = codegen_ast(instruction, node.right_);             \
+        kkTmpVar++;                                                            \
+        kk << "auto tmp" << kkTmpVar << " = ";                                 \
+        if (leftid < 0)                                                        \
+        {                                                                      \
+            kk << "tmp" << -leftid;                                            \
+        }                                                                      \
+        else                                                                   \
+        {                                                                      \
+            kk << "vec_map[" << leftid << "](i)";                              \
+        }                                                                      \
+        kk << " " << op << " ";                                                \
+        if (rightid < 0)                                                       \
+        {                                                                      \
+            kk << "tmp" << -rightid;                                           \
+        }                                                                      \
+        else                                                                   \
+        {                                                                      \
+            kk << "vec_map[" << rightid << "](i)";                             \
+        }                                                                      \
+        kk << ";\n";                                                           \
+    }                                                                          \
+    return -static_cast<long long>(kkTmpVar);
+
+    long long codegen_ast(
         std::vector<ct::vec_impl::vec_node> const& instruction,
-        std::size_t curr_idx, std::size_t iter_idx)
+        std::size_t curr_idx)
     {
         const ct::vec_impl::vec_node& node = instruction[curr_idx];
 
         switch (node.operation_)
         {
-        case ct::util::Operation::noop:
-            return vec_map[node.name_](iter_idx);
-        case ct::util::Operation::add:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) +
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::sub:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) -
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::divide:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) /
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::multiply:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) *
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::eq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) ==
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::neq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) !=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::geq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) >=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::leq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) <=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::greater:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) >
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::lesser:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) <
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_and:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) &&
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_or:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) ||
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_not:
-            return !execute_ast_for_idx(instruction, node.left_, iter_idx);
-        case ct::util::Operation::unary_expr:
-            return node.unary_expr_->operator()(iter_idx,
-                execute_ast_for_idx(instruction, node.left_, iter_idx));
-        case ct::util::Operation::binary_expr:
-            return node.binary_expr_->operator()(iter_idx,
-                execute_ast_for_idx(instruction, node.left_, iter_idx),
-                execute_ast_for_idx(instruction, node.right_, iter_idx));
-        case ct::util::Operation::broadcast:
-            return node.value_;
-        case ct::util::Operation::where:
-            if (execute_ast_for_idx(instruction, node.ter_, iter_idx))
-            {
-                return execute_ast_for_idx(instruction, node.left_, iter_idx);
+        case ct::util::Operation::noop: {
+            ;
+        } return node.name_;
+        case ct::util::Operation::add:         BINOP_CODEGEN("+")
+        case ct::util::Operation::sub:         BINOP_CODEGEN("-")
+        case ct::util::Operation::divide:      BINOP_CODEGEN("/")
+        case ct::util::Operation::multiply:    BINOP_CODEGEN("*")
+        case ct::util::Operation::eq:          BINOP_CODEGEN("==")
+        case ct::util::Operation::neq:         BINOP_CODEGEN("!=")
+        case ct::util::Operation::geq:         BINOP_CODEGEN(">=")
+        case ct::util::Operation::leq:         BINOP_CODEGEN("<=")
+        case ct::util::Operation::greater:     BINOP_CODEGEN(">")
+        case ct::util::Operation::lesser:      BINOP_CODEGEN("<")
+        case ct::util::Operation::logical_and: BINOP_CODEGEN("&&")
+        case ct::util::Operation::logical_or:  BINOP_CODEGEN("||")
+        case ct::util::Operation::logical_not: {
+            long long leftid = codegen_ast(instruction, node.left_);
+            kkTmpVar++;
+            kk << "auto tmp" << kkTmpVar << " = !";
+            if (leftid < 0) {
+                kk << "tmp" << -leftid;
+            } else {
+                kk << "vec_map[" << leftid << "](i)";
             }
-            else
-            {
-                return execute_ast_for_idx(instruction, node.right_, iter_idx);
+            kk << ";\n";
+        } return -static_cast<long long>(kkTmpVar);
+        /**
+         * TODO: FIXME
+         */
+        // case ct::util::Operation::unary_expr:
+        //     return node.unary_expr_->operator()(iter_idx,
+        //         execute_ast_for_idx(instruction, node.left_, iter_idx));
+        // case ct::util::Operation::binary_expr:
+        //     return node.binary_expr_->operator()(iter_idx,
+        //         execute_ast_for_idx(instruction, node.left_, iter_idx),
+        //         execute_ast_for_idx(instruction, node.right_, iter_idx));
+        // case ct::util::Operation::broadcast:
+        //     return node.value_;
+        case ct::util::Operation::where: {
+            long long terid = codegen_ast(instruction, node.ter_);
+            kkTmpVar++;
+            kk << "double tmp" << kkTmpVar << ";\n";
+            kk << "if (";
+            if (terid < 0) {
+                kk << "tmp" << -terid;
+            } else {
+                kk << "vec_map[" << terid << "]";
             }
+            kk << "(i)) {\n";
+            long long leftid = codegen_ast(instruction, node.left_);
+            kk << "tmp" << kkTmpVar << " = ";
+            if (leftid < 0) {
+                kk << "tmp" << -leftid;
+            } else {
+                kk << "vec_map[" << leftid << "]";
+            }
+            kk << "(i);\n";
+            kk << "} else {\n";
+            long long rightid = codegen_ast(instruction, node.right_);
+            kk << "tmp" << kkTmpVar << " = ";
+            if (rightid < 0) {
+                kk << "tmp" << -rightid;
+            } else {
+                kk << "vec_map[" << rightid << "]";
+            }
+            kk << "(i);\n";
+            kk << "}\n";
+        } return -static_cast<long long>(kkTmpVar);
         default:
             CmiAbort("Operation not implemented");
         }
@@ -546,7 +645,6 @@ private:
         // Control should not reach here!
         return 0.;
     }
-
 public:
     vector_impl_SDAG_CODE;
 
@@ -563,6 +661,9 @@ public:
 private:
     int num_chares;
     std::vector<Kokkos::View<double*>> vec_map;
+    std::stringstream kk;
+    std::size_t kkTmpVar;
+    std::map<std::string, void*> kernel_cache;
 
     int SDAG_INDEX;
     int vec_block_size;
