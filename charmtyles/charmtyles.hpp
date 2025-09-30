@@ -43,7 +43,7 @@ namespace ct {
 
     void finalize() {
         kokkosMgmt.finalize();
-        system("rm kernel-*.cc libkernel-*.so");
+        // system("rm kernel-*.cc libkernel-*.so");
     }
 
     void sync(ct::mat_impl::mat_shape_t const& matrix_shape)

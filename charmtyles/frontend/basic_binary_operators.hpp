@@ -15,7 +15,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return lhs + rhs;
         }
@@ -46,7 +46,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return lhs - rhs;
         }
@@ -77,7 +77,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return lhs * rhs;
         }
@@ -108,7 +108,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return lhs / rhs;
         }
@@ -139,7 +139,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return std::pow(lhs, rhs);
         }
@@ -170,7 +170,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double& lhs, double& rhs) final
+            double& lhs, double& rhs) final
         {
             return std::fmod(lhs, rhs);
         }
@@ -201,7 +201,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double& lhs, double& rhs) final
+            double& lhs, double& rhs) final
         {
             return std::max(lhs, rhs);
         }
@@ -232,7 +232,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return std::min(lhs, rhs);
         }
@@ -263,7 +263,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return (lhs > rhs) ? 1.0 : 0.0;
         }
@@ -294,7 +294,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return (lhs < rhs) ? 1.0 : 0.0;
         }
@@ -332,7 +332,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return (std::abs(lhs - rhs) < epsilon_) ? 1.0 : 0.0;
         }
@@ -368,7 +368,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return std::atan2(lhs, rhs);
         }
@@ -408,7 +408,7 @@ namespace ct {
         using ct::binary_operator::binary_operator;
 
         virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
+            double lhs, double rhs) final
         {
             return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);
         }

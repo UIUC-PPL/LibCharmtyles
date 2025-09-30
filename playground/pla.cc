@@ -2,6 +2,12 @@
 #include <dlfcn.h>
 #include <fstream>
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Macros.hpp>
+#include <iostream>
+
+double not_here(double x) {
+    return 42.0 + x;
+}
 
 int main() {
 
@@ -11,18 +17,20 @@ int main() {
 struct MyKokkosFunctor {
     Kokkos::View<double*> data_view;
     double some_constant;
+    void* not_here_ptr;
 
-    KOKKOS_INLINE_FUNCTION MyKokkosFunctor(Kokkos::View<double*> data, double constant_val)
-        : data_view(data), some_constant(constant_val) {}
+    KOKKOS_INLINE_FUNCTION MyKokkosFunctor(Kokkos::View<double*> data, double constant_val, void* not_here)
+        : data_view(data), some_constant(constant_val), not_here_ptr(not_here) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const int i) const {
         data_view(i) = some_constant * i;
+        data_view(i) = ((double(*)(double))not_here_ptr)(data_view(i));
     }
 };
 
-extern "C" void run_kernel(Kokkos::View<double*> data_view, double constant_val) {
-    MyKokkosFunctor my_functor(data_view, constant_val);
+extern "C" void run_kernel(Kokkos::View<double*> data_view, double constant_val, void* not_here_ptr) {
+    MyKokkosFunctor my_functor(data_view, constant_val, not_here_ptr);
     Kokkos::parallel_for("MyKernelLabel", Kokkos::RangePolicy<>(0, 100), my_functor);
 }
 )";
@@ -52,7 +60,7 @@ extern "C" void run_kernel(Kokkos::View<double*> data_view, double constant_val)
     }
     Kokkos::initialize(); {
         Kokkos::View<double*> data_view("data_view", 100);
-        ((void(*)(Kokkos::View<double*>, double))functor)(data_view, 6);
+        ((void(*)(Kokkos::View<double*>, double, void*))functor)(data_view, 6, (void*)&not_here);
         auto host_view = Kokkos::create_mirror_view(data_view);
         Kokkos::deep_copy(host_view, data_view);
         for(int i = 0; i < 10; ++i) {

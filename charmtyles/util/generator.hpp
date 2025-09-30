@@ -152,7 +152,7 @@ namespace ct {
         }
 
         // Default Operator overload for vectors
-        virtual double operator()(std::size_t index, double value)
+        virtual double operator()(double value)
         {
             return -1.0;
         }
@@ -183,8 +183,7 @@ namespace ct {
             PUP::able::pup(p);
         }
 
-        virtual double operator()(
-            std::size_t index, double left_val, double right_val)
+        virtual double operator()(double left_val, double right_val)
         {
             return -1.0;
         }

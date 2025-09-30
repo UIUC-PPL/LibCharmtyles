@@ -433,9 +433,8 @@ private:
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
             const ct::vec_impl::vec_node& node = instruction[0];
-            /***
-             * 
-             * TODO: FIXME
+            /**
+             * TODO: The idea of custom operator does not make sense with a kokkos backend
              */
             // node.custom_expr_->operator()(vec_dim, vec_map[node_id].data(),
             //     vec_map[instruction[node.left_].name_].data());
@@ -449,8 +448,10 @@ private:
 }
 
 void codegen_prologue() {
-        kk.str("");
-        kkTmpVar = 0;
+    kk.str("");
+    kkTmpVar = 0;
+    kkCustomOpIdx = 0;
+    kkCustomOps.clear();
 }
 
 std::string kernel_hash(const std::string &data) {
@@ -466,12 +467,28 @@ std::string kernel_hash(const std::string &data) {
     return oss.str();
 }
 
+void* getFuncPtr(ct::unary_operator* op) {
+    void** vtable = *reinterpret_cast<void***>(op);
+    void* fun_ptr = vtable[5];
+    using RawFun = double(*)(double);
+    RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
+    return reinterpret_cast<void*>(rf);
+}
+
+void* getFuncPtr(ct::binary_operator* op) {
+    void** vtable = *reinterpret_cast<void***>(op);
+    void* fun_ptr = vtable[5];
+    using RawFun = double(*)(double, double);
+    RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
+    return reinterpret_cast<void*>(rf);
+}
+
 void codegen_epilogue(std::size_t vec_dim) {
     std::string kernel_ops = kk.str();
     std::string hash = kernel_hash(kernel_ops);
     if(kernel_cache.find(hash) != kernel_cache.end()) {
         void* functor = kernel_cache[hash];
-        ((void (*)(std::vector<Kokkos::View<double*>>, std::size_t)) functor)(vec_map, vec_dim);
+        ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(vec_map, kkCustomOps, vec_dim);
         return;
     }
     std::string file_name = std::string("kernel-")   + hash + ".cc";
@@ -481,9 +498,10 @@ void codegen_epilogue(std::size_t vec_dim) {
 
 struct ASTFunctor {
     std::vector<Kokkos::View<double*>> vec_map;
+    std::vector<void*> custom_ops;
 
-    KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map)
-        : vec_map(_vec_map) {}
+    KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<void*> _custom_ops)
+        : vec_map(_vec_map), custom_ops(_custom_ops) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const int i) const {
@@ -491,8 +509,8 @@ struct ASTFunctor {
     }
 };
 
-extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::size_t vec_dim) {
-    ASTFunctor kernel(vec_map);
+extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<void*> custom_ops, std::size_t vec_dim) {
+    ASTFunctor kernel(vec_map, custom_ops);
     Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
 }
 )";
@@ -531,7 +549,7 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::size
     {
         ckout << "Symbol loaded successfully" << endl;
     }
-    ((void (*)(std::vector<Kokkos::View<double*>>, std::size_t)) functor)(vec_map, vec_dim);
+    ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(vec_map, kkCustomOps, vec_dim);
     kernel_cache[hash] = functor;
 }
 
@@ -596,18 +614,46 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::size
             }
             kk << ";\n";
         } return -static_cast<long long>(kkTmpVar);
-        /**
-         * TODO: FIXME
-         */
-        // case ct::util::Operation::unary_expr:
-        //     return node.unary_expr_->operator()(iter_idx,
-        //         execute_ast_for_idx(instruction, node.left_, iter_idx));
-        // case ct::util::Operation::binary_expr:
-        //     return node.binary_expr_->operator()(iter_idx,
-        //         execute_ast_for_idx(instruction, node.left_, iter_idx),
-        //         execute_ast_for_idx(instruction, node.right_, iter_idx));
-        // case ct::util::Operation::broadcast:
-        //     return node.value_;
+        case ct::util::Operation::unary_expr: {
+            long long leftid = codegen_ast(instruction, node.left_);
+            kkTmpVar++;
+            kkCustomOps.push_back(getFuncPtr(node.unary_expr_.get()));
+            kk << "auto tmp" << kkTmpVar << " = ";
+            kk << "((double(*)(double))custom_ops[" << kkCustomOpIdx << "])(";
+            if (leftid < 0) {
+                kk << "tmp" << -leftid;
+            } else {
+                kk << "vec_map[" << leftid << "](i)";
+            }
+            kk << ");\n";
+            kkCustomOpIdx++;
+        } return -static_cast<long long>(kkTmpVar);
+        case ct::util::Operation::binary_expr: {
+            long long leftid = codegen_ast(instruction, node.left_);
+            long long rightid = codegen_ast(instruction, node.right_);
+            kkTmpVar++;
+            kkCustomOps.push_back(getFuncPtr(node.binary_expr_.get()));
+            kk << "auto tmp" << kkTmpVar << " = ";
+            kk << "((double(*)(double,double))custom_ops[" << kkCustomOpIdx
+               << "])(";
+            if (leftid < 0) {
+                kk << "tmp" << -leftid;
+            } else {
+                kk << "vec_map[" << leftid << "](i)";
+            }
+            kk << ", ";
+            if (rightid < 0) {
+                kk << "tmp" << -rightid;
+            } else {
+                kk << "vec_map[" << rightid << "](i)";
+            }
+            kk << ");\n";
+            kkCustomOpIdx++;
+        } return -static_cast<long long>(kkTmpVar);
+        case ct::util::Operation::broadcast: {
+            kkTmpVar++;
+            kk << "auto tmp" << kkTmpVar << " = " << node.value_ << ";\n";
+        } return -static_cast<long long>(kkTmpVar);
         case ct::util::Operation::where: {
             long long terid = codegen_ast(instruction, node.ter_);
             kkTmpVar++;
@@ -641,8 +687,6 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::size
         default:
             CmiAbort("Operation not implemented");
         }
-
-        // Control should not reach here!
         return 0.;
     }
 public:
@@ -663,6 +707,8 @@ private:
     std::vector<Kokkos::View<double*>> vec_map;
     std::stringstream kk;
     std::size_t kkTmpVar;
+    std::vector<void*> kkCustomOps;
+    std::size_t kkCustomOpIdx = 0;
     std::map<std::string, void*> kernel_cache;
 
     int SDAG_INDEX;
