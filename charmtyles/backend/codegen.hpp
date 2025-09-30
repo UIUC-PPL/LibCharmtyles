@@ -15,20 +15,26 @@
 
 class Codegen {
 private:
+    // a vector that stores the node_id of the vector which we get from vec_map in execute
+    std::vector<size_t> kkVecViewsOrder;
+    // a vector to store the views used in the kokkos kernel
     std::vector<Kokkos::View<double*>> kkVecViews;
+    // a map from node_id -> kkVecViews Index
     std::map<int, int> vecToKkVecMap;
     std::size_t kkVecViewIdx = 0;
+    // a stream to store the generated kernel
     std::stringstream kk;
     std::size_t kkTmpVar;
+    // a vector to store the custom binary/unary ops defined by the user
     std::vector<void*> kkCustomOps;
     std::size_t kkCustomOpIdx = 0;
+    // a map from kernel hash -> Kokkos functor
     std::map<uint64_t, void*> kernel_cache;
-    std::vector<Kokkos::View<double*>> vec_map;
 
     long long getVecIdx(size_t node_id) {
         long long vecIdx = 0;
         if(vecToKkVecMap.find(node_id) == vecToKkVecMap.end()) {
-            kkVecViews.push_back(vec_map[node_id]);
+            kkVecViewsOrder.push_back(node_id);
             vecToKkVecMap[node_id] = kkVecViewIdx;
             return kkVecViewIdx++;
         } else {
@@ -256,19 +262,20 @@ public:
         kkTmpVar = 0;
         kkCustomOpIdx = 0;
         kkCustomOps.clear();
+        kkVecViewsOrder.clear();
         kkVecViews.clear();
         vecToKkVecMap.clear();
         kkVecViewIdx = 0;
     }
 
-    void execute(std::size_t vec_dim) {
+    void execute(size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map) {
+        for(auto it : kkVecViewsOrder) 
+            kkVecViews.emplace_back(vec_map[it]);
         void* functor = compile();
         ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(kkVecViews, kkCustomOps, vec_dim);
     }
 
-    void generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction, std::vector<Kokkos::View<double*>> const& _vec_map) {
-        this->vec_map = _vec_map;
-
+    void generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
         const size_t node_id = instruction[0].name_;
 
         long long resid = codegen_ast(instruction, 0);
