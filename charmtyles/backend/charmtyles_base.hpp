@@ -309,8 +309,7 @@ private:
                     vec_map[node_id](i) = r;
                     rand_pool.free_state(gen);
                 });
-        }
-            return;
+        } return;
         case ct::util::Operation::init_value:
         {
             CkAssert((vec_map.size() == node_id) &&
@@ -323,8 +322,7 @@ private:
             Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
             Kokkos::deep_copy(vec, node.value_);
             vec_map.emplace_back(vec);
-        }
-            return;
+        } return;
         case ct::util::Operation::copy:
         {
             copy_id = node.copy_id_;
@@ -339,8 +337,7 @@ private:
                 vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                     vec_map[node_id](i) = vec_map[copy_id](i);
                 });
-        }
-            return;
+        } return;
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::multiply:
@@ -425,22 +422,36 @@ private:
             Kokkos::parallel_for(
                 "axpy", x.extent(0),
                 KOKKOS_LAMBDA(const int i) { res(i) = alpha * x(i) + y(i); });
-
-            return;
-        }
+        } return;
         case ct::util::Operation::custom_expr:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
             const ct::vec_impl::vec_node& node = instruction[0];
-            /**
-             * TODO: The idea of custom operator does not make sense with a kokkos backend
-             */
-            // node.custom_expr_->operator()(vec_dim, vec_map[node_id].data(),
-            //     vec_map[instruction[node.left_].name_].data());
-            return;
-        }
+            auto a_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[node_id]);
+            const std::size_t n = a_host.extent(0);
+            auto a = std::vector<double>(a_host.data(), a_host.data() + n);
 
+            auto b_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[instruction[node.left_].name_]);
+            auto b = std::vector<double>(b_host.data(), b_host.data() + n);
+
+            node.custom_expr_->operator()(n, a, b);
+
+            Kokkos::View<double*> a_new("vec" + std::to_string(node_id), n);
+            Kokkos::View<double*> b_new("vec" + std::to_string(instruction[node.left_].name_), n);
+
+            Kokkos::View<double*>::HostMirror a_new_host = Kokkos::create_mirror_view(a_new);
+            Kokkos::View<double*>::HostMirror b_new_host = Kokkos::create_mirror_view(b_new);
+
+            for(auto i = 0; i < n; i++) {
+                a_new_host(i) = a[i];
+                b_new_host(i) = b[i];
+            }
+            Kokkos::deep_copy(a_new, a_new_host);
+            Kokkos::deep_copy(b_new, b_new_host);
+            vec_map[node_id] = a_new;
+            vec_map[instruction[node.left_].name_] = b_new;
+        } return;
         default:
             CmiAbort("Operation not implemented");
         }
