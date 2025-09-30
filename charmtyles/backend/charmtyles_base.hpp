@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
+#include <string_view>
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
@@ -357,7 +358,7 @@ private:
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
             long long resid = codegen_ast(instruction, 0);
-            kk << "vec_map[" << node_id << "](i) = tmp" << -resid << ";\n";
+            kk << "vec_map[" << getVecIdx(node_id) << "](i) = tmp" << -resid << ";\n";
         } break;
         case ct::util::Operation::inplace_add:
         {
@@ -365,7 +366,7 @@ private:
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
                 long long resid = codegen_ast(instruction, 0);
-                kk << "vec_map[" << node_id << "](i) += tmp" << -resid << ";\n";
+                kk << "vec_map[" << getVecIdx(node_id) << "](i) += tmp" << -resid << ";\n";
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -382,7 +383,7 @@ private:
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
                 long long resid = codegen_ast(instruction, 0);
-                kk << "vec_map[" << node_id << "](i) -= tmp" << -resid << ";\n";
+                kk << "vec_map[" << getVecIdx(node_id) << "](i) -= tmp" << -resid << ";\n";
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -399,7 +400,7 @@ private:
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
                 long long resid = codegen_ast(instruction, 0);
-                kk << "vec_map[" << node_id << "](i) /= tmp" << -resid << ";\n";
+                kk << "vec_map[" << getVecIdx(node_id) << "](i) /= tmp" << -resid << ";\n";
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -463,9 +464,23 @@ void codegen_prologue() {
     kkTmpVar = 0;
     kkCustomOpIdx = 0;
     kkCustomOps.clear();
+    kkVecViews.clear();
+    vecToKkVecMap.clear();
+    kkVecViewIdx = 0;
 }
 
-std::string kernel_hash(const std::string &data) {
+long long getVecIdx(size_t node_id) {
+    long long vecIdx = 0;
+    if(vecToKkVecMap.find(node_id) == vecToKkVecMap.end()) {
+        kkVecViews.push_back(vec_map[node_id]);
+        vecToKkVecMap[node_id] = kkVecViewIdx;
+        return kkVecViewIdx++;
+    } else {
+        return vecToKkVecMap[node_id];
+    }
+}
+
+uint64_t kernel_hash(std::string_view data) {
     const uint64_t FNV_OFFSET = 0xcbf29ce484222325ULL;
     const uint64_t FNV_PRIME  = 0x100000001b3ULL;
     uint64_t hash = FNV_OFFSET;
@@ -473,6 +488,10 @@ std::string kernel_hash(const std::string &data) {
         hash ^= static_cast<uint64_t>(c);
         hash *= FNV_PRIME;
     }
+    return hash;
+}
+
+std::string to_string(uint64_t hash) {
     std::ostringstream oss;
     oss << std::hex << std::setw(16) << std::setfill('0') << hash;
     return oss.str();
@@ -495,16 +514,16 @@ void* getFuncPtr(ct::binary_operator* op) {
 }
 
 void codegen_epilogue(std::size_t vec_dim) {
-    std::string kernel_ops = kk.str();
-    std::string hash = kernel_hash(kernel_ops);
+    std::string kernel_ops(kk.str());
+    uint64_t hash = kernel_hash(kernel_ops);
     if(kernel_cache.find(hash) != kernel_cache.end()) {
         void* functor = kernel_cache[hash];
-        ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(vec_map, kkCustomOps, vec_dim);
+        ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(kkVecViews, kkCustomOps, vec_dim);
         return;
     }
-    std::string file_name = std::string("kernel-")   + hash + ".cc";
-    std::string lib_name  = std::string("libkernel-") + hash + ".so";
-    std::string kernel = R"(
+    std::string file_name("kernel-" + to_string(hash) + ".cc");
+    std::string lib_name ("libkernel-" + to_string(hash) + ".so");
+    std::string kernel(R"(
 #include <Kokkos_Core.hpp>
 
 struct ASTFunctor {
@@ -524,14 +543,9 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vect
     ASTFunctor kernel(vec_map, custom_ops);
     Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
 }
-)";
+)");
 
     std::fstream ofs(file_name, std::ios::out);
-    if (!ofs.is_open())
-    {
-        ckout << "Cannot open file: kernel.cc" << '\n';
-        return;
-    }
     ofs << kernel;
     ofs.close();
     system(std::string("g++ -O3 -march=native -std=c++20 -I$PWD/_deps/kokkos-src/tpls/mdspan/include "
@@ -540,27 +554,8 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vect
            "-lkokkoscore").c_str());
 
     void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
-    if (!handle)
-    {
-        ckout << "Cannot open library: " << dlerror() << '\n';
-        return;
-    }
-    else
-    {
-        ckout << "Library loaded successfully" << endl;
-    }
     void* functor = dlsym(handle, "run_kernel");
-    if (!functor)
-    {
-        ckout << "Cannot load symbol 'kernel': " << dlerror() << '\n';
-        dlclose(handle);
-        return;
-    }
-    else
-    {
-        ckout << "Symbol loaded successfully" << endl;
-    }
-    ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(vec_map, kkCustomOps, vec_dim);
+    ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(kkVecViews, kkCustomOps, vec_dim);
     kernel_cache[hash] = functor;
 }
 
@@ -599,9 +594,8 @@ extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vect
 
         switch (node.operation_)
         {
-        case ct::util::Operation::noop: {
-            ;
-        } return node.name_;
+        case ct::util::Operation::noop:
+            return getVecIdx(node.name_);
         case ct::util::Operation::add:         BINOP_CODEGEN("+")
         case ct::util::Operation::sub:         BINOP_CODEGEN("-")
         case ct::util::Operation::divide:      BINOP_CODEGEN("/")
@@ -716,11 +710,14 @@ public:
 private:
     int num_chares;
     std::vector<Kokkos::View<double*>> vec_map;
+    std::vector<Kokkos::View<double*>> kkVecViews;
+    std::map<int, int> vecToKkVecMap;
+    std::size_t kkVecViewIdx = 0;
     std::stringstream kk;
     std::size_t kkTmpVar;
     std::vector<void*> kkCustomOps;
     std::size_t kkCustomOpIdx = 0;
-    std::map<std::string, void*> kernel_cache;
+    std::map<uint64_t, void*> kernel_cache;
 
     int SDAG_INDEX;
     int vec_block_size;

@@ -43,6 +43,11 @@ public:
         ct::vector vec114 = vec111 + vec112 - vec113;
 
         ct::sync();
+
+        double end = CkWallTimer();
+        ckout << "Execution Time (Phase 1): " << end - start << endl;
+
+        ckout << "Running correctness checks for phase 1" << endl;
         // Retrieve values for all vectors once
         auto vec1_data = vec1.get();
         auto vec2_data = vec2.get();
@@ -111,9 +116,7 @@ public:
             CkAbort("Test failed");
         }
 
-        double end = CkWallTimer();
-
-        ckout << "Execution Time (Phase 1): " << end - start << endl;
+        ckout << "[SUCCESS] All Phase 1 Tests passed" << endl;
 
         start = CkWallTimer();
         vec4 = vec1 - vec3 + vec4;
@@ -128,6 +131,8 @@ public:
         end = CkWallTimer();
 
         ckout << "Execution Time (Phase 2): " << end - start << endl;
+
+        ckout << "Running correctness checks for phase 2" << endl;
 
         // Retrieve values after operations
         vec4_data = vec4.get();
@@ -153,12 +158,22 @@ public:
             CkAbort("Test failed");
         }
 
+        ckout << "[SUCCESS] All Phase 2 Tests passed" << endl;
+
+        start = CkWallTimer();
+
         // copy operator
         vec4 = vec1;
         // copy constructor
         ct::vector vec5 = vec4;
 
         ct::sync();
+
+        end = CkWallTimer();
+
+        ckout << "Execution Time (Phase 3): " << end - start << endl;
+
+        ckout << "Running correctness checks for phase 3" << endl;
 
         // Retrieve copied values
         vec4_data = vec4.get();
@@ -173,6 +188,8 @@ public:
             ckout << "Verification failed for vec5_data after copy" << endl;
             CkAbort("Test failed");
         }
+
+        ckout << "[SUCCESS] All Phase 3 Tests passed" << endl;
 
         // ct::vector x{1 << 21, 1.0};
         // ct::vector y{1 << 21, 2.0};
