@@ -346,14 +346,16 @@ private:
         case ct::util::Operation::where: {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
-            cgen.generate_kernel(instruction);
-        } break;
+            Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
+            Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
+        } return;
         case ct::util::Operation::inplace_add:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
-                cgen.generate_kernel(instruction);
+                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
+                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -361,15 +363,15 @@ private:
                     vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                         vec_map[node_id](i) += vec_map[copy_id](i);
                     });
-                return;
             }
-        } break;
+        } return;
         case ct::util::Operation::inplace_sub:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
-                cgen.generate_kernel(instruction);
+                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
+                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -377,15 +379,15 @@ private:
                     vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
                         vec_map[node_id](i) -= vec_map[copy_id](i);
                     });
-                return;
             }
-        } break;
+        } return;
         case ct::util::Operation::inplace_divide:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == static_cast<std::size_t>(-1)) {
-                cgen.generate_kernel(instruction);
+                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
+                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -441,8 +443,6 @@ private:
         default:
             CmiAbort("Operation not implemented");
         }
-
-        cgen.execute(vec_map[node_id].size(), vec_map);
 }
 public:
     vector_impl_SDAG_CODE;

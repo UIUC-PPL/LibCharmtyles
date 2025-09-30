@@ -49,22 +49,37 @@ void* ret_fn_ptr(base* b) {
     return reinterpret_cast<void*>(rf);
 }
 
+#include <tuple>
+
+class love {
+public:
+    using res_type = std::tuple<int&, double>;
+};
+
 int main() {
-    derived d;
-    derived_fake df;
-    std::vector<void*> v;
+    std::vector<int> vec = {1, 2, 3, 4};
 
-    base* b = &d;
-    v.push_back(ret_fn_ptr(b));
+    // Move vec into a tuple
+    std::tuple<std::vector<int>> t = std::make_tuple(std::move(vec));
 
-    b = &df;
-    v.push_back(ret_fn_ptr(b));
+    // vec is now empty
+    std::cout << "vec.size() = " << vec.size() << "\n";
+    std::cout << "tuple vector size = " << std::get<0>(t).size() << "\n";
+    // derived d;
+    // derived_fake df;
+    // std::vector<void*> v;
 
-    for(auto it : v) {
-        using Fun = void(*)(void);
-        Fun f = reinterpret_cast<Fun>(it);
-        f();
-    }
+    // base* b = &d;
+    // v.push_back(ret_fn_ptr(b));
+
+    // b = &df;
+    // v.push_back(ret_fn_ptr(b));
+
+    // for(auto it : v) {
+    //     using Fun = void(*)(void);
+    //     Fun f = reinterpret_cast<Fun>(it);
+    //     f();
+    // }
 
     return 0;
 }

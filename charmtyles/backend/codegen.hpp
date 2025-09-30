@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <string_view>
+#include <tuple>
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
@@ -17,8 +18,6 @@ class Codegen {
 private:
     // a vector that stores the node_id of the vector which we get from vec_map in execute
     std::vector<size_t> kkVecViewsOrder;
-    // a vector to store the views used in the kokkos kernel
-    std::vector<Kokkos::View<double*>> kkVecViews;
     // a map from node_id -> kkVecViews Index
     std::map<int, int> vecToKkVecMap;
     std::size_t kkVecViewIdx = 0;
@@ -34,7 +33,7 @@ private:
     long long getVecIdx(size_t node_id) {
         long long vecIdx = 0;
         if(vecToKkVecMap.find(node_id) == vecToKkVecMap.end()) {
-            kkVecViewsOrder.push_back(node_id);
+            kkVecViewsOrder.emplace_back(node_id);
             vecToKkVecMap[node_id] = kkVecViewIdx;
             return kkVecViewIdx++;
         } else {
@@ -183,7 +182,7 @@ private:
         case ct::util::Operation::unary_expr: {
             long long leftid = codegen_ast(instruction, node.left_);
             kkTmpVar++;
-            kkCustomOps.push_back(getFuncPtr(node.unary_expr_.get()));
+            kkCustomOps.emplace_back(getFuncPtr(node.unary_expr_.get()));
             kk << "auto tmp" << kkTmpVar << " = ";
             kk << "((double(*)(double))custom_ops[" << kkCustomOpIdx << "])(";
             if (leftid < 0) {
@@ -198,7 +197,7 @@ private:
             long long leftid = codegen_ast(instruction, node.left_);
             long long rightid = codegen_ast(instruction, node.right_);
             kkTmpVar++;
-            kkCustomOps.push_back(getFuncPtr(node.binary_expr_.get()));
+            kkCustomOps.emplace_back(getFuncPtr(node.binary_expr_.get()));
             kk << "auto tmp" << kkTmpVar << " = ";
             kk << "((double(*)(double,double))custom_ops[" << kkCustomOpIdx
                << "])(";
@@ -263,19 +262,21 @@ public:
         kkCustomOpIdx = 0;
         kkCustomOps.clear();
         kkVecViewsOrder.clear();
-        kkVecViews.clear();
         vecToKkVecMap.clear();
         kkVecViewIdx = 0;
     }
 
-    void execute(size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map) {
-        for(auto it : kkVecViewsOrder) 
+    using kernelInfo = std::tuple<void*, std::vector<size_t>, std::vector<void*>>;
+    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t);
+
+    static void execute(kernelInfo const& kernel, size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map) {
+        std::vector<Kokkos::View<double*>> kkVecViews;
+        for(auto it : std::get<1>(kernel))
             kkVecViews.emplace_back(vec_map[it]);
-        void* functor = compile();
-        ((void (*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t)) functor)(kkVecViews, kkCustomOps, vec_dim);
+        ((kernelType)(std::get<0>(kernel)))(kkVecViews, std::get<2>(kernel), vec_dim);
     }
 
-    void generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
+    kernelInfo generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
         const size_t node_id = instruction[0].name_;
 
         long long resid = codegen_ast(instruction, 0);
@@ -290,5 +291,9 @@ public:
             kk << "=";
         }
         kk << " tmp" << -resid << ";\n";
+
+        void* functor = compile();
+
+        return {functor, std::move(kkVecViewsOrder), std::move(kkCustomOps)};
     }
 };
