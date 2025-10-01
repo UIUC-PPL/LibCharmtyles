@@ -22,13 +22,19 @@ public:
         ct::vector neg_result = ct::unary_expr(vec1, ct::unary_ops::negate());
         ct::scalar neg_sum = ct::sum(neg_result);
         double neg_val = neg_sum.get();
-        ckout << "   Negate [3,3,3,3,3] -> sum = " << neg_val << " (expected: -15)" << endl;
+        ckout << "Negate [3,3,3,3,3] -> sum = " << neg_val << " (expected: -15)" << endl;
 
         ct::vector vec_neg(4, -2.5);  // [-2.5, -2.5, -2.5, -2.5]
         ct::vector abs_result = ct::unary_expr(vec_neg, ct::unary_ops::abs());
         ct::scalar abs_sum = ct::sum(abs_result);
         double abs_val = abs_sum.get();
         ckout << "sum = " << abs_val << " (expected: 10)" << endl;
+
+        ct::vector vec_scale(4, 2.5);  // [2.5, 2.5, 2.5, 2.5]
+        ct::vector scale_result = ct::unary_expr(vec_scale, ct::unary_ops::scale(2.0));
+        ct::scalar scale_sum = ct::sum(scale_result);
+        double scalar_result = scale_sum.get();
+        ckout << "sum = " << scalar_result << " (expected: 20)" << endl;
         
         ct::vector vec3(5, 1.0);  // [1, 1, 1, 1, 1]
         ct::vector vec4(5, 2.0);  // [2, 2, 2, 2, 2]

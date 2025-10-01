@@ -24,8 +24,10 @@ private:
     // a stream to store the generated kernel
     std::stringstream kk;
     std::size_t kkTmpVar;
-    // a vector to store the custom binary/unary ops defined by the user
-    std::vector<uintptr_t> kkCustomOps;
+    // a vector that stores the index(int ast) of the node that uses some custom binary/unary ops defined by the user. 
+    // the second parameter is a flag that indicates if this is a unary or binary op. 
+    std::vector<std::pair<size_t, bool>> kkCustomOpsOrder;
+    // std::vector<uintptr_t> kkCustomOps;
     std::size_t kkCustomOpIdx = 0;
     // a map from kernel hash -> Kokkos functor
     std::map<uint64_t, void*> kernel_cache;
@@ -58,18 +60,18 @@ private:
         return oss.str();
     }
 
-    void* getFuncPtr(ct::unary_operator* op) {
+    static inline void* getFuncPtr(ct::unary_operator* op) {
         void** vtable = *reinterpret_cast<void***>(op);
         void* fun_ptr = vtable[5];
-        using RawFun = double(*)(double);
+        using RawFun = double(*)(void*, double);
         RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
         return reinterpret_cast<void*>(rf);
     }
 
-    void* getFuncPtr(ct::binary_operator* op) {
+    static inline void* getFuncPtr(ct::binary_operator* op) {
         void** vtable = *reinterpret_cast<void***>(op);
         void* fun_ptr = vtable[5];
-        using RawFun = double(*)(double, double);
+        using RawFun = double(*)(void*, double, double);
         RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
         return reinterpret_cast<void*>(rf);
     }
@@ -88,10 +90,11 @@ private:
 
     struct ASTFunctor {
         std::vector<Kokkos::View<double*>> vec_map;
-        std::vector<uintptr_t> custom_ops;
+        std::vector<void*> custom_ops;
+        std::vector<void*> custom_ops_this;
 
-        KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<uintptr_t> _custom_ops)
-            : vec_map(_vec_map), custom_ops(_custom_ops) {}
+        KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<void*> _custom_ops, std::vector<void*> _custom_ops_this)
+            : vec_map(_vec_map), custom_ops(_custom_ops), custom_ops_this(_custom_ops_this) {}
 
         KOKKOS_INLINE_FUNCTION
         void operator()(const int i) const {
@@ -99,8 +102,8 @@ private:
         }
     };
 
-    extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<uintptr_t> custom_ops, std::size_t vec_dim) {
-        ASTFunctor kernel(vec_map, custom_ops);
+    extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<void*> custom_ops, std::vector<void*> custom_ops_this, std::size_t vec_dim) {
+        ASTFunctor kernel(vec_map, custom_ops, custom_ops_this);
         Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
     }
     )");
@@ -182,9 +185,9 @@ private:
         case ct::util::Operation::unary_expr: {
             long long leftid = codegen_ast(instruction, node.left_);
             kkTmpVar++;
-            kkCustomOps.emplace_back((uintptr_t)getFuncPtr(node.unary_expr_.get()));
+            kkCustomOpsOrder.push_back({curr_idx, true});
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(double))(void*)custom_ops[" << kkCustomOpIdx << "])(";
+            kk << "((double(*)(void*,double))custom_ops[" << kkCustomOpIdx << "])(custom_ops_this[" << kkCustomOpIdx << "], ";
             if (leftid < 0) {
                 kk << "tmp" << -leftid;
             } else {
@@ -197,10 +200,10 @@ private:
             long long leftid = codegen_ast(instruction, node.left_);
             long long rightid = codegen_ast(instruction, node.right_);
             kkTmpVar++;
-            kkCustomOps.emplace_back((uintptr_t)getFuncPtr(node.binary_expr_.get()));
+            kkCustomOpsOrder.push_back({curr_idx, false});
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(double,double))(void*)custom_ops[" << kkCustomOpIdx
-               << "])(";
+            kk << "((double(*)(void*,double,double))custom_ops[" << kkCustomOpIdx
+               << "])(custom_ops_this[" << kkCustomOpIdx << "], ";
             if (leftid < 0) {
                 kk << "tmp" << -leftid;
             } else {
@@ -260,20 +263,31 @@ public:
         kk.str("");
         kkTmpVar = 0;
         kkCustomOpIdx = 0;
-        kkCustomOps.clear();
+        kkCustomOpsOrder.clear();
         kkVecViewsOrder.clear();
         vecToKkVecMap.clear();
         kkVecViewIdx = 0;
     }
 
     using kernelInfo = ct::vec_impl::vec_node::kernelInfo;
-    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<uintptr_t>, std::size_t);
+    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::vector<void*>, std::size_t);
 
-    static void execute(kernelInfo const& kernel, size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map) {
+    static void execute(kernelInfo const& kernel, size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map, std::vector<ct::vec_impl::vec_node> const& instruction) {
         std::vector<Kokkos::View<double*>> kkVecViews;
         for(auto it : std::get<1>(kernel))
             kkVecViews.emplace_back(vec_map[it]);
-        ((kernelType)(void*)std::get<0>(kernel))(kkVecViews, std::get<2>(kernel), vec_dim);
+        std::vector<void*> kkCustomOps;
+        std::vector<void*> kkCustomOpsThis;
+        for(auto it : std::get<2>(kernel))
+            if(it.second) {
+                kkCustomOps.emplace_back(getFuncPtr(instruction[it.first].unary_expr_.get()));
+                kkCustomOpsThis.emplace_back((void*)instruction[it.first].unary_expr_.get());
+            }
+            else {
+                kkCustomOps.emplace_back(getFuncPtr(instruction[it.first].binary_expr_.get()));
+                kkCustomOpsThis.emplace_back((void*)instruction[it.first].binary_expr_.get());
+            }
+        ((kernelType)(void*)std::get<0>(kernel))(std::move(kkVecViews), std::move(kkCustomOps), std::move(kkCustomOpsThis), vec_dim);
     }
 
     kernelInfo generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
@@ -292,6 +306,6 @@ public:
         }
         kk << " tmp" << -resid << ";\n";
 
-        return {(uintptr_t)compile(), std::move(kkVecViewsOrder), std::move(kkCustomOps)};
+        return {(uintptr_t)compile(), std::move(kkVecViewsOrder), std::move(kkCustomOpsOrder)};
     }
 };

@@ -345,14 +345,14 @@ private:
         case ct::util::Operation::where: {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
-            Codegen::execute(instruction[0].kernel, vec_map[node_id].size(), vec_map);
+            Codegen::execute(instruction[0].kernel, vec_map[node_id].size(), vec_map, instruction);
         } return;
         case ct::util::Operation::inplace_add:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == -1) {
-                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -367,7 +367,7 @@ private:
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == -1) {
-                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -382,7 +382,7 @@ private:
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
             if(copy_id == -1) {
-                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +

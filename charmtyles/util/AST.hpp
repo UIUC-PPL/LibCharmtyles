@@ -157,7 +157,7 @@ namespace ct {
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
 
-            using kernelInfo = std::tuple<uintptr_t, std::vector<size_t>, std::vector<uintptr_t>>;
+            using kernelInfo = std::tuple<uintptr_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>>;
             kernelInfo kernel;
 
             // Only called when initializing through expression
