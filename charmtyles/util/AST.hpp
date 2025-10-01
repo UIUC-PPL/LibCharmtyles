@@ -157,6 +157,9 @@ namespace ct {
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
 
+            using kernelInfo = std::tuple<uintptr_t, std::vector<size_t>, std::vector<uintptr_t>>;
+            kernelInfo kernel;
+
             // Only called when initializing through expression
             vec_node() = default;
             vec_node(vec_node const& other) = default;
@@ -250,6 +253,9 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
+                p | std::get<0>(kernel);
+                p | std::get<1>(kernel);
+                p | std::get<2>(kernel);
             }
         };
 

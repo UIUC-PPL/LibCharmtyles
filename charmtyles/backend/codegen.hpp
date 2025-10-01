@@ -25,7 +25,7 @@ private:
     std::stringstream kk;
     std::size_t kkTmpVar;
     // a vector to store the custom binary/unary ops defined by the user
-    std::vector<void*> kkCustomOps;
+    std::vector<uintptr_t> kkCustomOps;
     std::size_t kkCustomOpIdx = 0;
     // a map from kernel hash -> Kokkos functor
     std::map<uint64_t, void*> kernel_cache;
@@ -88,9 +88,9 @@ private:
 
     struct ASTFunctor {
         std::vector<Kokkos::View<double*>> vec_map;
-        std::vector<void*> custom_ops;
+        std::vector<uintptr_t> custom_ops;
 
-        KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<void*> _custom_ops)
+        KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<uintptr_t> _custom_ops)
             : vec_map(_vec_map), custom_ops(_custom_ops) {}
 
         KOKKOS_INLINE_FUNCTION
@@ -99,7 +99,7 @@ private:
         }
     };
 
-    extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<void*> custom_ops, std::size_t vec_dim) {
+    extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<uintptr_t> custom_ops, std::size_t vec_dim) {
         ASTFunctor kernel(vec_map, custom_ops);
         Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
     }
@@ -182,9 +182,9 @@ private:
         case ct::util::Operation::unary_expr: {
             long long leftid = codegen_ast(instruction, node.left_);
             kkTmpVar++;
-            kkCustomOps.emplace_back(getFuncPtr(node.unary_expr_.get()));
+            kkCustomOps.emplace_back((uintptr_t)getFuncPtr(node.unary_expr_.get()));
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(double))custom_ops[" << kkCustomOpIdx << "])(";
+            kk << "((double(*)(double))(void*)custom_ops[" << kkCustomOpIdx << "])(";
             if (leftid < 0) {
                 kk << "tmp" << -leftid;
             } else {
@@ -197,9 +197,9 @@ private:
             long long leftid = codegen_ast(instruction, node.left_);
             long long rightid = codegen_ast(instruction, node.right_);
             kkTmpVar++;
-            kkCustomOps.emplace_back(getFuncPtr(node.binary_expr_.get()));
+            kkCustomOps.emplace_back((uintptr_t)getFuncPtr(node.binary_expr_.get()));
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(double,double))custom_ops[" << kkCustomOpIdx
+            kk << "((double(*)(double,double))(void*)custom_ops[" << kkCustomOpIdx
                << "])(";
             if (leftid < 0) {
                 kk << "tmp" << -leftid;
@@ -266,14 +266,14 @@ public:
         kkVecViewIdx = 0;
     }
 
-    using kernelInfo = std::tuple<void*, std::vector<size_t>, std::vector<void*>>;
-    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::size_t);
+    using kernelInfo = ct::vec_impl::vec_node::kernelInfo;
+    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<uintptr_t>, std::size_t);
 
     static void execute(kernelInfo const& kernel, size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map) {
         std::vector<Kokkos::View<double*>> kkVecViews;
         for(auto it : std::get<1>(kernel))
             kkVecViews.emplace_back(vec_map[it]);
-        ((kernelType)(std::get<0>(kernel)))(kkVecViews, std::get<2>(kernel), vec_dim);
+        ((kernelType)(void*)std::get<0>(kernel))(kkVecViews, std::get<2>(kernel), vec_dim);
     }
 
     kernelInfo generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
@@ -292,8 +292,6 @@ public:
         }
         kk << " tmp" << -resid << ";\n";
 
-        void* functor = compile();
-
-        return {functor, std::move(kkVecViewsOrder), std::move(kkCustomOps)};
+        return {(uintptr_t)compile(), std::move(kkVecViewsOrder), std::move(kkCustomOps)};
     }
 };

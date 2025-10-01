@@ -255,7 +255,6 @@ private:
         std::vector<ct::vec_impl::vec_node> const& instruction,
         std::size_t index = 0)
     {
-        cgen.reset();
         ct::vec_impl::vec_node const& node = instruction[index];
         std::size_t node_id = node.name_;
 
@@ -346,16 +345,14 @@ private:
         case ct::util::Operation::where: {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
-            Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
-            Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
+            Codegen::execute(instruction[0].kernel, vec_map[node_id].size(), vec_map);
         } return;
         case ct::util::Operation::inplace_add:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if(copy_id == static_cast<std::size_t>(-1)) {
-                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
-                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
+            if(copy_id == -1) {
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -369,9 +366,8 @@ private:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if(copy_id == static_cast<std::size_t>(-1)) {
-                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
-                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
+            if(copy_id == -1) {
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -385,9 +381,8 @@ private:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
             copy_id = node.copy_id_;
-            if(copy_id == static_cast<std::size_t>(-1)) {
-                Codegen::kernelInfo kernel = cgen.generate_kernel(instruction);
-                Codegen::execute(kernel, vec_map[node_id].size(), vec_map);
+            if(copy_id == -1) {
+                Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map);
             } else {
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
@@ -460,7 +455,6 @@ public:
 private:
     int num_chares;
     std::vector<Kokkos::View<double*>> vec_map;
-    Codegen cgen;
 
     int SDAG_INDEX;
     int vec_block_size;

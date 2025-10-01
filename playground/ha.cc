@@ -56,15 +56,37 @@ public:
     using res_type = std::tuple<int&, double>;
 };
 
+void grow() {
+    std::cout << "GROWWWWWW" << std::endl;
+}
+
 int main() {
-    std::vector<int> vec = {1, 2, 3, 4};
+    uintptr_t ka = (uintptr_t)&grow;
+    ((void(*)(void))(void*)ka)();
+    // std::tuple<int, std::string> t{
+    //     1, std::string("hello")
+    // };
 
-    // Move vec into a tuple
-    std::tuple<std::vector<int>> t = std::make_tuple(std::move(vec));
+    // uintptr_t ha = 78;
 
-    // vec is now empty
-    std::cout << "vec.size() = " << vec.size() << "\n";
-    std::cout << "tuple vector size = " << std::get<0>(t).size() << "\n";
+    // std::get<0>(t) = 42;
+
+    // // for(auto it : std::get<0>(t)) {
+    // std::cout << std::get<0>(t) << std::endl;
+    // }
+
+    // // Move the whole tuple
+    // auto t2 = std::move(t); // moves vector and string into t2
+
+    // std::cout << "t2 vector size: " << std::get<0>(t2).size() << "\n";
+    // std::cout << "t vector size (moved-from): " << std::get<0>(t).size() << "\n";
+
+    // size_t ha = -1;
+
+    // if(ha != -1) {
+    //     std::cout << "FUCKED" << std::endl;
+    // }
+
     // derived d;
     // derived_fake df;
     // std::vector<void*> v;

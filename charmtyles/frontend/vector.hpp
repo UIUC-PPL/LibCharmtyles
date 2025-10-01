@@ -93,6 +93,26 @@ namespace ct {
                 return dispatch_count;
             }
 
+            void codegen(instr_t& instructions) {
+                for(auto& instruction : instructions) {
+                    auto op = instruction[0].operation_;
+                    if(op == ct::util::Operation::init_random   ||
+                       op == ct::util::Operation::init_value    ||
+                       op == ct::util::Operation::init_generate ||
+                       op == ct::util::Operation::copy          ||
+                       op == ct::util::Operation::axpy          ||
+                       op == ct::util::Operation::custom_expr   ||
+                      (op == ct::util::Operation::inplace_add   &&
+                       instruction[0].copy_id_ != -1)           ||
+                      (op == ct::util::Operation::inplace_sub   &&
+                       instruction[0].copy_id_ != -1)           ||
+                      (op == ct::util::Operation::inplace_divide&&
+                       instruction[0].copy_id_ != -1)) continue;
+                    cgen.reset();
+                    instruction[0].kernel = cgen.generate_kernel(instruction);
+                }
+            }
+
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
@@ -120,6 +140,7 @@ namespace ct {
                     // Dispatch all non-empty vectors!
                     if (shape_vector_queue_[i].size() != 0)
                     {
+                        codegen(shape_vector_queue_[i]);
                         is_dispatched = true;
 
                         std::size_t& sdag_index = sdag_index_[i];
@@ -144,6 +165,7 @@ namespace ct {
                 // Send instructions for execution
                 if (shape_vector_queue_[shape_id].size() != 0)
                 {
+                    codegen(shape_vector_queue_[shape_id]);
                     std::size_t& sdag_index = sdag_index_[shape_id];
 
                     CProxy_vector_impl dispatch_proxy =
@@ -184,6 +206,8 @@ namespace ct {
             // Shape -> Instructions -> AST (per instruction)
             std::vector<instr_t> shape_vector_queue_;
             std::vector<std::size_t> sdag_index_;
+
+            Codegen cgen;
         };
         CT_GENERATE_SINGLETON(vec_instr_queue_t, vec_instr_queue);
 
@@ -376,17 +400,17 @@ namespace ct {
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1;
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1;
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1;
                     }
@@ -394,17 +418,17 @@ namespace ct {
 
                 for (int i = 1 + left.size(); i != ast.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size();
                     }
@@ -470,17 +494,17 @@ namespace ct {
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1;
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1;
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1;
                     }
@@ -489,17 +513,17 @@ namespace ct {
                 for (int i = 1 + left.size(); i != left.size() + right.size();
                     ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size();
                     }
@@ -508,17 +532,17 @@ namespace ct {
                 for (int i = 1 + left.size() + right.size(); i != ast.size();
                     ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size() + right.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size() + right.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size() + right.size();
                     }
@@ -751,14 +775,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_add, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
@@ -772,14 +796,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_sub, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
@@ -793,14 +817,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_divide, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
