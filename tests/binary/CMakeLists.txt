@@ -34,6 +34,13 @@ add_custom_command(
     COMMENT "Processing base ci files"
 )
 
-add_executable(binary_include.out binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
+set(DESTINATION_FILE "${CMAKE_BINARY_DIR}/_deps/kokkos-src/tpls/desul/include/desul/atomics/Config.hpp")
+add_custom_command(
+    OUTPUT  ${DESTINATION_FILE}
+    COMMAND ${CMAKE_SOURCE_DIR}/../../patch.sh ${CMAKE_BINARY_DIR}
+    COMMENT "Generating ${DESTINATION_FILE}"
+)
+
+add_executable(binary_include.out binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h ${DESTINATION_FILE})
 target_include_directories(binary_include.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
 target_link_libraries(binary_include.out Kokkos::kokkos)

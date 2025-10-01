@@ -112,7 +112,7 @@ private:
         ofs << kernel;
         ofs.close();
         system(std::string("g++ -O3 -march=native -std=c++20 -I$PWD/_deps/kokkos-src/tpls/mdspan/include "
-            "-I$PWD/_deps/kokkos-src/core/src -I$PWD/_deps/kokkos-build -shared "
+            "-I$PWD/_deps/kokkos-src/core/src -I$PWD/_deps/kokkos-build -I$PWD/_deps/kokkos-src/tpls/desul/include -shared "
             "-fPIC -o " + lib_name + " " + file_name + " -L$PWD/_deps/kokkos-build/core/src "
             "-lkokkoscore").c_str());
 
