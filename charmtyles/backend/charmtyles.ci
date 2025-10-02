@@ -676,16 +676,19 @@ module libcharmtyles
                     std::size_t num_rows = get_mat_rows(total_rows);
                     std::size_t num_cols = get_mat_cols(total_cols);
 
-                    ct::util::matrix_view mat{num_rows, num_cols};
+                    Kokkos::View<double**> mat("mat" + std::to_string(node_id), num_rows, num_cols);
+                    auto mat_host = Kokkos::create_mirror_view(mat);
+                    
                     for (int row_id = 0; row_id != num_rows; ++row_id)
                     {
                         for (int col_id = 0; col_id != num_cols; ++col_id)
                         {
-                            mat(row_id, col_id) = gen_ptr->generate(
+                            mat_host(row_id, col_id) = gen_ptr->generate(
                                 thisIndex.y * row_block_len + row_id, thisIndex.x * col_block_len + col_id);
                         }
                     }
-                    mat_map.emplace_back(std::move(mat));
+                    Kokkos::deep_copy(mat, mat_host);
+                    mat_map.emplace_back(mat);
 
                     ++SDAG_INDEX;
                 }}
@@ -735,13 +738,13 @@ module libcharmtyles
 
                     Eigen::Map<Eigen::VectorXd> elhs(data + thisIndex.x * block_dim, vec_size);
                     Eigen::Map<Eigen::MatrixXd> 
-                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].rows(), mat_map[mat_idx].cols());
+                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].extent(0), mat_map[mat_idx].extent(1));
                     
                     double result[result_size];
                     for (int i = 0; i != result_size; ++i)
                         result[i] = 0;
 
-                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.y * row_block_len, mat_map[mat_idx].rows());
+                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.y * row_block_len, mat_map[mat_idx].extent(0));
                     eres = erhs * elhs;
 
                     // TODO: Use Section Reduction!
@@ -766,13 +769,13 @@ module libcharmtyles
 
                     Eigen::Map<Eigen::VectorXd> elhs(data + thisIndex.y * block_dim, vec_size);
                     Eigen::Map<Eigen::MatrixXd> 
-                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].rows(), mat_map[mat_idx].cols());
+                        erhs(mat_map[mat_idx].data(), mat_map[mat_idx].extent(0), mat_map[mat_idx].extent(1));
                     
                     double result[result_size];
                     for (int i = 0; i != result_size; ++i)
                         result[i] = 0;
 
-                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.x * col_block_len, mat_map[mat_idx].cols());
+                    Eigen::Map<Eigen::VectorXd> eres(result + thisIndex.x * col_block_len, mat_map[mat_idx].extent(1));
                     eres = elhs * erhs;
 
                     // TODO: Use Section Reduction!
@@ -786,13 +789,13 @@ module libcharmtyles
                     int sdag_index, int mat_idx, int mat_A_idx, int mat_B_idx) {
                     serial "initial_send" {
                         double* data_A = mat_map[mat_A_idx].data();
-                        std::size_t rows_A = mat_map[mat_A_idx].rows();
-                        std::size_t cols_A = mat_map[mat_A_idx].cols();
+                        std::size_t rows_A = mat_map[mat_A_idx].extent(0);
+                        std::size_t cols_A = mat_map[mat_A_idx].extent(1);
                         thisProxy((thisIndex.x-thisIndex.y+num_chares_y)%num_chares_x, thisIndex.y).inputA(0, data_A, rows_A, cols_A);
 
                         double* data_B = mat_map[mat_B_idx].data();
-                        std::size_t rows_B = mat_map[mat_B_idx].rows();
-                        std::size_t cols_B = mat_map[mat_B_idx].cols();
+                        std::size_t rows_B = mat_map[mat_B_idx].extent(0);
+                        std::size_t cols_B = mat_map[mat_B_idx].extent(1);
                         thisProxy(thisIndex.x, (thisIndex.y-thisIndex.x+num_chares_x)%num_chares_y).inputB(0, data_B, rows_B, cols_B);
                     }
                     // For all block
@@ -808,8 +811,8 @@ module libcharmtyles
                             Eigen::Map<Eigen::MatrixXd> matA(blockA, M, KA);
                             Eigen::Map<Eigen::MatrixXd> matB(blockB, KB, N);
 
-                            ct::util::matrix_view& result_mat = mat_map[mat_idx];
-                            Eigen::Map<Eigen::MatrixXd> matC(result_mat.data(), result_mat.rows(), result_mat.cols());
+                            Kokkos::View<double**>& result_mat = mat_map[mat_idx];
+                            Eigen::Map<Eigen::MatrixXd> matC(result_mat.data(), result_mat.extent(0), result_mat.extent(1));
 
                             matC += matA * matB;
 
@@ -833,9 +836,9 @@ module libcharmtyles
 
                 when reduce_sum[SDAG_INDEX](int sdag_idx, int matrix_id, int scal_sdag_idx) {
                 serial "reduce_sum" {
-                    ct::util::matrix_view& lhs = mat_map[matrix_id];
+                    Kokkos::View<double**>& lhs = mat_map[matrix_id];
 
-                    Eigen::Map<Eigen::MatrixXd> elhs(lhs.data(), lhs.rows(), lhs.cols());
+                    Eigen::Map<Eigen::MatrixXd> elhs(lhs.data(), lhs.extent(0), lhs.extent(1));
 
                     double result = elhs.sum();
 
@@ -847,9 +850,9 @@ module libcharmtyles
 
                 when get_value[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_get_mat_future proxy) {
                 serial "get_value" {
-                    ct::util::matrix_view& mat = mat_map[matrix_id];
-                    size_t row_size = mat.rows();
-                    size_t col_size = mat.cols();
+                    Kokkos::View<double**>& mat = mat_map[matrix_id];
+                    size_t row_size = mat.extent(0);
+                    size_t col_size = mat.extent(1);
 
                     size_t row_index = thisIndex.y*col_block_len;
                     size_t col_index = thisIndex.x*row_block_len;
@@ -867,9 +870,9 @@ module libcharmtyles
 
                 when any[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_set_future proxy) {
                 serial "any" {
-                    ct::util::matrix_view& mat = mat_map[matrix_id];
-                    size_t row_size = mat.rows();
-                    size_t col_size = mat.cols();
+                    Kokkos::View<double**>& mat = mat_map[matrix_id];
+                    size_t row_size = mat.extent(0);
+                    size_t col_size = mat.extent(1);
 
                     bool res = std::any_of(mat.data(), mat.data()+(row_size*col_size), 
                       [](double val) { return val != 0.0; });
@@ -881,9 +884,9 @@ module libcharmtyles
 
                 when all[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_set_future proxy) {
                 serial "all" {
-                    ct::util::matrix_view& mat = mat_map[matrix_id];
-                    size_t row_size = mat.rows();
-                    size_t col_size = mat.cols();
+                    Kokkos::View<double**>& mat = mat_map[matrix_id];
+                    size_t row_size = mat.extent(0);
+                    size_t col_size = mat.extent(1);
 
                     bool res = std::all_of(mat.data(), mat.data()+(row_size*col_size), 
                       [](double val) { return val != 0.0; });

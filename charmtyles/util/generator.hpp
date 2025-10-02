@@ -1,7 +1,7 @@
 #pragma once
 
 #include "charm++.h"
-#include "matrix_view.hpp"
+#include <Kokkos_Core.hpp>
 #include <vector>
 
 namespace ct {
@@ -220,9 +220,10 @@ namespace ct {
         }
 
         virtual void operator()(std::size_t rows, std::size_t cols,
-            ct::util::matrix_view& lhs, ct::util::matrix_view& rhs)
+            Kokkos::View<double**> lhs, Kokkos::View<double**> rhs)
         {
-            lhs = rhs;
+            // Default implementation: copy rhs to lhs
+            Kokkos::deep_copy(lhs, rhs);
         }
     };
 
