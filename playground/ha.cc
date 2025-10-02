@@ -53,26 +53,21 @@ void* ret_fn_ptr(base* b) {
     return reinterpret_cast<void*>(rf);
 }
 
+template<typename T>
+void f(T&& x) {
+    x = 27;
+}
+
 int main() {
-#ifdef RUNNING
-    derived d(42);
-    derived_fake df;
-    std::vector<void*> v;
+    int x = 42;
+    const int y = x;
+    const int& z = x;
 
-    base* b = &d;
-    v.push_back(ret_fn_ptr(b));
+    f(x);
 
-    b = &df;
-    v.push_back(ret_fn_ptr(b));
+    f(y);
 
-    for(auto it : v) {
-        using Fun = void(*)(void*, int);
-        Fun f = reinterpret_cast<Fun>(it);
-        f((void*)b, 27);
-    }
-    return 0;
-#else
-    std::cout << std::string(LOL) + "broosko" << std::endl;
-    return 69;
-#endif
+    f(z);
+
+    f(69);
 }

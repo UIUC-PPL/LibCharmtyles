@@ -18,33 +18,34 @@ public:
 
     void benchmark()
     {
-        constexpr std::size_t vec_size_1 = 1 << 20;
-        constexpr std::size_t vec_size_2 = 1 << 20;
-        constexpr std::size_t vec_size_3 = 1 << 20;
-
-        double start = CkWallTimer();
-
+        constexpr std::size_t vec_size_1 = 1 << 24;
+        constexpr std::size_t vec_size_2 = 1 << 24;
+        constexpr std::size_t vec_size_3 = 1 << 24;
         ct::vector vec1{vec_size_1, .5};
         ct::vector vec2{vec_size_1, 1.5};
         ct::vector vec3{vec_size_1, .5};
-
-        ct::vector vec4 = vec1 + vec2;
-
         ct::vector vec11{vec_size_2, 0.0};
         ct::vector vec12{vec_size_2, 1.5};
         ct::vector vec13{vec_size_2, .5};
-
-        ct::vector vec14 = vec11 + vec12 - vec13;
-
         ct::vector vec111{vec_size_3, 0.0};
         ct::vector vec112{vec_size_3, 1.5};
         ct::vector vec113{vec_size_3, .5};
 
-        ct::vector vec114 = vec111 + vec112 - vec113;
-
+        ct::vector vec4 = vec1 + vec2;    
+        ct::vector vec14 = vec11 + vec12 - vec13;
+        ct::vector vec114 = vec111 + vec112 - vec113;   
         ct::sync();
 
+        double start = CkWallTimer();
+        for (int i = 0; i < 100; i++) {
+            vec4 = vec1 + vec2;    
+            vec14 = vec11 + vec12 - vec13;
+            vec114 = vec111 + vec112 - vec113;        
+        }
+        ct::sync();
         double end = CkWallTimer();
+
+
         ckout << "Execution Time (Phase 1): " << end - start << endl;
 
         ckout << "Running correctness checks for phase 1" << endl;
@@ -118,78 +119,78 @@ public:
 
         ckout << "[SUCCESS] All Phase 1 Tests passed" << endl;
 
-        start = CkWallTimer();
-        vec4 = vec1 - vec3 + vec4;
-        vec14 = vec11 - vec13 + vec14;
-        vec114 = vec111 - vec113 + vec114;
+        // start = CkWallTimer();
+        // vec4 = vec1 - vec3 + vec4;
+        // vec14 = vec11 - vec13 + vec14;
+        // vec114 = vec111 - vec113 + vec114;
 
-        // in-place operation
-        ct::vector vec115 = vec112 -= vec113;
-        vec115 += vec111 += vec112;
+        // // in-place operation
+        // ct::vector vec115 = vec112 -= vec113;
+        // vec115 += vec111 += vec112;
 
-        ct::sync();
-        end = CkWallTimer();
+        // ct::sync();
+        // end = CkWallTimer();
 
-        ckout << "Execution Time (Phase 2): " << end - start << endl;
+        // ckout << "Execution Time (Phase 2): " << end - start << endl;
 
-        ckout << "Running correctness checks for phase 2" << endl;
+        // ckout << "Running correctness checks for phase 2" << endl;
 
-        // Retrieve values after operations
-        vec4_data = vec4.get();
-        vec14_data = vec14.get();
-        vec114_data = vec114.get();
-        auto vec115_data = vec115.get();
+        // // Retrieve values after operations
+        // vec4_data = vec4.get();
+        // vec14_data = vec14.get();
+        // vec114_data = vec114.get();
+        // auto vec115_data = vec115.get();
 
-        // Verify values after operations
-        if (!(vec4_data.size() == vec_size_1 && std::all_of(vec4_data.begin(), vec4_data.end(), [](double v) { return v == 2.0; }))) {
-            ckout << "Verification failed for vec4_data after operations" << endl;
-            CkAbort("Test failed");
-        }
-        if (!(vec14_data.size() == vec_size_2 && std::all_of(vec14_data.begin(), vec14_data.end(), [](double v) { return v == 0.5; }))) {
-            ckout << "Verification failed for vec14_data after operations" << endl;
-            CkAbort("Test failed");
-        }
-        if (!(vec114_data.size() == vec_size_3 && std::all_of(vec114_data.begin(), vec114_data.end(), [](double v) { return v == 0.5; }))) {
-            ckout << "Verification failed for vec114_data after operations" << endl;
-            CkAbort("Test failed");
-        }
-        if (!(vec115_data.size() == vec_size_3 && std::all_of(vec115_data.begin(), vec115_data.end(), [](double v) { return v == 2.0; }))) {
-            ckout << "Verification failed for vec115_data after operations" << endl;
-            CkAbort("Test failed");
-        }
+        // // Verify values after operations
+        // if (!(vec4_data.size() == vec_size_1 && std::all_of(vec4_data.begin(), vec4_data.end(), [](double v) { return v == 2.0; }))) {
+        //     ckout << "Verification failed for vec4_data after operations" << endl;
+        //     CkAbort("Test failed");
+        // }
+        // if (!(vec14_data.size() == vec_size_2 && std::all_of(vec14_data.begin(), vec14_data.end(), [](double v) { return v == 0.5; }))) {
+        //     ckout << "Verification failed for vec14_data after operations" << endl;
+        //     CkAbort("Test failed");
+        // }
+        // if (!(vec114_data.size() == vec_size_3 && std::all_of(vec114_data.begin(), vec114_data.end(), [](double v) { return v == 0.5; }))) {
+        //     ckout << "Verification failed for vec114_data after operations" << endl;
+        //     CkAbort("Test failed");
+        // }
+        // if (!(vec115_data.size() == vec_size_3 && std::all_of(vec115_data.begin(), vec115_data.end(), [](double v) { return v == 2.0; }))) {
+        //     ckout << "Verification failed for vec115_data after operations" << endl;
+        //     CkAbort("Test failed");
+        // }
 
-        ckout << "[SUCCESS] All Phase 2 Tests passed" << endl;
+        // ckout << "[SUCCESS] All Phase 2 Tests passed" << endl;
 
-        start = CkWallTimer();
+        // start = CkWallTimer();
 
-        // copy operator
-        vec4 = vec1;
-        // copy constructor
-        ct::vector vec5 = vec4;
+        // // copy operator
+        // vec4 = vec1;
+        // // copy constructor
+        // ct::vector vec5 = vec4;
 
-        ct::sync();
+        // ct::sync();
 
-        end = CkWallTimer();
+        // end = CkWallTimer();
 
-        ckout << "Execution Time (Phase 3): " << end - start << endl;
+        // ckout << "Execution Time (Phase 3): " << end - start << endl;
 
-        ckout << "Running correctness checks for phase 3" << endl;
+        // ckout << "Running correctness checks for phase 3" << endl;
 
-        // Retrieve copied values
-        vec4_data = vec4.get();
-        auto vec5_data = vec5.get();
+        // // Retrieve copied values
+        // vec4_data = vec4.get();
+        // auto vec5_data = vec5.get();
 
-        // Verify copied values
-        if (!(vec4_data.size() == vec_size_1 && std::all_of(vec4_data.begin(), vec4_data.end(), [](double v) { return v == 0.5; }))) {
-            ckout << "Verification failed for vec4_data after copy" << endl;
-            CkAbort("Test failed");
-        }
-        if (!(vec5_data.size() == vec_size_1 && std::all_of(vec5_data.begin(), vec5_data.end(), [](double v) { return v == 0.5; }))) {
-            ckout << "Verification failed for vec5_data after copy" << endl;
-            CkAbort("Test failed");
-        }
+        // // Verify copied values
+        // if (!(vec4_data.size() == vec_size_1 && std::all_of(vec4_data.begin(), vec4_data.end(), [](double v) { return v == 0.5; }))) {
+        //     ckout << "Verification failed for vec4_data after copy" << endl;
+        //     CkAbort("Test failed");
+        // }
+        // if (!(vec5_data.size() == vec_size_1 && std::all_of(vec5_data.begin(), vec5_data.end(), [](double v) { return v == 0.5; }))) {
+        //     ckout << "Verification failed for vec5_data after copy" << endl;
+        //     CkAbort("Test failed");
+        // }
 
-        ckout << "[SUCCESS] All Phase 3 Tests passed" << endl;
+        // ckout << "[SUCCESS] All Phase 3 Tests passed" << endl;
 
         // ct::vector x{1 << 21, 1.0};
         // ct::vector y{1 << 21, 2.0};

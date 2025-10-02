@@ -1,13 +1,12 @@
 #pragma once
 
-#include <Kokkos_Core.hpp>
-#include <Kokkos_Random.hpp>
 #include <ctime>
 #include <sstream>
 #include <fstream>
 #include <iomanip>
 #include <string_view>
 #include <tuple>
+#include <dlfcn.h>
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
@@ -30,7 +29,7 @@ private:
     // std::vector<uintptr_t> kkCustomOps;
     std::size_t kkCustomOpIdx = 0;
     // a map from kernel hash -> Kokkos functor
-    std::map<uint64_t, void*> kernel_cache;
+    std::map<uint64_t, bool> kernel_cache;
 
     long long getVecIdx(size_t node_id) {
         long long vecIdx = 0;
@@ -76,13 +75,11 @@ private:
         return reinterpret_cast<void*>(rf);
     }
 
-    void* compile() {
+    uint64_t compile() {
         std::string kernel_ops(kk.str());
         uint64_t hash = kernel_hash(kernel_ops);
-        if(kernel_cache.find(hash) != kernel_cache.end()) {
-            void* functor = kernel_cache[hash];
-            return functor;
-        }
+        if(kernel_cache.find(hash) != kernel_cache.end())
+            return hash;
         std::string file_name("kernel-" + to_string(hash) + ".cc");
         std::string lib_name ("libkernel-" + to_string(hash) + ".so");
         std::string kernel(R"(
@@ -119,10 +116,8 @@ private:
     system(std::string("g++ -O3 -march=native -std=c++20 -I" + std::string(KOKKOS_DIR) + "/include -shared -fPIC -o " + 
                         lib_name + " " + file_name + " -L" + std::string(KOKKOS_DIR) + "/lib -lkokkoscore").c_str());
 #endif
-        void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
-        void* functor = dlsym(handle, "run_kernel");
-        kernel_cache[hash] = functor;
-        return functor;
+        kernel_cache[hash] = true;
+        return hash;
     }
 
 #define BINOP_CODEGEN(op)                                                      \
@@ -296,7 +291,8 @@ public:
                 kkCustomOpsThis.emplace_back((void*)instruction[it.first].binary_expr_.get());
             }
 
-        ((kernelType)(void*)std::get<0>(kernel))(std::move(kkVecViews), std::move(kkCustomOps), std::move(kkCustomOpsThis), vec_dim);
+        void* functor = kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
+        ((kernelType)functor)(std::move(kkVecViews), std::move(kkCustomOps), std::move(kkCustomOpsThis), vec_dim);
     }
 
     kernelInfo generate_kernel(std::vector<ct::vec_impl::vec_node> const& instruction) {
@@ -315,6 +311,6 @@ public:
         }
         kk << " tmp" << -resid << ";\n";
 
-        return {(uintptr_t)compile(), std::move(kkVecViewsOrder), std::move(kkCustomOpsOrder)};
+        return {compile(), std::move(kkVecViewsOrder), std::move(kkCustomOpsOrder)};
     }
 };

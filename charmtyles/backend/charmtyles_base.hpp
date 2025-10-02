@@ -1,13 +1,53 @@
 #pragma once
 
-#include "codegen.hpp"
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
 class CProxy_scalar_impl;
 class CProxy_get_partial_vec_future;
+class CProxy_KokkosGroup;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
+
+class KokkosGroup : public CBase_KokkosGroup
+{
+private:
+    std::map<uint64_t, void*> kernelHandles;
+    std::string to_string(uint64_t const hash) {
+        std::ostringstream oss;
+        oss << std::hex << std::setw(16) << std::setfill('0') << hash;
+        return oss.str();
+    }
+public:
+    KokkosGroup()
+    {
+        Kokkos::initialize();
+    }
+
+    void finalize()
+    {
+        Kokkos::finalize();
+    }
+
+    void dkload(uint64_t hash) {
+        if(kernelHandles.find(hash) != kernelHandles.end())
+            return;
+        std::string lib_name ("libkernel-" + to_string(hash) + ".so");
+        void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
+        void* functor = dlsym(handle, "run_kernel");
+        kernelHandles[hash] = functor;
+    }
+
+    void* getHandle(uint64_t hash) {
+        return kernelHandles[hash];
+    }
+};
+
+CProxy_KokkosGroup kokkosMgmt;
+
+#include "codegen.hpp"
 
 /* readonly */ CProxy_scalar_impl scalar_impl_proxy;
 
@@ -956,28 +996,4 @@ private:
     int col_block_len;
     int SDAG_INDEX;
     int block;
-};
-
-class KokkosGroup : public CBase_KokkosGroup
-{
-private:
-    int device;
-    // cudaStream_t stream;
-public:
-    KokkosGroup()
-    {
-        Kokkos::initialize();
-        // int n_devices;
-        // cudaGetDeviceCount(&n_devices);
-        // device = CkMyPe() % n_devices;
-        // cudaSetDevice(device);
-        // cudaStreamCreate(&stream);
-    }
-
-    void finalize()
-    {
-        Kokkos::finalize();
-        // cudaSetDevice(device);
-        // cudaStreamDestroy(&stream);
-    }
 };

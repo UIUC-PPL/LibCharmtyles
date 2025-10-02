@@ -110,6 +110,7 @@ namespace ct {
                        instruction[0].copy_id_ != -1)) continue;
                     cgen.reset();
                     instruction[0].kernel = cgen.generate_kernel(instruction);
+                    kokkosMgmt.dkload(std::get<0>(instruction[0].kernel));
                 }
             }
 

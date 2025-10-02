@@ -17,8 +17,6 @@
 
 namespace ct {
 
-    CProxy_KokkosGroup kokkosMgmt;
-
     void init()
     {
         scalar_impl_proxy = CProxy_scalar_impl::ckNew();
@@ -43,7 +41,6 @@ namespace ct {
 
     void finalize() {
         kokkosMgmt.finalize();
-        // system("rm kernel-*.cc libkernel-*.so");
     }
 
     void sync(ct::mat_impl::mat_shape_t const& matrix_shape)

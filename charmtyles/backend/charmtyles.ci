@@ -6,6 +6,7 @@ module libcharmtyles
     include "limits";
 
     readonly CProxy_scalar_impl scalar_impl_proxy;
+    readonly CProxy_KokkosGroup kokkosMgmt;
 
     chare set_future
     {
@@ -916,5 +917,6 @@ module libcharmtyles
     group KokkosGroup {
         entry KokkosGroup();
         entry void finalize();
+        entry void dkload(uint64_t);
     };
 }
