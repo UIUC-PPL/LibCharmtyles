@@ -2,6 +2,8 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
+#include <sstream>
+#include <iomanip>
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
