@@ -89,11 +89,11 @@ private:
     #include <Kokkos_Core.hpp>
 
     struct ASTFunctor {
-        std::vector<Kokkos::View<double*>> vec_map;
+        Kokkos::View<Kokkos::View<double*>*> vec_map;
         std::vector<void*> custom_ops;
         std::vector<void*> custom_ops_this;
 
-        KOKKOS_INLINE_FUNCTION ASTFunctor(std::vector<Kokkos::View<double*>> _vec_map, std::vector<void*> _custom_ops, std::vector<void*> _custom_ops_this)
+        KOKKOS_INLINE_FUNCTION ASTFunctor(Kokkos::View<Kokkos::View<double*>*> _vec_map, std::vector<void*> _custom_ops, std::vector<void*> _custom_ops_this)
             : vec_map(_vec_map), custom_ops(_custom_ops), custom_ops_this(_custom_ops_this) {}
 
         KOKKOS_INLINE_FUNCTION
@@ -102,7 +102,7 @@ private:
         }
     };
 
-    extern "C" void run_kernel(std::vector<Kokkos::View<double*>> vec_map, std::vector<void*> custom_ops, std::vector<void*> custom_ops_this, std::size_t vec_dim) {
+    extern "C" void run_kernel(Kokkos::View<Kokkos::View<double*>*> vec_map, std::vector<void*> custom_ops, std::vector<void*> custom_ops_this, std::size_t vec_dim) {
         ASTFunctor kernel(vec_map, custom_ops, custom_ops_this);
         Kokkos::parallel_for("debug_label", Kokkos::RangePolicy<>(0, vec_dim), kernel);
     }
@@ -111,11 +111,14 @@ private:
         std::fstream ofs(file_name, std::ios::out);
         ofs << kernel;
         ofs.close();
-        system(std::string("g++ -O3 -march=native -std=c++20 -I$PWD/_deps/kokkos-src/tpls/mdspan/include "
-            "-I$PWD/_deps/kokkos-src/core/src -I$PWD/_deps/kokkos-build -I$PWD/_deps/kokkos-src/tpls/desul/include -shared "
-            "-fPIC -o " + lib_name + " " + file_name + " -L$PWD/_deps/kokkos-build/core/src "
-            "-lkokkoscore").c_str());
-
+#ifdef GPU_BACKEND
+    system(std::string(std::string(KOKKOS_DIR) + "/bin/nvcc_wrapper -O3 -march=native -std=c++20 -I" + std::string(KOKKOS_DIR) + "/include "
+                "-fPIC -shared -o " + lib_name + " " + file_name + " -L" + std::string(KOKKOS_DIR) + "/lib64 "
+                "-lkokkoscore -L" + std::string(CUDA_DIR) + " -lcuda -lcudart --extended-lambda").c_str());
+#else
+    system(std::string("g++ -O3 -march=native -std=c++20 -I" + std::string(KOKKOS_DIR) + "/include -shared -fPIC -o " + 
+                        lib_name + " " + file_name + " -L" + std::string(KOKKOS_DIR) + "/lib -lkokkoscore").c_str());
+#endif
         void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
         void* functor = dlsym(handle, "run_kernel");
         kernel_cache[hash] = functor;
@@ -270,14 +273,19 @@ public:
     }
 
     using kernelInfo = ct::vec_impl::vec_node::kernelInfo;
-    using kernelType = void(*)(std::vector<Kokkos::View<double*>>, std::vector<void*>, std::vector<void*>, std::size_t);
+    using kernelType = void(*)(Kokkos::View<Kokkos::View<double*>*>, std::vector<void*>, std::vector<void*>, std::size_t);
 
     static void execute(kernelInfo const& kernel, size_t vec_dim, std::vector<Kokkos::View<double*>> const& vec_map, std::vector<ct::vec_impl::vec_node> const& instruction) {
-        std::vector<Kokkos::View<double*>> kkVecViews;
-        for(auto it : std::get<1>(kernel))
-            kkVecViews.emplace_back(vec_map[it]);
+    
+        Kokkos::View<Kokkos::View<double*>*> kkVecViews("kkVecViews", std::get<1>(kernel).size());
+        auto kkVecViews_h = Kokkos::create_mirror_view(kkVecViews);
+        for(int i = 0; i < std::get<1>(kernel).size(); i++) {
+            kkVecViews_h(i) = vec_map[std::get<1>(kernel)[i]];
+        }
+        Kokkos::deep_copy(kkVecViews, kkVecViews_h);
         std::vector<void*> kkCustomOps;
         std::vector<void*> kkCustomOpsThis;
+
         for(auto it : std::get<2>(kernel))
             if(it.second) {
                 kkCustomOps.emplace_back(getFuncPtr(instruction[it.first].unary_expr_.get()));
@@ -287,6 +295,7 @@ public:
                 kkCustomOps.emplace_back(getFuncPtr(instruction[it.first].binary_expr_.get()));
                 kkCustomOpsThis.emplace_back((void*)instruction[it.first].binary_expr_.get());
             }
+
         ((kernelType)(void*)std::get<0>(kernel))(std::move(kkVecViews), std::move(kkCustomOps), std::move(kkCustomOpsThis), vec_dim);
     }
 

@@ -1,6 +1,8 @@
 set(CHARM_DIR "/home/shogo/master/Kale/charm/netlrts-linux-x86_64")
 set(BASE_DIR "/home/shogo/master/Kale/LibCharmtyles")
 set(EIGEN_DIR "/usr/include/eigen3")
+set(CUDA_DIR  "/path/to/CUDA/directory")
+set(KOKKOS_DIR "/home/shogo/master/Kale/LibCharmtyles/kokkos/install")
 
 set(CHARMC "${CHARM_DIR}/bin/charmc")
 set(OPTS "-c++-option -std=c++17 -O3 -march=native -DNDEBUG")

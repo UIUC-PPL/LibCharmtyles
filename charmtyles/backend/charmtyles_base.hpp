@@ -199,7 +199,6 @@ public:
         thisProxy.main_kernel();
     }
 
-private:
     std::vector<double> scal_map;
 
     int SDAG_INDEX;
@@ -207,34 +206,7 @@ private:
 
 class vector_impl : public CBase_vector_impl
 {
-    // Helper private functions
-private:
-    std::size_t get_vec_dim(std::size_t vec_len)
-    {
-        if (vec_len % vec_block_size == 0)
-            return vec_block_size;
-
-        if (thisIndex != num_chares - 1)
-            return vec_block_size;
-
-        return vec_len % vec_block_size;
-    }
-
-    void print_instructions(
-        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
-    {
-        ckout << "Printing Instructions:" << endl;
-
-        for (int num_instr = 0; num_instr != instr_list.size(); ++num_instr)
-        {
-            ckout << "Instruction " << num_instr << ": ";
-            ct::util::parse_ast(instr_list[num_instr], 0);
-            ckout << endl;
-        }
-    }
-
-    // Instruction related private functions
-private:
+public:
     void update_partitions(
         std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
     {
@@ -320,12 +292,11 @@ private:
                 vec_map.emplace_back(
                     Kokkos::View<double*>("FIXME", vec_map[copy_id].size()));
 
-            Kokkos::parallel_for(
-                "copy_" + std::to_string(copy_id) + "_" +
-                    std::to_string(node_id),
-                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                    vec_map[node_id](i) = vec_map[copy_id](i);
-                });
+            auto dest = vec_map[node_id];
+            auto src  = vec_map[copy_id];
+
+            Kokkos::parallel_for("copy_" + std::to_string(copy_id) + "_" +
+                    std::to_string(node_id), dest.size(), KOKKOS_LAMBDA(int i) { dest(i) = src(i); });
         } return;
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
@@ -354,12 +325,11 @@ private:
             if(copy_id == -1) {
                 Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
-                Kokkos::parallel_for(
-                    "copy_" + std::to_string(copy_id) + "_" +
-                        std::to_string(node_id),
-                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                        vec_map[node_id](i) += vec_map[copy_id](i);
-                    });
+                auto dest = vec_map[node_id];
+                auto src  = vec_map[copy_id];
+
+                Kokkos::parallel_for("copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id), dest.size(), KOKKOS_LAMBDA(int i) { dest(i) += src(i); });
             }
         } return;
         case ct::util::Operation::inplace_sub:
@@ -369,12 +339,11 @@ private:
             if(copy_id == -1) {
                 Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
-                Kokkos::parallel_for(
-                    "copy_" + std::to_string(copy_id) + "_" +
-                        std::to_string(node_id),
-                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                        vec_map[node_id](i) -= vec_map[copy_id](i);
-                    });
+                auto dest = vec_map[node_id];
+                auto src  = vec_map[copy_id];
+
+                Kokkos::parallel_for("copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id), dest.size(), KOKKOS_LAMBDA(int i) { dest(i) -= src(i); });
             }
         } return;
         case ct::util::Operation::inplace_divide:
@@ -384,15 +353,13 @@ private:
             if(copy_id == -1) {
                 Codegen::execute(node.kernel, vec_map[node_id].size(), vec_map, instruction);
             } else {
-                Kokkos::parallel_for(
-                    "copy_" + std::to_string(copy_id) + "_" +
-                        std::to_string(node_id),
-                    vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
-                        vec_map[node_id](i) /= vec_map[copy_id](i);
-                    });
-                return;
+                auto dest = vec_map[node_id];
+                auto src  = vec_map[copy_id];
+
+                Kokkos::parallel_for("copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id), dest.size(), KOKKOS_LAMBDA(int i) { dest(i) /= src(i); });
             }
-        } break;
+        } return;
         case ct::util::Operation::axpy:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
@@ -423,8 +390,8 @@ private:
             Kokkos::View<double*> a_new("vec" + std::to_string(node_id), n);
             Kokkos::View<double*> b_new("vec" + std::to_string(instruction[node.left_].name_), n);
 
-            Kokkos::View<double*>::HostMirror a_new_host = Kokkos::create_mirror_view(a_new);
-            Kokkos::View<double*>::HostMirror b_new_host = Kokkos::create_mirror_view(b_new);
+            auto a_new_host = Kokkos::create_mirror_view(a_new);
+            auto b_new_host = Kokkos::create_mirror_view(b_new);
 
             for(auto i = 0; i < n; i++) {
                 a_new_host(i) = a[i];
@@ -453,6 +420,30 @@ public:
     }
 
 private:
+    std::size_t get_vec_dim(std::size_t vec_len)
+    {
+        if (vec_len % vec_block_size == 0)
+            return vec_block_size;
+
+        if (thisIndex != num_chares - 1)
+            return vec_block_size;
+
+        return vec_len % vec_block_size;
+    }
+
+    void print_instructions(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
+    {
+        ckout << "Printing Instructions:" << endl;
+
+        for (int num_instr = 0; num_instr != instr_list.size(); ++num_instr)
+        {
+            ckout << "Instruction " << num_instr << ": ";
+            ct::util::parse_ast(instr_list[num_instr], 0);
+            ckout << endl;
+        }
+    }
+
     int num_chares;
     std::vector<Kokkos::View<double*>> vec_map;
 

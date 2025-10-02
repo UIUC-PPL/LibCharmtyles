@@ -54,6 +54,7 @@ void* ret_fn_ptr(base* b) {
 }
 
 int main() {
+#ifdef RUNNING
     derived d(42);
     derived_fake df;
     std::vector<void*> v;
@@ -70,4 +71,8 @@ int main() {
         f((void*)b, 27);
     }
     return 0;
+#else
+    std::cout << std::string(LOL) + "broosko" << std::endl;
+    return 69;
+#endif
 }
