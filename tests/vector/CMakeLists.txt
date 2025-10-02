@@ -10,13 +10,14 @@ if(Charm_ENABLE_GPU)
     message(STATUS "Building for a GPU backend")
     add_definitions(-DGPU_BACKEND)
     add_definitions(-DCUDA_DIR=\"${CUDA_DIR}\")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GPU_OPTS} ${LD_OPTS}")
 else()
     message(STATUS "Building for a CPU backend")
     set(CMAKE_CXX_COMPILER "${CHARMC}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPU_OPTS} ${LD_OPTS}")
 endif()
 
 add_definitions(-DKOKKOS_DIR=\"${KOKKOS_DIR}\")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPTS} ${LD_OPTS}")
 
 add_custom_command(
     OUTPUT  ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h
@@ -38,6 +39,15 @@ if(Charm_ENABLE_GPU)
     add_library(vector OBJECT vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
     target_include_directories(vector PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR}/include ${CHARM_DIR}/include)
     target_link_libraries(vector Kokkos::kokkos)
+
+    add_custom_command(
+        OUTPUT  vector.out
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} vector
+        DEPENDS vector
+        COMMENT "Processing base ci files"
+    )
+
+    add_custom_target(result ALL DEPENDS vector.out)
 else()
     add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
     target_include_directories(vector.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
