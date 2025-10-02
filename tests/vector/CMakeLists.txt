@@ -40,14 +40,10 @@ if(Charm_ENABLE_GPU)
     target_include_directories(vector PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR}/include ${CHARM_DIR}/include)
     target_link_libraries(vector Kokkos::kokkos)
 
-    add_custom_command(
-        OUTPUT  vector.out
-        COMMAND ${CHARMC} ${GPU_LINK_OPTS} ${CMAKE_BUILD_DIR}/CMakeFiles/vector.out.dir/vector.cpp.o
-        DEPENDS ${CMAKE_BUILD_DIR}/CMakeFiles/vector.out.dir/vector.cpp.o
-        COMMENT "Processing base ci files"
-    )
-
-    add_custom_target(result ALL DEPENDS vector.out)
+    add_custom_command(result ALL
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} $<TARGET_OBJECTS>:vector> -o ${CMAKE_BINARY_DIR}/vector.out
+        DEPENDS vector
+        COMMENT "Linking charm build against kokkos and cuda")
 else()
     add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
     target_include_directories(vector.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
