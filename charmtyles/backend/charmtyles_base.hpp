@@ -845,12 +845,11 @@ private:
             }
 
             const ct::mat_impl::mat_node& node = instruction[0];
-            
+
             // Execute custom expression directly with Kokkos views
-            node.custom_expr_->operator()(num_rows, num_cols, 
-                mat_map[node_id],
+            node.custom_expr_->operator()(num_rows, num_cols, mat_map[node_id],
                 mat_map[instruction[node.left_].name_]);
-            
+
             return;
         }
 

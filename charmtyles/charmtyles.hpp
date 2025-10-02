@@ -7,12 +7,12 @@
 #include <charmtyles/util/singleton.hpp>
 #include <charmtyles/util/sizes.hpp>
 
+#include <charmtyles/frontend/basic_binary_operators.hpp>
+#include <charmtyles/frontend/basic_unary_operators.hpp>
 #include <charmtyles/frontend/matrix.hpp>
 #include <charmtyles/frontend/operations.hpp>
 #include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
-#include <charmtyles/frontend/basic_unary_operators.hpp>
-#include <charmtyles/frontend/basic_binary_operators.hpp>
 
 namespace ct {
 
@@ -38,7 +38,8 @@ namespace ct {
         kokkosMgmt = CProxy_KokkosGroup::ckNew();
     }
 
-    void finalize() {
+    void finalize()
+    {
         kokkosMgmt.finalize();
     }
 
