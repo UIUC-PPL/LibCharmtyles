@@ -42,8 +42,8 @@ if(Charm_ENABLE_GPU)
 
     add_custom_command(
         OUTPUT  vector.out
-        COMMAND ${CHARMC} ${GPU_LINK_OPTS} vector
-        DEPENDS vector
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} ${CMAKE_BUILD_DIR}/CMakeFiles/vector.out.dir/vector.cpp.o
+        DEPENDS ${CMAKE_BUILD_DIR}/CMakeFiles/vector.out.dir/vector.cpp.o
         COMMENT "Processing base ci files"
     )
 
