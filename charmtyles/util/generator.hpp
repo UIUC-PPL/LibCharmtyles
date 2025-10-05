@@ -151,15 +151,7 @@ namespace ct {
             PUP::able::pup(p);
         }
 
-        // Default Operator overload for vectors
         virtual double operator()(double value)
-        {
-            return -1.0;
-        }
-
-        // Default Operator overload for matrices
-        virtual double operator()(
-            std::size_t row_id, std::size_t col_id, double value)
         {
             return -1.0;
         }
@@ -184,12 +176,6 @@ namespace ct {
         }
 
         virtual double operator()(double left_val, double right_val)
-        {
-            return -1.0;
-        }
-
-        virtual double operator()(std::size_t row_id, std::size_t col_id,
-            double left_val, double right_val)
         {
             return -1.0;
         }
@@ -219,11 +205,10 @@ namespace ct {
             lhs = rhs;
         }
 
-        virtual void operator()(std::size_t rows, std::size_t cols,
-            Kokkos::View<double**> lhs, Kokkos::View<double**> rhs)
+        virtual void operator()(std::size_t rows, std::size_t cols, std::vector<std::vector<double>>& lhs,  std::vector<std::vector<double>>& rhs)
         {
             // Default implementation: copy rhs to lhs
-            Kokkos::deep_copy(lhs, rhs);
+            lhs = rhs;
         }
     };
 

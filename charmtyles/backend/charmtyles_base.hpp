@@ -260,7 +260,7 @@ public:
             execute_instruction(ast);
     }
 
-#define CHECK_IF_EXIST_ELSE_ADD(node_id)                                       \
+#define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id)                                \
     if (node_id == vec_map.size())                                             \
     {                                                                          \
         vec_dim = get_vec_dim(node.vec_len_);                                  \
@@ -366,14 +366,14 @@ public:
         case ct::util::Operation::binary_expr:
         case ct::util::Operation::where:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
 
             Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node>(instruction[0].kernel, {vec_map[node_id].size()}, vec_map, instruction);
         }
             return;
         case ct::util::Operation::inplace_add:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -393,7 +393,7 @@ public:
             return;
         case ct::util::Operation::inplace_sub:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -413,7 +413,7 @@ public:
             return;
         case ct::util::Operation::inplace_divide:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -433,7 +433,7 @@ public:
             return;
         case ct::util::Operation::axpy:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
 
             double alpha = node.value_;
             Kokkos::View<double*> x = vec_map[node.left_];
@@ -447,7 +447,7 @@ public:
             return;
         case ct::util::Operation::custom_expr:
         {
-            CHECK_IF_EXIST_ELSE_ADD(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
 
             const ct::vec_impl::vec_node& node = instruction[0];
             auto a_host = Kokkos::create_mirror_view_and_copy(
@@ -578,6 +578,17 @@ private:
             execute_instruction(ast);
     }
 
+#define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id)                                \
+    if (node_id == mat_map.size()) \
+    { \
+        num_rows = get_mat_rows(node.mat_row_len_); \
+        num_cols = get_mat_cols(node.mat_col_len_); \
+ \
+        Kokkos::View<double**> mat( \
+            "mat" + std::to_string(node_id), num_rows, num_cols); \
+        mat_map.emplace_back(mat); \
+    } 
+
     void execute_instruction(
         std::vector<ct::mat_impl::mat_node> const& instruction,
         std::size_t index = 0)
@@ -653,16 +664,7 @@ private:
 
         case ct::util::Operation::copy:
             copy_id = node.copy_id_;
-
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
 
             {
                 auto dest = mat_map[node_id];
@@ -693,259 +695,116 @@ private:
         case ct::util::Operation::logical_and:
         case ct::util::Operation::logical_or:
         case ct::util::Operation::logical_not:
-        case ct::util::Operation::where:
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
-
-            {
-                auto result = mat_map[node_id];
-                Kokkos::parallel_for("binop_mat_" + std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                        {0, 0}, {result.extent(0), result.extent(1)}),
-                    [=, this](int i, int j) {
-                        result(i, j) =
-                            execute_ast_for_idx(instruction, 0, i, j);
-                    });
-            }
-
-            return;
-        case ct::util::Operation::inplace_add:
+        case ct::util::Operation::where: {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, instruction);
+        } return;
+        case ct::util::Operation::inplace_add: {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
             copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
+            if (copy_id == -1)
             {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
-
-            {
-                auto dest = mat_map[node_id];
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    Kokkos::parallel_for(
-                        "inplace_add_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        [=, this](int i, int j) {
-                            dest(i, j) +=
-                                execute_ast_for_idx(instruction, 1, i, j);
-                        });
-                }
-                else
-                {
-                    auto src = mat_map[copy_id];
-                    Kokkos::parallel_for(
-                        "inplace_add_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        KOKKOS_LAMBDA(
-                            int i, int j) { dest(i, j) += src(i, j); });
-                }
-            }
-
-            return;
-        case ct::util::Operation::inplace_sub:
-            copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
-
-            {
-                auto dest = mat_map[node_id];
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    Kokkos::parallel_for(
-                        "inplace_sub_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        [=, this](int i, int j) {
-                            dest(i, j) -=
-                                execute_ast_for_idx(instruction, 1, i, j);
-                        });
-                }
-                else
-                {
-                    auto src = mat_map[copy_id];
-                    Kokkos::parallel_for(
-                        "inplace_sub_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        KOKKOS_LAMBDA(
-                            int i, int j) { dest(i, j) -= src(i, j); });
-                }
-            }
-            return;
-
-        case ct::util::Operation::inplace_divide:
-            copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
-
-            {
-                auto dest = mat_map[node_id];
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    Kokkos::parallel_for(
-                        "inplace_divide_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        [=, this](int i, int j) {
-                            dest(i, j) /=
-                                execute_ast_for_idx(instruction, 1, i, j);
-                        });
-                }
-                else
-                {
-                    auto src = mat_map[copy_id];
-                    Kokkos::parallel_for(
-                        "inplace_divide_mat_" + std::to_string(node_id),
-                        Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                            {0, 0}, {dest.extent(0), dest.extent(1)}),
-                        KOKKOS_LAMBDA(
-                            int i, int j) { dest(i, j) /= src(i, j); });
-                }
-            }
-            return;
-
-        case ct::util::Operation::custom_expr:
-        {
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                mat_map.emplace_back(mat);
-            }
-
-            const ct::mat_impl::mat_node& node = instruction[0];
-
-            // Execute custom expression directly with Kokkos views
-            node.custom_expr_->operator()(num_rows, num_cols, mat_map[node_id],
-                mat_map[instruction[node.left_].name_]);
-
-            return;
-        }
-
-        default:
-            CmiAbort("Operation not implemented");
-        }
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    double execute_ast_for_idx(
-        std::vector<ct::mat_impl::mat_node> const& instruction,
-        std::size_t curr_idx, std::size_t iter_i, std::size_t iter_j) const
-    {
-        const ct::mat_impl::mat_node& node = instruction[curr_idx];
-
-        switch (node.operation_)
-        {
-        case ct::util::Operation::noop:
-            return mat_map[node.name_](iter_i, iter_j);
-
-        case ct::util::Operation::add:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) +
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-
-        case ct::util::Operation::sub:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) -
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::multiply:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) *
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::divide:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) /
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::greater:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) >
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::lesser:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) <
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::geq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) >=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::leq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) <=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::eq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) ==
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::neq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) !=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::unary_expr:
-            return node.unary_expr_->operator()(iter_i, iter_j,
-                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j));
-        case ct::util::Operation::binary_expr:
-            return node.binary_expr_->operator()(iter_i, iter_j,
-                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j),
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
-        case ct::util::Operation::broadcast:
-            return node.value_;
-        case ct::util::Operation::logical_and:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) &&
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::logical_or:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) ||
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::logical_not:
-            return !execute_ast_for_idx(
-                instruction, node.left_, iter_i, iter_j);
-        case ct::util::Operation::where:
-            if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
-            {
-                return execute_ast_for_idx(
-                    instruction, node.left_, iter_i, iter_j);
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, instruction);
             }
             else
             {
-                return execute_ast_for_idx(
-                    instruction, node.right_, iter_i, iter_j);
+                auto dest = mat_map[node_id];
+                auto src  = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(
+                        int i, int j) { dest(i, j) += src(i, j); });
             }
+        } return;
+        case ct::util::Operation::inplace_sub: {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, instruction);
+            }
+            else
+            {
+                auto dest = mat_map[node_id];
+                auto src  = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(
+                        int i, int j) { dest(i, j) -= src(i, j); });
+            }
+        } return;
+        case ct::util::Operation::inplace_divide: {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, instruction);
+            }
+            else
+            {
+                auto dest = mat_map[node_id];
+                auto src  = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(
+                        int i, int j) { dest(i, j) /= src(i, j); });
+            }
+        } return;
+        case ct::util::Operation::custom_expr:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+
+            const ct::mat_impl::mat_node& node = instruction[0];
+            auto a_host = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), mat_map[node_id]);
+            const std::size_t rows = a_host.extent(0);
+            const std::size_t cols = a_host.extent(1);
+
+            std::vector<std::vector<double>> a;
+            for(int i = 0; i < rows; i++) {
+                a.push_back(std::vector<double>(a_host.data() + i * cols, a_host.data() + i * cols + cols));
+            }
+
+            auto b_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), mat_map[instruction[node.left_].name_]);
+            std::vector<std::vector<double>> b;
+            for(int i = 0; i < rows; i++) {
+                b.push_back(std::vector<double>(b_host.data() + i * cols, b_host.data() + i * cols + cols));
+            }
+
+            node.custom_expr_->operator()(rows, cols, a, b);
+
+            Kokkos::View<double**> a_new("mat" + std::to_string(node_id), rows, cols);
+            Kokkos::View<double**> b_new(
+                "mat" + std::to_string(instruction[node.left_].name_), rows, cols);
+
+            auto a_new_host = Kokkos::create_mirror_view(a_new);
+            auto b_new_host = Kokkos::create_mirror_view(b_new);
+
+            for (int i = 0; i < rows; i++) {
+                for(int j = 0; j < cols; j++) {
+                    a_new_host(i, j) = a[i][j];
+                    b_new_host(i, j) = b[i][j];
+                }
+            }
+
+            Kokkos::deep_copy(a_new, a_new_host);
+            Kokkos::deep_copy(b_new, b_new_host);
+            mat_map[node_id] = a_new;
+            mat_map[instruction[node.left_].name_] = b_new;
+        } return;
         default:
             CmiAbort("Operation not implemented");
         }
-
-        // Control should not reach here!
-        return 0.;
     }
-
 public:
     matrix_impl_SDAG_CODE;
 
