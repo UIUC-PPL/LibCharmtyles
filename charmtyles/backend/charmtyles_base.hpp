@@ -368,8 +368,7 @@ public:
         {
             CHECK_IF_EXIST_ELSE_ADD(node_id);
 
-            Codegen::execute(instruction[0].kernel, vec_map[node_id].size(),
-                vec_map, instruction);
+            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node>(instruction[0].kernel, {vec_map[node_id].size()}, vec_map, instruction);
         }
             return;
         case ct::util::Operation::inplace_add:
@@ -378,8 +377,7 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute(
-                    node.kernel, vec_map[node_id].size(), vec_map, instruction);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node>(node.kernel, {vec_map[node_id].size()}, vec_map, instruction);
             }
             else
             {
@@ -399,8 +397,7 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute(
-                    node.kernel, vec_map[node_id].size(), vec_map, instruction);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node>(node.kernel, {vec_map[node_id].size()}, vec_map, instruction);
             }
             else
             {
@@ -420,8 +417,7 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute(
-                    node.kernel, vec_map[node_id].size(), vec_map, instruction);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node>(node.kernel, {vec_map[node_id].size()}, vec_map, instruction);
             }
             else
             {

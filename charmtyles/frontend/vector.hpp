@@ -109,7 +109,7 @@ namespace ct {
                       (op == ct::util::Operation::inplace_divide&&
                        instruction[0].copy_id_ != -1)) continue;
                     cgen.reset();
-                    instruction[0].kernel = cgen.generate_kernel(instruction);
+                    instruction[0].kernel = cgen.generate_kernel<vec_node, 1>(instruction);
                     kokkosMgmt.dkload(std::get<0>(instruction[0].kernel));
                 }
             }

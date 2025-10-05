@@ -89,6 +89,27 @@ namespace ct {
                 return dispatch_count;
             }
 
+            void codegen(instr_t& instructions) {
+                for(auto& instruction : instructions) {
+                    auto op = instruction[0].operation_;
+                    if(op == ct::util::Operation::init_random   ||
+                       op == ct::util::Operation::init_value    ||
+                       op == ct::util::Operation::init_generate ||
+                       op == ct::util::Operation::copy          ||
+                       op == ct::util::Operation::axpy          ||
+                       op == ct::util::Operation::custom_expr   ||
+                      (op == ct::util::Operation::inplace_add   &&
+                       instruction[0].copy_id_ != -1)           ||
+                      (op == ct::util::Operation::inplace_sub   &&
+                       instruction[0].copy_id_ != -1)           ||
+                      (op == ct::util::Operation::inplace_divide&&
+                       instruction[0].copy_id_ != -1)) continue;
+                    cgen.reset();
+                    instruction[0].kernel = cgen.generate_kernel<mat_node, 2>(instruction);
+                    kokkosMgmt.dkload(std::get<0>(instruction[0].kernel));
+                }
+            }
+
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
@@ -179,6 +200,8 @@ namespace ct {
         private:
             std::vector<instr_t> shape_matrix_queue_;
             std::vector<std::size_t> sdag_index_;
+
+            Codegen cgen;
         };
         CT_GENERATE_SINGLETON(mat_instr_queue_t, mat_instr_queue);
 
@@ -212,13 +235,8 @@ namespace ct {
             if (it == shape_info.end())
             {
                 // Create a new proxy for this shape and assign it to shape_info
-                CProxy_matrix_impl proxy =
-                    CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x,
-                        CT_ACCESS_SINGLETON(ct::util::matrix_block_rows),
-                        CT_ACCESS_SINGLETON(ct::util::matrix_block_cols),
-                        num_chares_x, num_chares_y);
-                shape_info.emplace_back(ct::mat_impl::mat_shape_t{
-                    0, num_chares_x, num_chares_y, proxy});
+                CProxy_matrix_impl proxy = CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x, row_block_len, col_block_len, num_chares_x, num_chares_y);
+                shape_info.emplace_back(ct::mat_impl::mat_shape_t{0, num_chares_x, num_chares_y, proxy});
 
                 ct::mat_impl::mat_shape_t matrix_shape = shape_info.back();
 

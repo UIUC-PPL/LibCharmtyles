@@ -134,6 +134,7 @@ namespace ct {
             }
         }
 
+        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>>;
     }    // namespace util
 
     namespace vec_impl {
@@ -157,8 +158,7 @@ namespace ct {
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
 
-            using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>>;
-            kernelInfo kernel;
+            ct::util::kernelInfo kernel;
 
             // Only called when initializing through expression
             vec_node() = default;
@@ -282,6 +282,8 @@ namespace ct {
             std::size_t left_ = -1;
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
+
+            ct::util::kernelInfo kernel;
 
             // Only called when initializing through expression
             mat_node() = default;
