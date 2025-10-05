@@ -137,6 +137,7 @@ namespace ct {
                     // Dispatch all non-empty vectors!
                     if (shape_matrix_queue_[i].size() != 0)
                     {
+                        codegen(shape_matrix_queue_[i]);
                         is_dispatched = true;
 
                         std::size_t& sdag_index = sdag_index_[i];
@@ -161,6 +162,7 @@ namespace ct {
                 // Send instruction for execution
                 if (shape_matrix_queue_[shape_id].size() != 0)
                 {
+                    codegen(shape_matrix_queue_[shape_id]);
                     std::size_t& sdag_index = sdag_index_[shape_id];
 
                     CProxy_matrix_impl dispatch_proxy =

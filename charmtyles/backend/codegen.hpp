@@ -176,11 +176,16 @@ private:
     return -static_cast<long long>(kkTmpVar);
 
     inline void genIndxScheme(const size_t dim) noexcept {
+        kkViewIndxScheme += "(";
         for(size_t i = 0; i < dim; i++) {
-            kkViewIndxScheme += "(" + std::string(1, (char)(97 + i)) + ")";
+            kkViewIndxScheme += std::string(1, (char)(97 + i));
             kkFuncDecl += "const int " + std::string(1, (char)(97 + i));
-            if(i != dim - 1) kkFuncDecl += ", ";
+            if(i != dim - 1) {
+                kkViewIndxScheme += ", ";
+                kkFuncDecl += ", ";
+            }
         }
+        kkViewIndxScheme += ")";
     }
 
     inline void genKkViewType(const size_t dim) noexcept {

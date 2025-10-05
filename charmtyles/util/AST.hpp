@@ -377,6 +377,9 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
+                p | std::get<0>(kernel);
+                p | std::get<1>(kernel);
+                p | std::get<2>(kernel);
             }
         };
 
