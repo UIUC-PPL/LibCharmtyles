@@ -121,13 +121,9 @@ module libcharmtyles
                         "initialization.");
 
                     std::size_t vec_dim = get_vec_dim(total_len);
-
-                    Kokkos::View<double*> gen_vec("Label", vec_dim);
-
-                    for (int dimX = 0; dimX != vec_dim; ++dimX)
-                    {
-                        gen_vec(dimX) = gen_ptr->generate(thisIndex * vec_block_size + dimX);
-                    }
+                    
+                    // Use public helper method to avoid CUDA lambda visibility issues
+                    Kokkos::View<double*> gen_vec = generator_init_impl(vec_dim, gen_ptr);
                     vec_map.emplace_back(gen_vec);
 
                     ++SDAG_INDEX;
@@ -162,17 +158,8 @@ module libcharmtyles
                 when dot[SDAG_INDEX](int sdag_index,
                     int lhs_id, int rhs_id, int scal_sdag_idx) {
                 serial "vector_dot" {
-                    Kokkos::View<double*> lhs = vec_map[lhs_id];
-                    Kokkos::View<double*> rhs = vec_map[rhs_id];
-
-                    double result = 0.0;
-                    Kokkos::parallel_reduce(
-                        lhs.size(),
-                        KOKKOS_LAMBDA(const int i, double &local_sum) {
-                            local_sum += lhs(i) * rhs(i);
-                        },
-                        result
-                    );
+                    // Use public helper method to avoid CUDA lambda visibility issues
+                    double result = vector_dot_impl(lhs_id, rhs_id);
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
@@ -736,28 +723,17 @@ module libcharmtyles
                         vec_size = len % col_block_len;
                     }
 
-                    // Create Kokkos view for the input vector
-                    Kokkos::View<double*> vec_in(data + thisIndex.x * block_dim, vec_size);
-                    Kokkos::View<double**> mat = mat_map[mat_idx];
-                    
                     // Initialize result array
                     double result[result_size];
                     for (int i = 0; i != result_size; ++i)
                         result[i] = 0;
 
                     // Create view for local result
-                    std::size_t num_rows = mat.extent(0);
+                    std::size_t num_rows = mat_map[mat_idx].extent(0);
                     Kokkos::View<double*> local_result("local_result", num_rows);
                     
-                    // Perform matrix-vector multiplication: result = mat * vec
-                    Kokkos::parallel_for("mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
-                        double sum = 0.0;
-                        for (std::size_t j = 0; j < vec_size; ++j) {
-                            sum += mat(i, j) * vec_in(j);
-                        }
-                        local_result(i) = sum;
-                    });
-                    Kokkos::fence();
+                    // Use public helper method to avoid CUDA lambda visibility issues
+                    mat_vec_dot_impl(mat_idx, data + thisIndex.x * block_dim, vec_size, local_result);
                     
                     // Copy local result to the correct position in the result array
                     for (std::size_t i = 0; i < num_rows; ++i) {
@@ -784,28 +760,17 @@ module libcharmtyles
                         vec_size = len % row_block_len;
                     }
 
-                    // Create Kokkos view for the input vector
-                    Kokkos::View<double*> vec_in(data + thisIndex.y * block_dim, vec_size);
-                    Kokkos::View<double**> mat = mat_map[mat_idx];
-                    
                     // Initialize result array
                     double result[result_size];
                     for (int i = 0; i != result_size; ++i)
                         result[i] = 0;
 
                     // Create view for local result
-                    std::size_t num_cols = mat.extent(1);
+                    std::size_t num_cols = mat_map[mat_idx].extent(1);
                     Kokkos::View<double*> local_result("local_result", num_cols);
                     
-                    // Perform vector-matrix multiplication: result = vec * mat
-                    Kokkos::parallel_for("vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
-                        double sum = 0.0;
-                        for (std::size_t i = 0; i < vec_size; ++i) {
-                            sum += vec_in(i) * mat(i, j);
-                        }
-                        local_result(j) = sum;
-                    });
-                    Kokkos::fence();
+                    // Use public helper method to avoid CUDA lambda visibility issues
+                    vec_mat_dot_impl(mat_idx, data + thisIndex.y * block_dim, vec_size, local_result);
                     
                     // Copy local result to the correct position in the result array
                     for (std::size_t j = 0; j < num_cols; ++j) {

@@ -260,6 +260,37 @@ public:
             execute_instruction(ast);
     }
 
+    // Helper method for generator initialization - must be public for CUDA lambdas
+    Kokkos::View<double*> generator_init_impl(std::size_t vec_dim, std::shared_ptr<ct::generator> gen_ptr)
+    {
+        Kokkos::View<double*> gen_vec("Label", vec_dim);
+        
+        for (int dimX = 0; dimX != vec_dim; ++dimX)
+        {
+            gen_vec(dimX) = gen_ptr->generate(thisIndex * vec_block_size + dimX);
+        }
+        
+        return gen_vec;
+    }
+
+    // Helper method for vector dot product - must be public for CUDA lambdas
+    double vector_dot_impl(int lhs_id, int rhs_id)
+    {
+        Kokkos::View<double*> lhs = vec_map[lhs_id];
+        Kokkos::View<double*> rhs = vec_map[rhs_id];
+
+        double result = 0.0;
+        Kokkos::parallel_reduce(
+            lhs.size(),
+            KOKKOS_LAMBDA(const int i, double &local_sum) {
+                local_sum += lhs(i) * rhs(i);
+            },
+            result
+        );
+        
+        return result;
+    }
+
 #define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id)                                \
     if (node_id == vec_map.size())                                             \
     {                                                                          \
@@ -577,13 +608,51 @@ private:
         }
     }
 
-    // Instruction related private functions
-private:
+    // Instruction related functions - must be public for CUDA lambdas
+public:
     void update_partitions(
         std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
     {
         for (auto const& ast : instr_list)
             execute_instruction(ast);
+    }
+
+    // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
+    void mat_vec_dot_impl(int mat_idx, double* vec_in_data, std::size_t vec_size, 
+                         Kokkos::View<double*>& local_result)
+    {
+        Kokkos::View<double*> vec_in(vec_in_data, vec_size);
+        Kokkos::View<double**> mat = mat_map[mat_idx];
+        std::size_t num_rows = mat.extent(0);
+        
+        // Perform matrix-vector multiplication: result = mat * vec
+        Kokkos::parallel_for("mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
+            double sum = 0.0;
+            for (std::size_t j = 0; j < vec_size; ++j) {
+                sum += mat(i, j) * vec_in(j);
+            }
+            local_result(i) = sum;
+        });
+        Kokkos::fence();
+    }
+
+    // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
+    void vec_mat_dot_impl(int mat_idx, double* vec_in_data, std::size_t vec_size,
+                         Kokkos::View<double*>& local_result)
+    {
+        Kokkos::View<double*> vec_in(vec_in_data, vec_size);
+        Kokkos::View<double**> mat = mat_map[mat_idx];
+        std::size_t num_cols = mat.extent(1);
+        
+        // Perform vector-matrix multiplication: result = vec * mat
+        Kokkos::parallel_for("vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
+            double sum = 0.0;
+            for (std::size_t i = 0; i < vec_size; ++i) {
+                sum += vec_in(i) * mat(i, j);
+            }
+            local_result(j) = sum;
+        });
+        Kokkos::fence();
     }
 
 #define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id)                                \
