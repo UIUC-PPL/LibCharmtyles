@@ -3,20 +3,21 @@ project(charmTyles)
 
 include(${CMAKE_SOURCE_DIR}/../../config.cmake)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(BUILD_SHARED_LIBS ON)
+set(Kokkos_ROOT ${KOKKOS_DIR})
+find_package(Kokkos 4.5 REQUIRED CONFIG)
 
-include(FetchContent)
-FetchContent_Declare(
-  Kokkos
-  URL https://github.com/kokkos/kokkos/archive/refs/tags/4.5.01.zip
-)
-FetchContent_MakeAvailable(Kokkos)
+if(Charm_ENABLE_GPU)
+    message(STATUS "Building for a GPU backend")
+    add_definitions(-DGPU_BACKEND)
+    add_definitions(-DCUDA_DIR=\"${CUDA_DIR}\")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GPU_OPTS} ${LD_OPTS}")
+else()
+    message(STATUS "Building for a CPU backend")
+    set(CMAKE_CXX_COMPILER "${CHARMC}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPU_OPTS} ${LD_OPTS}")
+endif()
 
-message(STATUS "CHARMC = ${CHARMC}")
-
-set(CMAKE_CXX_COMPILER "${CHARMC}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPTS} ${LD_OPTS}")
+add_definitions(-DKOKKOS_DIR=\"${KOKKOS_DIR}\")
 
 add_custom_command(
     OUTPUT  ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h
@@ -34,13 +35,17 @@ add_custom_command(
     COMMENT "Processing base ci files"
 )
 
-set(DESTINATION_FILE "${CMAKE_BINARY_DIR}/_deps/kokkos-src/tpls/desul/include/desul/atomics/Config.hpp")
-add_custom_command(
-    OUTPUT  ${DESTINATION_FILE}
-    COMMAND ${CMAKE_SOURCE_DIR}/../../patch.sh ${CMAKE_BINARY_DIR}
-    COMMENT "Generating ${DESTINATION_FILE}"
-)
+if(Charm_ENABLE_GPU)
+    add_library(binary_include OBJECT binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
+    target_include_directories(binary_include PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR}/include ${CHARM_DIR}/include)
+    target_link_libraries(binary_include Kokkos::kokkos)
 
-add_executable(binary_include.out binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h ${DESTINATION_FILE})
-target_include_directories(binary_include.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
-target_link_libraries(binary_include.out Kokkos::kokkos)
+    add_custom_command(result ALL
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} $<TARGET_OBJECTS>:binary_include> -o ${CMAKE_BINARY_DIR}/binary_include.out
+        DEPENDS binary_include
+        COMMENT "Linking charm build against kokkos and cuda")
+else()
+    add_executable(binary_include.out binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
+    target_include_directories(binary_include.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})
+    target_link_libraries(binary_include.out Kokkos::kokkos)
+endif()

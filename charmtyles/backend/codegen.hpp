@@ -38,6 +38,8 @@ private:
     std::string kkFuncDecl {};
     // RangePolicy for the corresponding to the given rank
     std::string kkRangePolicy {};
+    // list of indices to be sent as input to the custom unary / binary op
+    std::string kkCustomOpsDecl {};
 
     long long getViewIdx(size_t node_id)
     {
@@ -73,22 +75,20 @@ private:
         return oss.str();
     }
 
+    template<size_t dim>
     static inline void* getFuncPtr(ct::unary_operator* op)
     {
         void** vtable = *reinterpret_cast<void***>(op);
-        void* fun_ptr = vtable[5];
-        using RawFun = double (*)(void*, double);
-        RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
-        return reinterpret_cast<void*>(rf);
+        if constexpr (dim == 1) return vtable[5];
+        else if constexpr (dim == 2) return vtable[6];
     }
 
+    template<size_t dim>
     static inline void* getFuncPtr(ct::binary_operator* op)
     {
         void** vtable = *reinterpret_cast<void***>(op);
-        void* fun_ptr = vtable[5];
-        using RawFun = double (*)(void*, double, double);
-        RawFun rf = reinterpret_cast<RawFun>(fun_ptr);
-        return reinterpret_cast<void*>(rf);
+        if constexpr (dim == 1) return vtable[5];
+        else if constexpr (dim == 2) return vtable[6];
     }
 
     uint64_t compile()
@@ -160,7 +160,7 @@ private:
         }                                                                      \
         else                                                                   \
         {                                                                      \
-            kk << "view_map[" << leftid << "]" << kkViewIndxScheme;             \
+            kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";    \
         }                                                                      \
         kk << " " << op << " ";                                                \
         if (rightid < 0)                                                       \
@@ -169,14 +169,13 @@ private:
         }                                                                      \
         else                                                                   \
         {                                                                      \
-            kk << "view_map[" << rightid << "]" << kkViewIndxScheme;            \
+            kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";   \
         }                                                                      \
         kk << ";\n";                                                           \
     }                                                                          \
     return -static_cast<long long>(kkTmpVar);
 
     inline void genIndxScheme(const size_t dim) noexcept {
-        kkViewIndxScheme += "(";
         for(size_t i = 0; i < dim; i++) {
             kkViewIndxScheme += std::string(1, (char)(97 + i));
             kkFuncDecl += "const int " + std::string(1, (char)(97 + i));
@@ -185,7 +184,6 @@ private:
                 kkFuncDecl += ", ";
             }
         }
-        kkViewIndxScheme += ")";
     }
 
     inline void genKkViewType(const size_t dim) noexcept {
@@ -210,6 +208,11 @@ private:
             }
             kkRangePolicy += "})";
         }
+    }
+
+    inline void genkkCustomOpsDecl(const size_t dim) noexcept {
+        for(size_t i = 0; i < dim; i++)
+            kkCustomOpsDecl += "size_t, ";
     }
 
     template <typename T>
@@ -257,7 +260,7 @@ private:
             }
             else
             {
-                kk << "view_map[" << leftid << "]" << kkViewIndxScheme;
+                kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
             kk << ";\n";
         }
@@ -268,15 +271,15 @@ private:
             kkTmpVar++;
             kkCustomOpsOrder.push_back({curr_idx, true});
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(void*,double))custom_ops[" << kkCustomOpIdx
-               << "])(custom_ops_this[" << kkCustomOpIdx << "], ";
+            kk << "((double(*)(void*," << kkCustomOpsDecl << "double))custom_ops[" << kkCustomOpIdx
+               << "])(custom_ops_this[" << kkCustomOpIdx << "], " << kkViewIndxScheme << ", ";
             if (leftid < 0)
             {
                 kk << "tmp" << -leftid;
             }
             else
             {
-                kk << "view_map[" << leftid << "]" << kkViewIndxScheme;
+                kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
             kk << ");\n";
             kkCustomOpIdx++;
@@ -289,16 +292,16 @@ private:
             kkTmpVar++;
             kkCustomOpsOrder.push_back({curr_idx, false});
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(void*,double,double))custom_ops["
+            kk << "((double(*)(void*," << kkCustomOpsDecl << "double,double))custom_ops["
                << kkCustomOpIdx << "])(custom_ops_this[" << kkCustomOpIdx
-               << "], ";
+               << "], " << kkViewIndxScheme << ", ";
             if (leftid < 0)
             {
                 kk << "tmp" << -leftid;
             }
             else
             {
-                kk << "view_map[" << leftid << "]" << kkViewIndxScheme;
+                kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
             kk << ", ";
             if (rightid < 0)
@@ -307,7 +310,7 @@ private:
             }
             else
             {
-                kk << "view_map[" << rightid << "]" << kkViewIndxScheme;
+                kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";
             }
             kk << ");\n";
             kkCustomOpIdx++;
@@ -344,7 +347,7 @@ private:
             {
                 kk << "view_map[" << leftid << "]";
             }
-            kk << kkViewIndxScheme << ";\n";
+            kk << "(" << kkViewIndxScheme << ");\n";
             kk << "} else {\n";
             long long rightid = codegen_ast(instruction, node.right_);
             kk << "tmp" << kkTmpVar << " = ";
@@ -356,7 +359,7 @@ private:
             {
                 kk << "view_map[" << rightid << "]";
             }
-            kk << kkViewIndxScheme << ";\n";
+            kk << "(" << kkViewIndxScheme << ");\n";
             kk << "}\n";
         }
             return -static_cast<long long>(kkTmpVar);
@@ -380,9 +383,10 @@ public:
         kkViewType.clear();
         kkFuncDecl.clear();
         kkRangePolicy.clear();
+        kkCustomOpsDecl.clear();
     }
 
-    template<typename viewType, typename nodeType>
+    template<typename viewType, typename nodeType, size_t dim>
     static void execute(ct::util::kernelInfo const& kernel, std::vector<std::size_t> dims,
         std::vector<viewType> const& view_map,
         std::vector<nodeType> const& instruction)
@@ -401,14 +405,14 @@ public:
             if (it.second)
             {
                 kkCustomOps.emplace_back(
-                    getFuncPtr(instruction[it.first].unary_expr_.get()));
+                    getFuncPtr<dim>(instruction[it.first].unary_expr_.get()));
                 kkCustomOpsThis.emplace_back(
                     (void*) instruction[it.first].unary_expr_.get());
             }
             else
             {
                 kkCustomOps.emplace_back(
-                    getFuncPtr(instruction[it.first].binary_expr_.get()));
+                    getFuncPtr<dim>(instruction[it.first].binary_expr_.get()));
                 kkCustomOpsThis.emplace_back(
                     (void*) instruction[it.first].binary_expr_.get());
             }
@@ -425,9 +429,10 @@ public:
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
+        genkkCustomOpsDecl(dim);
 
         long long resid = codegen_ast(instruction, 0);
-        kk << "view_map[" << getViewIdx(node_id) << "]" << kkViewIndxScheme << " ";
+        kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme << ") ";
         if (instruction[0].operation_ == ct::util::Operation::inplace_add)
         {
             kk << "+=";

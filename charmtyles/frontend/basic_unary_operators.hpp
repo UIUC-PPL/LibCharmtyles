@@ -13,7 +13,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return -value;
         }
@@ -43,7 +43,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::abs(value);
         }
@@ -73,7 +73,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return value * value;
         }
@@ -103,7 +103,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::sqrt(value);
         }
@@ -133,7 +133,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return 1.0 / value;
         }
@@ -163,7 +163,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::sin(value);
         }
@@ -193,7 +193,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::cos(value);
         }
@@ -223,7 +223,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::log(value);
         }
@@ -253,7 +253,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::exp(value);
         }
@@ -287,7 +287,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return scale_factor_ * value;
         }
@@ -326,7 +326,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return value + constant_;
         }
@@ -361,7 +361,7 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(double value) final
+        virtual double operator()(std::size_t index, double value) final
         {
             return std::max(0.0, value);
         }
