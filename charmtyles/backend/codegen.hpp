@@ -334,9 +334,9 @@ private:
             }
             else
             {
-                kk << "view_map[" << terid << "]";
+                kk << "view_map[" << terid << "](" << kkViewIndxScheme << ")";
             }
-            kk << "(i)) {\n";
+            kk << ") {\n";
             long long leftid = codegen_ast(instruction, node.left_);
             kk << "tmp" << kkTmpVar << " = ";
             if (leftid < 0)
@@ -345,9 +345,9 @@ private:
             }
             else
             {
-                kk << "view_map[" << leftid << "]";
+                kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
-            kk << "(" << kkViewIndxScheme << ");\n";
+            kk << ";\n";
             kk << "} else {\n";
             long long rightid = codegen_ast(instruction, node.right_);
             kk << "tmp" << kkTmpVar << " = ";
@@ -357,9 +357,9 @@ private:
             }
             else
             {
-                kk << "view_map[" << rightid << "]";
+                kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";
             }
-            kk << "(" << kkViewIndxScheme << ");\n";
+            kk << ";\n";
             kk << "}\n";
         }
             return -static_cast<long long>(kkTmpVar);
