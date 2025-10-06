@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <type_traits>
+#include <concepts>
 
 namespace ct {
     namespace traits {
@@ -92,7 +93,7 @@ namespace ct {
     }    // namespace traits
 
     template <typename LHS, typename RHS>
-    auto operator_impl(LHS const& lhs, RHS const& rhs, ct::util::Operation op)
+    auto inline operator_impl(LHS const& lhs, RHS const& rhs, ct::util::Operation op)
     {
         if constexpr (ct::traits::is_vec_type<LHS, RHS>::value)
         {
@@ -164,85 +165,104 @@ namespace ct {
                     lhs, rhs.get(), lhs.rows(), lhs.cols(), op};
             }
         }
-        else
-        {
-            CkAbort("At least one operand must be a vector or a matrix");
-        }
     }
 
-    template <typename LHS, typename RHS>
+    template<typename LHS>
+    concept is_tensor_type_v = traits::is_vec_type_impl<typename std::decay<LHS>::type>::value ||
+                               traits::is_mat_type_impl<typename std::decay<LHS>::type>::value;
+
+    template<typename LHS, typename RHS>
+    concept is_tensor_type = traits::is_vec_type_impl<typename std::decay<LHS>::type>::value ||
+                             traits::is_vec_type_impl<typename std::decay<RHS>::type>::value ||
+                             traits::is_mat_type_impl<typename std::decay<LHS>::type>::value ||
+                             traits::is_mat_type_impl<typename std::decay<RHS>::type>::value;
+
+    template <typename LHS, typename RHS> 
+    requires is_tensor_type<LHS, RHS>
     auto operator+(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::add);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator-(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::sub);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator/(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::divide);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator*(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::multiply);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator>(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::greater);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator<(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::lesser);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator==(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::eq);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator!=(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::neq);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator>=(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::geq);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator<=(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::leq);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator&&(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::logical_and);
     }
 
     template <typename LHS, typename RHS>
+    requires is_tensor_type<LHS, RHS>
     auto operator||(LHS const& lhs, RHS const& rhs)
     {
         return operator_impl(lhs, rhs, ct::util::Operation::logical_or);
     }
 
     template <typename LHS>
+    requires is_tensor_type_v<LHS>
     auto operator!(LHS const& lhs)
     {
         return operator_impl(lhs, lhs, ct::util::Operation::logical_not);
