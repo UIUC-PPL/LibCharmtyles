@@ -119,6 +119,13 @@ public:
 
         ckout << "[SUCCESS] All Phase 1 Tests passed" << endl;
 
+        // ct::scalar halo{42.0};
+        // ct::scalar illo{27.0};
+        // ct::scalar reso = halo + illo;
+        // ct::sync();
+        // double reso_h = reso.get();
+        // ckout << "RESO> " << reso_h << endl;
+
         // start = CkWallTimer();
         // vec4 = vec1 - vec3 + vec4;
         // vec14 = vec11 - vec13 + vec14;
