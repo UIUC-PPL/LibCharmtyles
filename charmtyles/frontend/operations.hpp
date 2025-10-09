@@ -958,7 +958,7 @@ namespace ct {
     auto binary_expr(LHS const& lhs, RHS const& rhs,
         std::shared_ptr<binary_operator> binary_op)
     {
-        if constexpr (ct::traits::is_vec_type_v<LHS, RHS>)
+        if constexpr (ct::traits::is_bin_vec_type_v<LHS, RHS>)
         {
             return ct::vec_impl::vec_expression<LHS, RHS>{lhs, rhs, lhs.size(),
                 ct::util::Operation::binary_expr, binary_op};
