@@ -301,27 +301,28 @@ namespace ct {
 
             explicit mat_expression(LHS const& lhs_, RHS const& rhs_,
                 std::size_t rows_, std::size_t cols_, ct::util::Operation op_,
-                std::shared_ptr<binary_operator> binary_op_)
+                ct::OperationDescriptor custom_unary_binary_op_)
               : lhs(lhs_)
               , rhs(rhs_)
               , row_len(rows_)
               , col_len(cols_)
               , op(op_)
-              , binary_op(binary_op_)
+              , custom_unary_binary_op(custom_unary_binary_op_)
             {
             }
 
-            explicit mat_expression(LHS const& lhs_, std::size_t rows_,
-                std::size_t cols_, ct::util::Operation op_,
-                std::shared_ptr<unary_operator> unary_op_)
+            explicit mat_expression(LHS const& lhs_,
+                std::size_t rows_, std::size_t cols_, ct::util::Operation op_,
+                ct::OperationDescriptor custom_unary_binary_op_)
               : lhs(lhs_)
               , rhs(lhs_)
               , row_len(rows_)
               , col_len(cols_)
               , op(op_)
-              , unary_op(unary_op_)
+              , custom_unary_binary_op(custom_unary_binary_op_)
             {
             }
+
 
             explicit mat_expression(LHS const& lhs_, std::size_t rows_,
                 std::size_t cols_, ct::util::Operation op_,
@@ -366,15 +367,10 @@ namespace ct {
 
                 ct::mat_impl::mat_node node;
 
-                if (op == ct::util::Operation::binary_expr)
+                if (op == ct::util::Operation::binary_expr or op == ct::util::Operation::unary_expr)
                 {
                     node = ct::mat_impl::mat_node(
-                        -1, op, binary_op, row_len, col_len);
-                }
-                else if (op == ct::util::Operation::unary_expr)
-                {
-                    node = ct::mat_impl::mat_node(
-                        -1, op, unary_op, row_len, col_len);
+                        -1, op, custom_unary_binary_op, row_len, col_len);
                 }
                 else if (op == ct::util::Operation::custom_expr)
                 {
@@ -469,8 +465,7 @@ namespace ct {
             bool is_rhs_scalar = false;
             std::size_t row_len;
             std::size_t col_len;
-            std::shared_ptr<binary_operator> binary_op;
-            std::shared_ptr<unary_operator> unary_op;
+            ct::OperationDescriptor custom_unary_binary_op;
             std::shared_ptr<custom_operator> custom_op;
             ct::util::Operation op;
         };
@@ -661,21 +656,6 @@ namespace ct {
           , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
           , node_(
                 matrix_shape_.matrix_id, ct::util::Operation::copy, other.node_)
-        {
-            ct::mat_impl::mat_instr_queue_t& queue =
-                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-
-            queue.insert(node_, matrix_shape_.shape_id);
-        }
-
-        matrix(
-            matrix const& other, std::shared_ptr<unary_operator> unary_operator)
-          : row_size_(other.row_size_)
-          , col_size_(other.col_size_)
-          , matrix_shape_(ct::mat_impl::get_mat_shape(row_size_, col_size_))
-          , node_(other.matrix_shape_.matrix_id,
-                ct::util::Operation::unary_expr, unary_operator, row_size_,
-                col_size_)
         {
             ct::mat_impl::mat_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);

@@ -314,12 +314,6 @@ public:
         std::size_t remainder_start{0};
         std::size_t copy_id{0};
 
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
-
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dist(0., 1.);
@@ -672,10 +666,6 @@ public:
     {
         ct::mat_impl::mat_node const& node = instruction[index];
         std::size_t node_id = node.name_;
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
 
         // Useful variables in switch statement
         std::size_t num_rows{0};

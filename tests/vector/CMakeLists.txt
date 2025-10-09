@@ -3,6 +3,10 @@ project(charmTyles)
 
 include(${CMAKE_SOURCE_DIR}/../../config.cmake)
 
+include(FetchContent)
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
 set(Kokkos_ROOT ${KOKKOS_DIR})
 find_package(Kokkos 4.5 REQUIRED CONFIG)
 
@@ -17,6 +21,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPU_OPTS} ${LD_OPTS}")
 endif()
 
+add_definitions(-DBASE_DIR=\"${BASE_DIR}\")
 add_definitions(-DKOKKOS_DIR=\"${KOKKOS_DIR}\")
 
 add_custom_command(

@@ -1,0 +1,209 @@
+{
+ "1":[
+    {
+      "name": "exp",
+      "impl": "KOKKOS_INLINE_FUNCTION double exp(int index, double val){return Kokkos::exp(val);}"
+    },
+    {
+      "name": "log",
+      "impl": "KOKKOS_INLINE_FUNCTION double log(int index, double val){return Kokkos::log(val);}"
+    },
+    {
+      "name": "abs",
+      "impl": "KOKKOS_INLINE_FUNCTION double abs(int index, double val){return Kokkos::abs(val);}"
+    },
+    {
+      "name": "negate",
+      "impl": "KOKKOS_INLINE_FUNCTION double negate(int index, double val){return -val;}"
+    },
+    {
+      "name": "square",
+      "impl": "KOKKOS_INLINE_FUNCTION double square(int index, double val){return val * val;}"
+    },
+    {
+      "name": "sqrt",
+      "impl": "KOKKOS_INLINE_FUNCTION double sqrt(int index, double val){return Kokkos::sqrt(val);}"
+    },
+    {
+      "name": "reciprocal",
+      "impl": "KOKKOS_INLINE_FUNCTION double reciprocal(int index, double val){return 1.0 / val;}"
+    },
+    {
+      "name": "sin",
+      "impl": "KOKKOS_INLINE_FUNCTION double sin(int index, double val){return Kokkos::sin(val);}"
+    },
+    {
+      "name": "cos",
+      "impl": "KOKKOS_INLINE_FUNCTION double cos(int index, double val){return Kokkos::cos(val);}"
+    },
+    {
+      "name": "relu",
+      "impl": "KOKKOS_INLINE_FUNCTION double relu(int index, double val){return (val > 0.0) ? val : 0.0;}"
+    },
+    {
+      "name": "scale",
+      "impl": "KOKKOS_INLINE_FUNCTION double scale(int index, double val, double factor){return factor * val;}"
+    },
+    {
+      "name": "add_constant",
+      "impl": "KOKKOS_INLINE_FUNCTION double add_constant(int index, double val, double c){return val + c;}"
+    },
+    {
+      "name": "add",
+      "impl": "KOKKOS_INLINE_FUNCTION double add(int index, double val1, double val2){return val1 + val2;}"
+    },
+    {
+      "name": "sub",
+      "impl": "KOKKOS_INLINE_FUNCTION double sub(int index, double val1, double val2){return val1 - val2;}"
+    },
+    {
+      "name": "mul",
+      "impl": "KOKKOS_INLINE_FUNCTION double mul(int index, double val1, double val2){return val1 * val2;}"
+    },
+    {
+      "name": "div",
+      "impl": "KOKKOS_INLINE_FUNCTION double div(int index, double val1, double val2){return val1 / val2;}"
+    },
+    {
+      "name": "power",
+      "impl": "KOKKOS_INLINE_FUNCTION double power(int index, double val1, double val2){return Kokkos::pow(val1, val2);}"
+    },
+    {
+      "name": "modulo",
+      "impl": "KOKKOS_INLINE_FUNCTION double modulo(int index, double val1, double val2){return Kokkos::fmod(val1, val2);}"
+    },
+    {
+      "name": "max",
+      "impl": "KOKKOS_INLINE_FUNCTION double max(int index, double val1, double val2){return Kokkos::max(val1, val2);}"
+    },
+    {
+      "name": "min",
+      "impl": "KOKKOS_INLINE_FUNCTION double min(int index, double val1, double val2){return Kokkos::min(val1, val2);}"
+    },
+    {
+      "name": "greater_than",
+      "impl": "KOKKOS_INLINE_FUNCTION double greater_than(int index, double val1, double val2){return (val1 > val2) ? 1.0 : 0.0;}"
+    },
+    {
+      "name": "less_than",
+      "impl": "KOKKOS_INLINE_FUNCTION double less_than(int index, double val1, double val2){return (val1 < val2) ? 1.0 : 0.0;}"
+    },
+    {
+      "name": "equal",
+      "impl": "KOKKOS_INLINE_FUNCTION double equal(int index, double val1, double val2, double eps){return (Kokkos::abs(val1 - val2) < eps) ? 1.0 : 0.0;}"
+    },
+    {
+      "name": "atan2",
+      "impl": "KOKKOS_INLINE_FUNCTION double atan2(int index, double val1, double val2){return Kokkos::atan2(val1, val2);}"
+    },
+    {
+      "name": "weighted_average",
+      "impl": "KOKKOS_INLINE_FUNCTION double weighted_average(int index, double val1, double val2, double w1, double w2){return (w1 * val1 + w2 * val2) / (w1 + w2);}"
+    }
+  ],
+ "2":
+    [
+      {
+        "name": "exp",
+        "impl": "KOKKOS_INLINE_FUNCTION double exp(int a, int b, double val){return Kokkos::exp(val);}"
+      },
+      {
+        "name": "log",
+        "impl": "KOKKOS_INLINE_FUNCTION double log(int a, int b, double val){return Kokkos::log(val);}"
+      },
+      {
+        "name": "abs",
+        "impl": "KOKKOS_INLINE_FUNCTION double abs(int a, int b, double val){return Kokkos::abs(val);}"
+      },
+      {
+        "name": "negate",
+        "impl": "KOKKOS_INLINE_FUNCTION double negate(int a, int b, double val){return -val;}"
+      },
+      {
+        "name": "square",
+        "impl": "KOKKOS_INLINE_FUNCTION double square(int a, int b, double val){return val * val;}"
+      },
+      {
+        "name": "sqrt",
+        "impl": "KOKKOS_INLINE_FUNCTION double sqrt(int a, int b, double val){return Kokkos::sqrt(val);}"
+      },
+      {
+        "name": "reciprocal",
+        "impl": "KOKKOS_INLINE_FUNCTION double reciprocal(int a, int b, double val){return 1.0 / val;}"
+      },
+      {
+        "name": "sin",
+        "impl": "KOKKOS_INLINE_FUNCTION double sin(int a, int b, double val){return Kokkos::sin(val);}"
+      },
+      {
+        "name": "cos",
+        "impl": "KOKKOS_INLINE_FUNCTION double cos(int a, int b, double val){return Kokkos::cos(val);}"
+      },
+      {
+        "name": "relu",
+        "impl": "KOKKOS_INLINE_FUNCTION double relu(int a, int b, double val){return (val > 0.0) ? val : 0.0;}"
+      },
+      {
+        "name": "scale",
+        "impl": "KOKKOS_INLINE_FUNCTION double scale(int a, int b, double val, double factor){return factor * val;}"
+      },
+      {
+        "name": "add_constant",
+        "impl": "KOKKOS_INLINE_FUNCTION double add_constant(int a, int b, double val, double c){return val + c;}"
+      },
+
+      {
+        "name": "add",
+        "impl": "KOKKOS_INLINE_FUNCTION double add(int a, int b, double val1, double val2){return val1 + val2;}"
+      },
+      {
+        "name": "sub",
+        "impl": "KOKKOS_INLINE_FUNCTION double sub(int a, int b, double val1, double val2){return val1 - val2;}"
+      },
+      {
+        "name": "mul",
+        "impl": "KOKKOS_INLINE_FUNCTION double mul(int a, int b, double val1, double val2){return val1 * val2;}"
+      },
+      {
+        "name": "div",
+        "impl": "KOKKOS_INLINE_FUNCTION double div(int a, int b, double val1, double val2){return val1 / val2;}"
+      },
+      {
+        "name": "power",
+        "impl": "KOKKOS_INLINE_FUNCTION double power(int a, int b, double val1, double val2){return Kokkos::pow(val1, val2);}"
+      },
+      {
+        "name": "modulo",
+        "impl": "KOKKOS_INLINE_FUNCTION double modulo(int a, int b, double val1, double val2){return Kokkos::fmod(val1, val2);}"
+      },
+      {
+        "name": "max",
+        "impl": "KOKKOS_INLINE_FUNCTION double max(int a, int b, double val1, double val2){return Kokkos::max(val1, val2);}"
+      },
+      {
+        "name": "min",
+        "impl": "KOKKOS_INLINE_FUNCTION double min(int a, int b, double val1, double val2){return Kokkos::min(val1, val2);}"
+      },
+      {
+        "name": "greater_than",
+        "impl": "KOKKOS_INLINE_FUNCTION double greater_than(int a, int b, double val1, double val2){return (val1 > val2) ? 1.0 : 0.0;}"
+      },
+      {
+        "name": "less_than",
+        "impl": "KOKKOS_INLINE_FUNCTION double less_than(int a, int b, double val1, double val2){return (val1 < val2) ? 1.0 : 0.0;}"
+      },
+
+      {
+        "name": "equal",
+        "impl": "KOKKOS_INLINE_FUNCTION double equal(int a, int b, double val1, double val2, double eps){return (Kokkos::abs(val1 - val2) < eps) ? 1.0 : 0.0;}"
+      },
+      {
+        "name": "atan2",
+        "impl": "KOKKOS_INLINE_FUNCTION double atan2(int a, int b, double val1, double val2){return Kokkos::atan2(val1, val2);}"
+      },
+      {
+        "name": "weighted_average",
+        "impl": "KOKKOS_INLINE_FUNCTION double weighted_average(int a, int b, double val1, double val2, double w1, double w2){return (w1 * val1 + w2 * val2) / (w1 + w2);}"
+      }
+    ]
+}

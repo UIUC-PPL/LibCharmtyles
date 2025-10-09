@@ -2,6 +2,7 @@
 
 #include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
+#include <charmtyles/frontend/custom_operations.hpp>
 
 #include <stdexcept>
 #include <type_traits>
@@ -906,7 +907,7 @@ namespace ct {
 
     template <typename Operand>
     auto unary_expr(
-        Operand const& operand, std::shared_ptr<unary_operator> unary_op)
+        Operand const& operand, ct::OperationDescriptor unary_op)
     {
         if constexpr (ct::traits::is_vec_type_v<
                           std::decay_t<Operand>>)
@@ -956,7 +957,7 @@ namespace ct {
 
     template <typename LHS, typename RHS>
     auto binary_expr(LHS const& lhs, RHS const& rhs,
-        std::shared_ptr<binary_operator> binary_op)
+        ct::OperationDescriptor binary_op)
     {
         if constexpr (ct::traits::is_bin_vec_type_v<LHS, RHS>)
         {

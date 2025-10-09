@@ -296,23 +296,23 @@ namespace ct {
 
             explicit vec_expression(LHS const& lhs_, RHS const& rhs_,
                 std::size_t vec_len_, ct::util::Operation op_,
-                std::shared_ptr<binary_operator> binary_op_)
+                ct::OperationDescriptor custom_unary_binary_op_)
               : lhs(lhs_)
               , rhs(rhs_)
               , vec_len(vec_len_)
               , op(op_)
-              , binary_op(binary_op_)
+              , custom_unary_binary_op(custom_unary_binary_op_)
             {
             }
 
             explicit vec_expression(LHS const& lhs_, std::size_t vec_len_,
                 ct::util::Operation op_,
-                std::shared_ptr<unary_operator> unary_op_)
+                ct::OperationDescriptor custom_unary_binary_op_)
               : lhs(lhs_)
               , rhs(lhs_)
               , vec_len(vec_len_)
               , op(op_)
-              , unary_op(unary_op_)
+              , custom_unary_binary_op(custom_unary_binary_op_)
             {
             }
 
@@ -356,13 +356,9 @@ namespace ct {
 
                 ct::vec_impl::vec_node node;
 
-                if (op == ct::util::Operation::binary_expr)
+                if (op == ct::util::Operation::binary_expr or op==ct::util::Operation::unary_expr)
                 {
-                    node = ct::vec_impl::vec_node(-1, op, binary_op, vec_len);
-                }
-                else if (op == ct::util::Operation::unary_expr)
-                {
-                    node = ct::vec_impl::vec_node(-1, op, unary_op, vec_len);
+                    node = ct::vec_impl::vec_node(-1, op, custom_unary_binary_op, vec_len);
                 }
                 else if (op == ct::util::Operation::custom_expr)
                 {
@@ -451,8 +447,7 @@ namespace ct {
             bool is_lhs_scalar = false;
             bool is_rhs_scalar = false;
             std::size_t vec_len;
-            std::shared_ptr<binary_operator> binary_op;
-            std::shared_ptr<unary_operator> unary_op;
+            ct::OperationDescriptor custom_unary_binary_op;
             std::shared_ptr<custom_operator> custom_op;
             ct::util::Operation op;
         };

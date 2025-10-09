@@ -7,6 +7,7 @@
 #include "charm++.h"
 
 #include <charmtyles/util/generator.hpp>
+#include <charmtyles/frontend/custom_operations.hpp>
 
 namespace ct {
     namespace util {
@@ -134,7 +135,7 @@ namespace ct {
             }
         }
 
-        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>>;
+        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<size_t>>;
     }    // namespace util
 
     namespace vec_impl {
@@ -143,10 +144,7 @@ namespace ct {
         {
             std::size_t name_ = -1;
             ct::util::Operation operation_;
-            std::shared_ptr<ct::unary_operator> unary_expr_ =
-                std::make_shared<ct::unary_operator>();
-            std::shared_ptr<ct::binary_operator> binary_expr_ =
-                std::make_shared<ct::binary_operator>();
+            ct::OperationDescriptor custom_unary_binary_op;
             std::shared_ptr<ct::custom_operator> custom_expr_ =
                 std::make_shared<ct::custom_operator>();
             std::size_t copy_id_ = -1;
@@ -180,21 +178,11 @@ namespace ct {
             }
 
             explicit vec_node(std::size_t name, ct::util::Operation op,
-                std::shared_ptr<ct::unary_operator> unary_expr,
+                ct::OperationDescriptor expr_,
                 std::size_t vec_len)
               : name_(name)
               , operation_(op)
-              , unary_expr_(unary_expr)
-              , vec_len_(vec_len)
-            {
-            }
-
-            explicit vec_node(std::size_t name, ct::util::Operation op,
-                std::shared_ptr<ct::binary_operator> binary_expr,
-                std::size_t vec_len)
-              : name_(name)
-              , operation_(op)
-              , binary_expr_(binary_expr)
+              , custom_unary_binary_op(expr_)
               , vec_len_(vec_len)
             {
             }
@@ -213,8 +201,7 @@ namespace ct {
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
               , operation_(op)
-              , unary_expr_(other.unary_expr_)
-              , binary_expr_(other.binary_expr_)
+              , custom_unary_binary_op (other.custom_unary_binary_op)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
             {
@@ -245,8 +232,7 @@ namespace ct {
                 p | name_;
                 p | operation_;
                 p | copy_id_;
-                p | unary_expr_;
-                p | binary_expr_;
+                p | custom_unary_binary_op;
                 p | custom_expr_;
                 p | value_;
                 p | vec_len_;
@@ -267,10 +253,7 @@ namespace ct {
         {
             std::size_t name_ = -1;
             ct::util::Operation operation_;
-            std::shared_ptr<ct::unary_operator> unary_expr_ =
-                std::make_shared<ct::unary_operator>();
-            std::shared_ptr<ct::binary_operator> binary_expr_ =
-                std::make_shared<ct::binary_operator>();
+            ct::OperationDescriptor custom_unary_binary_op {};
             std::shared_ptr<ct::custom_operator> custom_expr_ =
                 std::make_shared<ct::custom_operator>();
             std::size_t copy_id_ = -1;
@@ -306,22 +289,11 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
-                std::shared_ptr<ct::unary_operator> unary_expr,
+                ct::OperationDescriptor expr_,
                 std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
-              , unary_expr_(unary_expr)
-              , mat_row_len_(rows)
-              , mat_col_len_(cols)
-            {
-            }
-
-            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
-                std::shared_ptr<ct::binary_operator> binary_expr,
-                std::size_t rows, std::size_t cols)
-              : name_(matrix_id)
-              , operation_(op)
-              , binary_expr_(binary_expr)
+              , custom_unary_binary_op(expr_)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
             {
@@ -352,8 +324,7 @@ namespace ct {
                 mat_node const& other)
               : name_(matrix_id)
               , operation_(op)
-              , unary_expr_(other.unary_expr_)
-              , binary_expr_(other.binary_expr_)
+              , custom_unary_binary_op(other.custom_unary_binary_op)
               , copy_id_(other.name_)
               , mat_row_len_(other.mat_row_len_)
               , mat_col_len_(other.mat_col_len_)
@@ -367,8 +338,7 @@ namespace ct {
             {
                 p | name_;
                 p | operation_;
-                p | unary_expr_;
-                p | binary_expr_;
+                p | custom_unary_binary_op;
                 p | custom_expr_;
                 p | copy_id_;
                 p | value_;
