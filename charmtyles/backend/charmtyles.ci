@@ -260,8 +260,9 @@ module libcharmtyles
 
                     std::vector<double> arr_portion(vec_size + 1);
                     arr_portion[0] = static_cast<double>(index);
-                    std::copy(vec_map[vector_id].data(), vec_map[vector_id].data() + vec_map[vector_id].size(), arr_portion.begin() + 1);
-                    
+                    auto host_vector = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vector_id]);
+                    std::copy(host_vector.data(), host_vector.data() + host_vector.size(), arr_portion.begin() + 1);
+
                     CkCallback cb(CkReductionTarget(get_vec_future, construct_vector), proxy);
                     contribute(arr_portion, CkReduction::set, cb);
                     ++SDAG_INDEX;

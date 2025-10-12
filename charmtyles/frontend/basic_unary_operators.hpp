@@ -13,17 +13,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return -value;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return -value;
-        }
-
         PUPable_decl(negate_op);
         negate_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -32,6 +21,23 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "negate";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return -val;}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return -val;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -43,17 +49,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::abs(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::abs(value);
-        }
-
         PUPable_decl(abs_op);
         abs_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -62,6 +57,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "abs";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::abs(val);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){Kokkos::abs(val);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -73,17 +84,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return value * value;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return value * value;
-        }
-
         PUPable_decl(square_op);
         square_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -92,6 +92,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "square";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::sqaure(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::sqaure(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -103,17 +121,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::sqrt(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::sqrt(value);
-        }
-
         PUPable_decl(sqrt_op);
         sqrt_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -122,6 +129,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "sqrt";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::sqrt(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::sqrt(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -133,17 +158,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return 1.0 / value;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return 1.0 / value;
-        }
-
         PUPable_decl(reciprocal_op);
         reciprocal_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -152,6 +166,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "reciprocal";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return 1.0/val;}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return 1.0/val;}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -163,17 +195,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::sin(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::sin(value);
-        }
-
         PUPable_decl(sin_op);
         sin_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -182,6 +203,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "sin";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::sin(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::sin(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -193,17 +232,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::cos(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::cos(value);
-        }
-
         PUPable_decl(cos_op);
         cos_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -212,6 +240,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "cos";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::cos(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::cos(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -223,17 +269,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::log(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::log(value);
-        }
-
         PUPable_decl(log_op);
         log_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -242,6 +277,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "log";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::log(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::log(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -253,17 +306,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::exp(value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::exp(value);
-        }
-
         PUPable_decl(exp_op);
         exp_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -272,6 +314,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "exp";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::exp(val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::exp(val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -287,17 +347,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return scale_factor_ * value;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return scale_factor_ * value;
-        }
-
         PUPable_decl(scale_op);
         scale_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -308,6 +357,26 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
             p | scale_factor_;
+        }
+        std::string get_name()
+        {
+            return "scale";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val, double scale_factor){return "
+                   "scale_factor*val;}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val, double scale_factor){return "
+                   "scale_factor*val;}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {scale_factor_};
         }
 
     private:
@@ -326,17 +395,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return value + constant_;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return value + constant_;
-        }
-
         PUPable_decl(add_constant_op);
         add_constant_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -347,6 +405,25 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
             p | constant_;
+        }
+        std::string get_name()
+        {
+            return "add_constant";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val, double const){return val + const;}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val, double const){return val + "
+                   "const;}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {constant_};
         }
 
     private:
@@ -361,17 +438,6 @@ namespace ct {
 
         using ct::unary_operator::unary_operator;
 
-        virtual double operator()(std::size_t index, double value) final
-        {
-            return std::max(0.0, value);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double value) final
-        {
-            return std::max(0.0, value);
-        }
-
         PUPable_decl(relu_op);
         relu_op(CkMigrateMessage* m)
           : ct::unary_operator(m)
@@ -380,6 +446,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "relu";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val){return Kokkos::max(0.0,val);}";
+        }
+
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val){return Kokkos::max(0.0,val);}";
+        }
+
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 

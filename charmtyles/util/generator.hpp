@@ -150,18 +150,22 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-
-        // Default Operator overload for vectors
-        virtual double operator()(std::size_t index, double value)
+        virtual std::string get_name()
         {
-            return -1.0;
+            return "";
+        }
+        virtual std::string get_vec_signature()
+        {
+            return "";
         }
 
-        // Default Operator overload for matrices
-        virtual double operator()(
-            std::size_t row_id, std::size_t col_id, double value)
+        virtual std::string get_mat_signature()
         {
-            return -1.0;
+            return "";
+        }
+        virtual std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -182,17 +186,22 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-
-        virtual double operator()(
-            std::size_t index, double left_val, double right_val)
+        virtual std::string get_name()
         {
-            return -1.0;
+            return "";
+        }
+        virtual std::string get_vec_signature()
+        {
+            return "";
         }
 
-        virtual double operator()(std::size_t row_id, std::size_t col_id,
-            double left_val, double right_val)
+        virtual std::string get_mat_signature()
         {
-            return -1.0;
+            return "";
+        }
+        virtual std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -220,7 +229,9 @@ namespace ct {
             lhs = rhs;
         }
 
-        virtual void operator()(std::size_t rows, std::size_t cols, std::vector<std::vector<double>>& lhs,  std::vector<std::vector<double>>& rhs)
+        virtual void operator()(std::size_t rows, std::size_t cols,
+            std::vector<std::vector<double>>& lhs,
+            std::vector<std::vector<double>>& rhs)
         {
             // Default implementation: copy rhs to lhs
             lhs = rhs;

@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <fstream>
 #include <iomanip>
+#include <set>
 #include <sstream>
 #include <string_view>
 #include <tuple>
@@ -23,7 +24,7 @@ private:
     // a stream to store the generated kernel
     std::stringstream kk;
     std::size_t kkTmpVar;
-    // a vector that stores the index(int ast) of the node that uses some custom binary/unary ops defined by the user.
+    // a vector that stores the index(in ast) of the node that uses some custom binary/unary ops defined by the user.
     // the second parameter is a flag that indicates if this is a unary or binary op.
     std::vector<std::pair<size_t, bool>> kkCustomOpsOrder;
     // std::vector<uintptr_t> kkCustomOps;
@@ -31,15 +32,18 @@ private:
     // a map from kernel hash -> Kokkos functor
     std::map<uint64_t, bool> kernel_cache;
     // indexing scheme for the corresponding n rank view
-    std::string kkViewIndxScheme {};
+    std::string kkViewIndxScheme{};
     // View type corresponding to the given rank
-    std::string kkViewType {};
+    std::string kkViewType{};
     // Function declaration to run the kokkos kernel
-    std::string kkFuncDecl {};
+    std::string kkFuncDecl{};
     // RangePolicy for the corresponding to the given rank
-    std::string kkRangePolicy {};
+    std::string kkRangePolicy{};
     // list of indices to be sent as input to the custom unary / binary op
-    std::string kkCustomOpsDecl {};
+
+    size_t extraArgCount{};
+
+    std::set<std::string> kkCustomOpsDef{};
 
     long long getViewIdx(size_t node_id)
     {
@@ -75,51 +79,68 @@ private:
         return oss.str();
     }
 
-    template<size_t dim>
+    template <size_t dim>
     static inline void* getFuncPtr(ct::unary_operator* op)
     {
         void** vtable = *reinterpret_cast<void***>(op);
-        if constexpr (dim == 1) return vtable[5];
-        else if constexpr (dim == 2) return vtable[6];
+        if constexpr (dim == 1)
+            return vtable[5];
+        else if constexpr (dim == 2)
+            return vtable[6];
     }
 
-    template<size_t dim>
+    template <size_t dim>
     static inline void* getFuncPtr(ct::binary_operator* op)
     {
         void** vtable = *reinterpret_cast<void***>(op);
-        if constexpr (dim == 1) return vtable[5];
-        else if constexpr (dim == 2) return vtable[6];
+        if constexpr (dim == 1)
+            return vtable[5];
+        else if constexpr (dim == 2)
+            return vtable[6];
     }
 
     uint64_t compile()
     {
+        Kokkos::Timer timer;
+        timer.reset();
         std::string kernel_ops(kk.str());
         uint64_t hash = kernel_hash(kernel_ops);
         if (kernel_cache.find(hash) != kernel_cache.end())
             return hash;
         std::string file_name("kernel-" + to_string(hash) + ".cc");
         std::string lib_name("libkernel-" + to_string(hash) + ".so");
+        std::string kkPreamble{};
+        for (auto customOpsDef : kkCustomOpsDef)
+        {
+            kkPreamble += customOpsDef + "\n";
+        }
         std::string kernel(R"(
-    #include <Kokkos_Core.hpp>
+        #include <Kokkos_Core.hpp>
+    )" + kkPreamble +
+            R"(struct ASTFunctor {
+        Kokkos::View<)" +
+            kkViewType + R"(*> view_map;
+        Kokkos::View<double*> custom_ops_args;
 
-    struct ASTFunctor {
-        Kokkos::View<)" + kkViewType + R"(*> view_map;
-        std::vector<void*> custom_ops;
-        std::vector<void*> custom_ops_this;
-
-        KOKKOS_INLINE_FUNCTION ASTFunctor(Kokkos::View<)" + kkViewType + R"(*> _view_map, std::vector<void*> _custom_ops, std::vector<void*> _custom_ops_this)
-            : view_map(_view_map), custom_ops(_custom_ops), custom_ops_this(_custom_ops_this) {}
+        KOKKOS_INLINE_FUNCTION ASTFunctor(Kokkos::View<)" +
+            kkViewType +
+            R"(*> _view_map, Kokkos::View<double*> custom_ops_args_)
+            : view_map(_view_map), custom_ops_args(custom_ops_args_) {}
 
         KOKKOS_INLINE_FUNCTION
-        void operator()()" + kkFuncDecl + R"() const {
+        void operator()()" +
+            kkFuncDecl + R"() const {
     )" + kernel_ops +
             R"(
         }
     };
 
-    extern "C" void run_kernel(Kokkos::View<)" + kkViewType + R"(*> view_map, std::vector<void*> custom_ops, std::vector<void*> custom_ops_this, std::vector<std::size_t> dims) {
-        ASTFunctor kernel(view_map, custom_ops, custom_ops_this);
-        Kokkos::parallel_for("debug_label", )" + kkRangePolicy + R"(, kernel);
+    extern "C" void run_kernel(Kokkos::View<)" +
+            kkViewType +
+            R"(*> view_map, Kokkos::View<double*> custom_ops_args, std::vector<std::size_t> dims) {
+        ASTFunctor kernel(view_map, custom_ops_args);
+        Kokkos::parallel_for("debug_label", )" +
+            kkRangePolicy + R"(, kernel);
     }
     )");
 
@@ -134,8 +155,7 @@ private:
             "-fPIC -shared -o " +
             lib_name + " " + file_name + " -L" + std::string(KOKKOS_DIR) +
             "/lib64 "
-            "-lkokkoscore -L" +
-            std::string(CUDA_DIR) + " -lcuda -lcudart --extended-lambda")
+            "-lkokkoscore --extended-lambda")
                    .c_str());
 #else
         system(std::string("g++ -O3 -march=native -std=c++20 -I" +
@@ -150,8 +170,8 @@ private:
 
 #define BINOP_CODEGEN(op)                                                      \
     {                                                                          \
-        long long leftid = codegen_ast(instruction, node.left_);               \
-        long long rightid = codegen_ast(instruction, node.right_);             \
+        long long leftid = codegen_ast(instruction, node.left_, dim);          \
+        long long rightid = codegen_ast(instruction, node.right_, dim);        \
         kkTmpVar++;                                                            \
         kk << "auto tmp" << kkTmpVar << " = ";                                 \
         if (leftid < 0)                                                        \
@@ -175,49 +195,58 @@ private:
     }                                                                          \
     return -static_cast<long long>(kkTmpVar);
 
-    inline void genIndxScheme(const size_t dim) noexcept {
-        for(size_t i = 0; i < dim; i++) {
-            kkViewIndxScheme += std::string(1, (char)(97 + i));
-            kkFuncDecl += "const int " + std::string(1, (char)(97 + i));
-            if(i != dim - 1) {
+    inline void genIndxScheme(const size_t dim) noexcept
+    {
+        for (size_t i = 0; i < dim; i++)
+        {
+            kkViewIndxScheme += std::string(1, (char) (97 + i));
+            kkFuncDecl += "const int " + std::string(1, (char) (97 + i));
+            if (i != dim - 1)
+            {
                 kkViewIndxScheme += ", ";
                 kkFuncDecl += ", ";
             }
         }
     }
 
-    inline void genKkViewType(const size_t dim) noexcept {
+    inline void genKkViewType(const size_t dim) noexcept
+    {
         kkViewType += "Kokkos::View<double";
-        for(size_t i = 0; i < dim; i++) kkViewType += "*";
+        for (size_t i = 0; i < dim; i++)
+            kkViewType += "*";
         kkViewType += ">";
     }
 
-    inline void genkkRangePolicy(const size_t dim) noexcept {
-        if (dim == 1) {
+    inline void genkkRangePolicy(const size_t dim) noexcept
+    {
+        if (dim == 1)
+        {
             kkRangePolicy += "Kokkos::RangePolicy<>(0, dims[0])";
-        } else {
-            kkRangePolicy += "Kokkos::MDRangePolicy<Kokkos::Rank<" + std::to_string(dim) + ">>({";
-            for(size_t i = 0; i < dim; i++) {
+        }
+        else
+        {
+            kkRangePolicy += "Kokkos::MDRangePolicy<Kokkos::Rank<" +
+                std::to_string(dim) + ">>({";
+            for (size_t i = 0; i < dim; i++)
+            {
                 kkRangePolicy += "0";
-                if(i != dim - 1) kkRangePolicy += ",";
+                if (i != dim - 1)
+                    kkRangePolicy += ",";
             }
             kkRangePolicy += "}, {";
-            for(size_t i = 0; i < dim; i++) {
+            for (size_t i = 0; i < dim; i++)
+            {
                 kkRangePolicy += "dims[" + std::to_string(i) + "]";
-                if(i != dim - 1) kkRangePolicy += ",";
+                if (i != dim - 1)
+                    kkRangePolicy += ",";
             }
             kkRangePolicy += "})";
         }
     }
 
-    inline void genkkCustomOpsDecl(const size_t dim) noexcept {
-        for(size_t i = 0; i < dim; i++)
-            kkCustomOpsDecl += "size_t, ";
-    }
-
     template <typename T>
-    long long codegen_ast(
-        std::vector<T> const& instruction, std::size_t curr_idx)
+    long long codegen_ast(std::vector<T> const& instruction,
+        std::size_t curr_idx, std::size_t dim)
     {
         const T& node = instruction[curr_idx];
 
@@ -251,7 +280,7 @@ private:
             BINOP_CODEGEN("||")
         case ct::util::Operation::logical_not:
         {
-            long long leftid = codegen_ast(instruction, node.left_);
+            long long leftid = codegen_ast(instruction, node.left_, dim);
             kkTmpVar++;
             kk << "auto tmp" << kkTmpVar << " = !";
             if (leftid < 0)
@@ -267,12 +296,22 @@ private:
             return -static_cast<long long>(kkTmpVar);
         case ct::util::Operation::unary_expr:
         {
-            long long leftid = codegen_ast(instruction, node.left_);
+            long long leftid = codegen_ast(instruction, node.left_, dim);
             kkTmpVar++;
             kkCustomOpsOrder.push_back({curr_idx, true});
             kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(void*," << kkCustomOpsDecl << "double))custom_ops[" << kkCustomOpIdx
-               << "])(custom_ops_this[" << kkCustomOpIdx << "], " << kkViewIndxScheme << ", ";
+
+            std::string signature;
+            if (dim == 1)
+                signature = node.unary_expr_->get_vec_signature();
+            else if (dim == 2)
+                signature = node.unary_expr_->get_mat_signature();
+
+            kkCustomOpsDef.insert("KOKKOS_INLINE_FUNCTION double " +
+                node.unary_expr_->get_name() + signature);
+            kk << node.unary_expr_->get_name() << "(" << kkViewIndxScheme
+               << ", ";
+
             if (leftid < 0)
             {
                 kk << "tmp" << -leftid;
@@ -281,20 +320,38 @@ private:
             {
                 kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
+            kk << ",";
+
+            size_t argc = node.unary_expr_->get_extra_params().size();
+            for (int i = 0; i < argc; i++)
+            {
+                kk << "custom_ops_args[" << extraArgCount << "]";
+                if (i < argc - 1)
+                    kk << ",";
+                extraArgCount++;
+            }
             kk << ");\n";
             kkCustomOpIdx++;
         }
             return -static_cast<long long>(kkTmpVar);
         case ct::util::Operation::binary_expr:
         {
-            long long leftid = codegen_ast(instruction, node.left_);
-            long long rightid = codegen_ast(instruction, node.right_);
+            long long leftid = codegen_ast(instruction, node.left_, dim);
+            long long rightid = codegen_ast(instruction, node.right_, dim);
             kkTmpVar++;
             kkCustomOpsOrder.push_back({curr_idx, false});
-            kk << "auto tmp" << kkTmpVar << " = ";
-            kk << "((double(*)(void*," << kkCustomOpsDecl << "double,double))custom_ops["
-               << kkCustomOpIdx << "])(custom_ops_this[" << kkCustomOpIdx
-               << "], " << kkViewIndxScheme << ", ";
+            std::string signature;
+            if (dim == 1)
+                signature = node.binary_expr_->get_vec_signature();
+            else if (dim == 2)
+                signature = node.binary_expr_->get_mat_signature();
+
+            auto hash = kernel_hash(signature);
+            kkCustomOpsDef.insert("KOKKOS_INLINE_FUNCTION double " +
+                node.binary_expr_->get_name() + signature);
+            kk << node.binary_expr_->get_name() << "(" << kkViewIndxScheme
+               << ", ";
+
             if (leftid < 0)
             {
                 kk << "tmp" << -leftid;
@@ -312,6 +369,14 @@ private:
             {
                 kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";
             }
+            size_t argc = node.binary_expr_->get_extra_params().size();
+            for (int i = 0; i < argc; i++)
+            {
+                kk << "custom_ops_args[" << extraArgCount << "]";
+                if (i < argc - 1)
+                    kk << ",";
+                extraArgCount++;
+            }
             kk << ");\n";
             kkCustomOpIdx++;
         }
@@ -324,7 +389,7 @@ private:
             return -static_cast<long long>(kkTmpVar);
         case ct::util::Operation::where:
         {
-            long long terid = codegen_ast(instruction, node.ter_);
+            long long terid = codegen_ast(instruction, node.ter_, dim);
             kkTmpVar++;
             kk << "double tmp" << kkTmpVar << ";\n";
             kk << "if (";
@@ -337,7 +402,7 @@ private:
                 kk << "view_map[" << terid << "](" << kkViewIndxScheme << ")";
             }
             kk << ") {\n";
-            long long leftid = codegen_ast(instruction, node.left_);
+            long long leftid = codegen_ast(instruction, node.left_, dim);
             kk << "tmp" << kkTmpVar << " = ";
             if (leftid < 0)
             {
@@ -349,7 +414,7 @@ private:
             }
             kk << ";\n";
             kk << "} else {\n";
-            long long rightid = codegen_ast(instruction, node.right_);
+            long long rightid = codegen_ast(instruction, node.right_, dim);
             kk << "tmp" << kkTmpVar << " = ";
             if (rightid < 0)
             {
@@ -383,43 +448,61 @@ public:
         kkViewType.clear();
         kkFuncDecl.clear();
         kkRangePolicy.clear();
-        kkCustomOpsDecl.clear();
+        kkCustomOpsDef.clear();
+        extraArgCount = 0;
     }
 
-    template<typename viewType, typename nodeType, size_t dim>
-    static void execute(ct::util::kernelInfo const& kernel, std::vector<std::size_t> dims,
-        std::vector<viewType> const& view_map,
+    template <typename viewType, typename nodeType, size_t dim>
+    static void execute(ct::util::kernelInfo const& kernel,
+        std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
         std::vector<nodeType> const& instruction)
     {
-        using kernelType = void (*)(Kokkos::View<viewType*>, std::vector<void*>, std::vector<void*>, std::vector<std::size_t>);
+        using kernelType = void (*)(Kokkos::View<viewType*>,
+            Kokkos::View<double*>, std::vector<std::size_t>);
 
-        Kokkos::View<viewType*> kkVecViews("kkViews", std::get<1>(kernel).size());
+        Kokkos::View<viewType*> kkVecViews(
+            "kkViews", std::get<1>(kernel).size());
         auto kkVecViews_h = Kokkos::create_mirror_view(kkVecViews);
         for (int i = 0; i < std::get<1>(kernel).size(); i++)
             kkVecViews_h(i) = view_map[std::get<1>(kernel)[i]];
         Kokkos::deep_copy(kkVecViews, kkVecViews_h);
 
-        std::vector<void*> kkCustomOps;
-        std::vector<void*> kkCustomOpsThis;
-        for (auto it : std::get<2>(kernel)) {
+        std::vector<double> kkCustomOpsArgs;
+        for (auto it : std::get<2>(kernel))
+        {
             if (it.second)
             {
-                kkCustomOps.emplace_back(
-                    getFuncPtr<dim>(instruction[it.first].unary_expr_.get()));
-                kkCustomOpsThis.emplace_back(
-                    (void*) instruction[it.first].unary_expr_.get());
+                auto extra_params =
+                    instruction[it.first].unary_expr_->get_extra_params();
+                if (extra_params.size() == 0)
+                    continue;
+                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
+                    extra_params.begin(), extra_params.end());
             }
             else
             {
-                kkCustomOps.emplace_back(
-                    getFuncPtr<dim>(instruction[it.first].binary_expr_.get()));
-                kkCustomOpsThis.emplace_back(
-                    (void*) instruction[it.first].binary_expr_.get());
+                auto extra_params =
+                    instruction[it.first].binary_expr_->get_extra_params();
+                if (extra_params.size() == 0)
+                    continue;
+                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
+                    extra_params.begin(), extra_params.end());
             }
         }
 
-        void* functor = kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
-        ((kernelType) functor)(std::move(kkVecViews), std::move(kkCustomOps), std::move(kkCustomOpsThis), std::move(dims));
+        Kokkos::View<double*> kkCustomOpsArgs_d(
+            "kkCustomOpsArgs_d", kkCustomOpsArgs.size());
+        auto kkCustomOpsArgs_h = Kokkos::create_mirror_view(kkCustomOpsArgs_d);
+        for (int i = 0; i < kkCustomOpsArgs.size(); i++)
+        {
+            kkCustomOpsArgs_h(i) = kkCustomOpsArgs[i];
+        }
+        Kokkos::deep_copy(kkCustomOpsArgs_d, kkCustomOpsArgs_h);
+
+        void* functor =
+            kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
+        ((kernelType) functor)(std::move(kkVecViews),
+            std::move(kkCustomOpsArgs_d), std::move(dims));
     }
 
     template <typename T, size_t dim>
@@ -429,10 +512,10 @@ public:
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
-        genkkCustomOpsDecl(dim);
 
-        long long resid = codegen_ast(instruction, 0);
-        kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme << ") ";
+        long long resid = codegen_ast(instruction, 0, dim);
+        kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme
+           << ") ";
         if (instruction[0].operation_ == ct::util::Operation::inplace_add)
         {
             kk << "+=";

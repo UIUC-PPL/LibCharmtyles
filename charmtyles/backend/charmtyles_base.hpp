@@ -32,7 +32,7 @@ public:
 
     void finalize()
     {
-        Kokkos::finalize();
+        // Kokkos::finalize();
     }
 
     void dkload(uint64_t hash)
@@ -261,15 +261,17 @@ public:
     }
 
     // Helper method for generator initialization - must be public for CUDA lambdas
-    Kokkos::View<double*> generator_init_impl(std::size_t vec_dim, std::shared_ptr<ct::generator> gen_ptr)
+    Kokkos::View<double*> generator_init_impl(
+        std::size_t vec_dim, std::shared_ptr<ct::generator> gen_ptr)
     {
         Kokkos::View<double*> gen_vec("Label", vec_dim);
-        
+
         for (int dimX = 0; dimX != vec_dim; ++dimX)
         {
-            gen_vec(dimX) = gen_ptr->generate(thisIndex * vec_block_size + dimX);
+            gen_vec(dimX) =
+                gen_ptr->generate(thisIndex * vec_block_size + dimX);
         }
-        
+
         return gen_vec;
     }
 
@@ -282,12 +284,11 @@ public:
         double result = 0.0;
         Kokkos::parallel_reduce(
             lhs.size(),
-            KOKKOS_LAMBDA(const int i, double &local_sum) {
+            KOKKOS_LAMBDA(const int i, double& local_sum) {
                 local_sum += lhs(i) * rhs(i);
             },
-            result
-        );
-        
+            result);
+
         return result;
     }
 
@@ -410,8 +411,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
-                    node.kernel, {vec_map[node_id].size()}, vec_map,
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map,
                     instruction);
             }
             else
@@ -432,8 +433,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
-                    node.kernel, {vec_map[node_id].size()}, vec_map,
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map,
                     instruction);
             }
             else
@@ -454,8 +455,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
-                    node.kernel, {vec_map[node_id].size()}, vec_map,
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map,
                     instruction);
             }
             else
@@ -618,40 +619,44 @@ public:
     }
 
     // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
-    void mat_vec_dot_impl(int mat_idx, double* vec_in_data, std::size_t vec_size, 
-                         Kokkos::View<double*>& local_result)
+    void mat_vec_dot_impl(int mat_idx, double* vec_in_data,
+        std::size_t vec_size, Kokkos::View<double*>& local_result)
     {
         Kokkos::View<double*> vec_in(vec_in_data, vec_size);
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
-        
+
         // Perform matrix-vector multiplication: result = mat * vec
-        Kokkos::parallel_for("mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
-            double sum = 0.0;
-            for (std::size_t j = 0; j < vec_size; ++j) {
-                sum += mat(i, j) * vec_in(j);
-            }
-            local_result(i) = sum;
-        });
+        Kokkos::parallel_for(
+            "mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
+                double sum = 0.0;
+                for (std::size_t j = 0; j < vec_size; ++j)
+                {
+                    sum += mat(i, j) * vec_in(j);
+                }
+                local_result(i) = sum;
+            });
         Kokkos::fence();
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
-    void vec_mat_dot_impl(int mat_idx, double* vec_in_data, std::size_t vec_size,
-                         Kokkos::View<double*>& local_result)
+    void vec_mat_dot_impl(int mat_idx, double* vec_in_data,
+        std::size_t vec_size, Kokkos::View<double*>& local_result)
     {
         Kokkos::View<double*> vec_in(vec_in_data, vec_size);
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_cols = mat.extent(1);
-        
+
         // Perform vector-matrix multiplication: result = vec * mat
-        Kokkos::parallel_for("vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
-            double sum = 0.0;
-            for (std::size_t i = 0; i < vec_size; ++i) {
-                sum += vec_in(i) * mat(i, j);
-            }
-            local_result(j) = sum;
-        });
+        Kokkos::parallel_for(
+            "vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
+                double sum = 0.0;
+                for (std::size_t i = 0; i < vec_size; ++i)
+                {
+                    sum += vec_in(i) * mat(i, j);
+                }
+                local_result(j) = sum;
+            });
         Kokkos::fence();
     }
 
@@ -787,8 +792,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>,
-                    ct::mat_impl::mat_node, 2>(instruction[0].kernel,
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, instruction);
             }
@@ -811,8 +816,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>,
-                    ct::mat_impl::mat_node, 2>(instruction[0].kernel,
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, instruction);
             }
@@ -835,8 +840,8 @@ public:
             copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>,
-                    ct::mat_impl::mat_node, 2>(instruction[0].kernel,
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, instruction);
             }

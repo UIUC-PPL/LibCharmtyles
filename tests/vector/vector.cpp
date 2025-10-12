@@ -31,20 +31,20 @@ public:
         ct::vector vec112{vec_size_3, 1.5};
         ct::vector vec113{vec_size_3, .5};
 
-        ct::vector vec4 = vec1 + vec2;    
+        ct::vector vec4 = vec1 + vec2;
         ct::vector vec14 = vec11 + vec12 - vec13;
-        ct::vector vec114 = vec111 + vec112 - vec113;   
+        ct::vector vec114 = vec111 + vec112 - vec113;
         ct::sync();
 
         double start = CkWallTimer();
-        for (int i = 0; i < 100; i++) {
-            vec4 = vec1 + vec2;    
+        for (int i = 0; i < 100; i++)
+        {
+            vec4 = vec1 + vec2;
             vec14 = vec11 + vec12 - vec13;
-            vec114 = vec111 + vec112 - vec113;        
+            vec114 = vec111 + vec112 - vec113;
         }
         ct::sync();
         double end = CkWallTimer();
-
 
         ckout << "Execution Time (Phase 1): " << end - start << endl;
 
@@ -66,53 +66,89 @@ public:
         auto vec114_data = vec114.get();
 
         // Verify values for all vectors
-        if (!(vec1_data.size() == vec_size_1 && std::all_of(vec1_data.begin(), vec1_data.end(), [](double v) { return v == 0.5; }))) {
+        if (!(vec1_data.size() == vec_size_1 &&
+                std::all_of(vec1_data.begin(), vec1_data.end(),
+                    [](double v) { return v == 0.5; })))
+        {
             ckout << "Verification failed for vec1_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec2_data.size() == vec_size_1 && std::all_of(vec2_data.begin(), vec2_data.end(), [](double v) { return v == 1.5; }))) {
+        if (!(vec2_data.size() == vec_size_1 &&
+                std::all_of(vec2_data.begin(), vec2_data.end(),
+                    [](double v) { return v == 1.5; })))
+        {
             ckout << "Verification failed for vec2_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec3_data.size() == vec_size_1 && std::all_of(vec3_data.begin(), vec3_data.end(), [](double v) { return v == 0.5; }))) {
+        if (!(vec3_data.size() == vec_size_1 &&
+                std::all_of(vec3_data.begin(), vec3_data.end(),
+                    [](double v) { return v == 0.5; })))
+        {
             ckout << "Verification failed for vec3_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec4_data.size() == vec_size_1 && std::all_of(vec4_data.begin(), vec4_data.end(), [](double v) { return v == 2.0; }))) {
+        if (!(vec4_data.size() == vec_size_1 &&
+                std::all_of(vec4_data.begin(), vec4_data.end(),
+                    [](double v) { return v == 2.0; })))
+        {
             ckout << "Verification failed for vec4_data" << endl;
             CkAbort("Test failed");
         }
 
-        if (!(vec11_data.size() == vec_size_2 && std::all_of(vec11_data.begin(), vec11_data.end(), [](double v) { return v == 0.0; }))) {
+        if (!(vec11_data.size() == vec_size_2 &&
+                std::all_of(vec11_data.begin(), vec11_data.end(),
+                    [](double v) { return v == 0.0; })))
+        {
             ckout << "Verification failed for vec11_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec12_data.size() == vec_size_2 && std::all_of(vec12_data.begin(), vec12_data.end(), [](double v) { return v == 1.5; }))) {
+        if (!(vec12_data.size() == vec_size_2 &&
+                std::all_of(vec12_data.begin(), vec12_data.end(),
+                    [](double v) { return v == 1.5; })))
+        {
             ckout << "Verification failed for vec12_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec13_data.size() == vec_size_2 && std::all_of(vec13_data.begin(), vec13_data.end(), [](double v) { return v == 0.5; }))) {
+        if (!(vec13_data.size() == vec_size_2 &&
+                std::all_of(vec13_data.begin(), vec13_data.end(),
+                    [](double v) { return v == 0.5; })))
+        {
             ckout << "Verification failed for vec13_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec14_data.size() == vec_size_2 && std::all_of(vec14_data.begin(), vec14_data.end(), [](double v) { return v == 1.0; }))) {
+        if (!(vec14_data.size() == vec_size_2 &&
+                std::all_of(vec14_data.begin(), vec14_data.end(),
+                    [](double v) { return v == 1.0; })))
+        {
             ckout << "Verification failed for vec14_data" << endl;
             CkAbort("Test failed");
         }
 
-        if (!(vec111_data.size() == vec_size_3 && std::all_of(vec111_data.begin(), vec111_data.end(), [](double v) { return v == 0.0; }))) {
+        if (!(vec111_data.size() == vec_size_3 &&
+                std::all_of(vec111_data.begin(), vec111_data.end(),
+                    [](double v) { return v == 0.0; })))
+        {
             ckout << "Verification failed for vec111_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec112_data.size() == vec_size_3 && std::all_of(vec112_data.begin(), vec112_data.end(), [](double v) { return v == 1.5; }))) {
+        if (!(vec112_data.size() == vec_size_3 &&
+                std::all_of(vec112_data.begin(), vec112_data.end(),
+                    [](double v) { return v == 1.5; })))
+        {
             ckout << "Verification failed for vec112_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec113_data.size() == vec_size_3 && std::all_of(vec113_data.begin(), vec113_data.end(), [](double v) { return v == 0.5; }))) {
+        if (!(vec113_data.size() == vec_size_3 &&
+                std::all_of(vec113_data.begin(), vec113_data.end(),
+                    [](double v) { return v == 0.5; })))
+        {
             ckout << "Verification failed for vec113_data" << endl;
             CkAbort("Test failed");
         }
-        if (!(vec114_data.size() == vec_size_3 && std::all_of(vec114_data.begin(), vec114_data.end(), [](double v) { return v == 1.0; }))) {
+        if (!(vec114_data.size() == vec_size_3 &&
+                std::all_of(vec114_data.begin(), vec114_data.end(),
+                    [](double v) { return v == 1.0; })))
+        {
             ckout << "Verification failed for vec114_data" << endl;
             CkAbort("Test failed");
         }
@@ -210,7 +246,7 @@ public:
         // std::vector<double> test_data = {1.1, 2.2, 3.3, 4.4, 5.5};
         // ct::vector custom_vec = ct::from_vector(test_data);
         // ct::sync();
-        
+
         // std::vector<double> result = custom_vec.get();
         // ckout << "Custom vector elements: ";
         // for (const auto& val : result) {

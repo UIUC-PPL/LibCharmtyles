@@ -14,18 +14,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return lhs + rhs;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return lhs + rhs;
-        }
-
         PUPable_decl(add_op);
         add_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -34,6 +22,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "add";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return lhs+rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return lhs+rhs;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -45,18 +49,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return lhs - rhs;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return lhs - rhs;
-        }
-
         PUPable_decl(subtract_op);
         subtract_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -65,6 +57,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "subtract";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return lhs-rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return lhs-rhs;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -76,18 +84,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return lhs * rhs;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return lhs * rhs;
-        }
-
         PUPable_decl(multiply_op);
         multiply_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -96,6 +92,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "multiply";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return lhs*rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return lhs*rhs;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -107,18 +119,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return lhs / rhs;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return lhs / rhs;
-        }
-
         PUPable_decl(divide_op);
         divide_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -127,6 +127,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "divide";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return lhs/rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return lhs/rhs;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -138,18 +154,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return std::pow(lhs, rhs);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return std::pow(lhs, rhs);
-        }
-
         PUPable_decl(power_op);
         power_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -158,6 +162,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "power";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return Kokkos::pow(lhs, "
+                   "rhs);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "Kokkos::pow(lhs, rhs);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -169,18 +191,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double& lhs, double& rhs) final
-        {
-            return std::fmod(lhs, rhs);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return std::fmod(lhs, rhs);
-        }
-
         PUPable_decl(modulo_op);
         modulo_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -189,6 +199,22 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "modulo";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return lhs%rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return lhs%rhs;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -200,18 +226,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double& lhs, double& rhs) final
-        {
-            return std::max(lhs, rhs);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return std::max(lhs, rhs);
-        }
-
         PUPable_decl(max_op);
         max_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -220,6 +234,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "max";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return Kokkos::max(lhs, "
+                   "rhs);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "Kokkos::max(lhs, rhs);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -231,18 +263,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return std::min(lhs, rhs);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return std::min(lhs, rhs);
-        }
-
         PUPable_decl(min_op);
         min_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -251,6 +271,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "min";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return Kokkos::min(lhs, "
+                   "rhs);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "Kokkos::min(lhs, rhs);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -262,18 +300,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return (lhs > rhs) ? 1.0 : 0.0;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return (lhs > rhs) ? 1.0 : 0.0;
-        }
-
         PUPable_decl(greater_than_op);
         greater_than_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -282,6 +308,23 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "greater_than";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return (lhs>rhs)?1.0:0.0;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "(lhs>rhs)?1.0:0.0;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -293,18 +336,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return (lhs < rhs) ? 1.0 : 0.0;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return (lhs < rhs) ? 1.0 : 0.0;
-        }
-
         PUPable_decl(less_than_op);
         less_than_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -313,6 +344,23 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "less_than";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return (lhs<rhs)?1.0:0.0;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "(lhs<rhs)?1.0:0.0;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -331,18 +379,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return (std::abs(lhs - rhs) < epsilon_) ? 1.0 : 0.0;
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return (std::abs(lhs - rhs) < epsilon_) ? 1.0 : 0.0;
-        }
-
         PUPable_decl(equal_op);
         equal_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -353,6 +389,25 @@ namespace ct {
         {
             ct::binary_operator::pup(p);
             p | epsilon_;
+        }
+        std::string get_name()
+        {
+            return "equal";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs, double epsilon){return "
+                   "(Kokkos::abs(lhs-rhs)<epsilon)?1.0:0.0;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs, double "
+                   "epsilon){return "
+                   "(Kokkos::abs(lhs-rhs)<epsilon)?1.0:0.0;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {epsilon_};
         }
 
     private:
@@ -367,18 +422,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return std::atan2(lhs, rhs);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return std::atan2(lhs, rhs);
-        }
-
         PUPable_decl(atan2_op);
         atan2_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -387,6 +430,24 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::binary_operator::pup(p);
+        }
+        std::string get_name()
+        {
+            return "atan2";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs){return Kokkos::atan2(lhs, "
+                   "rhs);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs){return "
+                   "Kokkos::atan2(lhs, rhs);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {};
         }
     };
 
@@ -407,18 +468,6 @@ namespace ct {
 
         using ct::binary_operator::binary_operator;
 
-        virtual double operator()(
-            std::size_t index, double lhs, double rhs) final
-        {
-            return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);
-        }
-
-        virtual double operator()(
-            std::size_t i, std::size_t j, double lhs, double rhs) final
-        {
-            return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);
-        }
-
         PUPable_decl(weighted_average_op);
         weighted_average_op(CkMigrateMessage* m)
           : ct::binary_operator(m)
@@ -430,6 +479,24 @@ namespace ct {
             ct::binary_operator::pup(p);
             p | w1_;
             p | w2_;
+        }
+        std::string get_name()
+        {
+            return "weighted_average";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs, double w1, double "
+                   "w2){return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs, double w1, double "
+                   "w2){return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {w1_, w2_};
         }
 
     private:
