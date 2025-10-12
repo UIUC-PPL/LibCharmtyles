@@ -1,8 +1,8 @@
-set(CHARM_DIR "/u/ajain18/charm/netlrts-linux-x86_64/")
-set(BASE_DIR "/u/ajain18/l6")
-set(EIGEN_DIR "/sw/spack/deltas11-2023-03/apps/linux-rhel8-zen3/gcc-11.4.0/eigen-3.4.0-vqm46bt")
+set(CHARM_DIR "/home/anant/winter2024/lbp/study/charm/netlrts-linux-x86_64/")
+set(BASE_DIR "/home/anant/sem7/l3")
+set(EIGEN_DIR "/usr/include/eigen3")
 set(CUDA_DIR  "/path/to/CUDA/directory")
-set(KOKKOS_DIR "/u/ajain18/l5/kokkos/install")
+set(KOKKOS_DIR "${BASE_DIR}/kokkos/install")
 
 set(CHARMC "${CHARM_DIR}/bin/charmc")
 set(CPU_OPTS "-c++-option -std=c++20 -O3 -march=native -DNDEBUG")

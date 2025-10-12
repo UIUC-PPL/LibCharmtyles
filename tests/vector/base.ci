@@ -1,8 +1,7 @@
 mainmodule base
 {
     extern module libcharmtyles;
-    PUPable ct::exp_op;
-    PUPable ct::scale_op;
+
     mainchare Main
     {
         entry Main(CkArgMsg*);

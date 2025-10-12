@@ -22,14 +22,21 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "negate";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return -val;}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return -val;}";
         }
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -51,13 +58,20 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "abs";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::abs(val);}";
         }
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){Kokkos::abs(val);}";
         }
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -79,15 +93,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "square";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::sqaure(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::sqaure(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -109,15 +130,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "sqrt";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::sqrt(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::sqrt(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -139,15 +167,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "reciprocal";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return 1.0/val;}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return 1.0/val;}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -169,15 +204,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "sin";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::sin(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::sin(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -199,15 +241,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "cos";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::cos(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::cos(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -229,15 +278,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "log";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::log(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::log(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -259,15 +315,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "exp";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::exp(val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::exp(val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -295,16 +358,24 @@ namespace ct {
             ct::unary_operator::pup(p);
             p | scale_factor_;
         }
-
-        std::string get_vec_signature(){
-            return "(int a, double val, double scale_factor){return scale_factor*val;}";
+        std::string get_name()
+        {
+            return "scale";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double val, double scale_factor){return "
+                   "scale_factor*val;}";
         }
 
-        std::string get_mat_signature(){
-            return "(int a, int b, double val, double scale_factor){return scale_factor*val;}";
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val, double scale_factor){return "
+                   "scale_factor*val;}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {scale_factor_};
         }
 
@@ -335,15 +406,23 @@ namespace ct {
             ct::unary_operator::pup(p);
             p | constant_;
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "add_constant";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val, double const){return val + const;}";
         }
 
-        std::string get_mat_signature(){
-            return "(int a, int b, double val, double const){return val + const;}";
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double val, double const){return val + "
+                   "const;}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {constant_};
         }
 
@@ -368,15 +447,22 @@ namespace ct {
         {
             ct::unary_operator::pup(p);
         }
-        std::string get_vec_signature(){
+        std::string get_name()
+        {
+            return "relu";
+        }
+        std::string get_vec_signature()
+        {
             return "(int a, double val){return Kokkos::max(0.0,val);}";
         }
 
-        std::string get_mat_signature(){
+        std::string get_mat_signature()
+        {
             return "(int a, int b, double val){return Kokkos::max(0.0,val);}";
         }
 
-        std::vector<double> get_extra_params(){
+        std::vector<double> get_extra_params()
+        {
             return {};
         }
     };

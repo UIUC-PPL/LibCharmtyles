@@ -150,14 +150,21 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-        virtual std::string get_vec_signature(){
+        virtual std::string get_name()
+        {
+            return "";
+        }
+        virtual std::string get_vec_signature()
+        {
             return "";
         }
 
-        virtual std::string get_mat_signature(){
+        virtual std::string get_mat_signature()
+        {
             return "";
         }
-        virtual std::vector<double> get_extra_params(){
+        virtual std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -179,14 +186,21 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-        virtual std::string get_vec_signature(){
+        virtual std::string get_name()
+        {
+            return "";
+        }
+        virtual std::string get_vec_signature()
+        {
             return "";
         }
 
-        virtual std::string get_mat_signature(){
+        virtual std::string get_mat_signature()
+        {
             return "";
         }
-        virtual std::vector<double> get_extra_params(){
+        virtual std::vector<double> get_extra_params()
+        {
             return {};
         }
     };
@@ -215,7 +229,9 @@ namespace ct {
             lhs = rhs;
         }
 
-        virtual void operator()(std::size_t rows, std::size_t cols, std::vector<std::vector<double>>& lhs,  std::vector<std::vector<double>>& rhs)
+        virtual void operator()(std::size_t rows, std::size_t cols,
+            std::vector<std::vector<double>>& lhs,
+            std::vector<std::vector<double>>& rhs)
         {
             // Default implementation: copy rhs to lhs
             lhs = rhs;
