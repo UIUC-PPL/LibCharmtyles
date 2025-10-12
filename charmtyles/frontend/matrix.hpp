@@ -764,6 +764,23 @@ namespace ct {
             queue.insert(instr, matrix_shape_.shape_id);
         }
 
+        matrix(std::vector<ct::mat_impl::mat_node>& instr)
+        {
+            ct::mat_impl::mat_node& root = instr.front();
+            row_size_ = root.mat_row_len_;
+            col_size_ = root.mat_col_len_;
+
+            matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+
+            root.name_ = matrix_shape_.matrix_id;
+            node_ = ct::mat_impl::mat_node{root};
+
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(instr, matrix_shape_.shape_id);
+        }
+
         template <typename LHS, typename RHS, typename THS>
         matrix(ct::mat_impl::ter_mat_expression<LHS, RHS, THS> const& e)
         {
@@ -1001,7 +1018,6 @@ namespace ct {
             return fval.get();
         }
 
-    private:
         std::vector<ct::mat_impl::mat_node> operator()() const
         {
             ct::mat_impl::mat_node new_node{node_};
@@ -1009,7 +1025,7 @@ namespace ct {
 
             return std::vector<ct::mat_impl::mat_node>{new_node};
         }
-
+    private:
         std::size_t row_size_;
         std::size_t col_size_;
         ct::mat_impl::mat_shape_t matrix_shape_;

@@ -129,8 +129,21 @@ namespace ct {
                 ckout << " - ";
                 parse_ast(instr, instr[index].right_);
                 return;
+            case Operation::multiply:
+                parse_ast(instr, instr[index].left_);
+                ckout << " * ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::divide:
+                parse_ast(instr, instr[index].left_);
+                ckout << " / ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::broadcast:
+                ckout << instr[index].value_;
+                return;
             default:
-                CmiAbort("Operation not implemented");
+                CmiAbort("Operation %i not implemented", short(instr[index].operation_));
             }
         }
 
@@ -171,6 +184,12 @@ namespace ct {
             {
             }
 
+            explicit vec_node(ct::util::Operation op, std::vector<std::size_t> size)
+              : operation_(op)
+              , vec_len_(size[0])
+            {
+            }
+
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, std::size_t size)
               : name_(name)
@@ -190,12 +209,32 @@ namespace ct {
             }
 
             explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , vec_len_(size[0])
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
                 std::shared_ptr<ct::binary_operator> binary_expr,
                 std::size_t vec_len)
               : name_(name)
               , operation_(op)
               , binary_expr_(binary_expr)
               , vec_len_(vec_len)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , vec_len_(size[0])
             {
             }
 
@@ -209,6 +248,16 @@ namespace ct {
             {
             }
 
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , vec_len_(size[0])
+            {
+            }
+
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
@@ -217,6 +266,15 @@ namespace ct {
               , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                double value, std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , value_(value)
+              , vec_len_(size[0])
             {
             }
 
@@ -296,6 +354,14 @@ namespace ct {
             {
             }
 
+            explicit mat_node(
+                ct::util::Operation op, std::vector<std::size_t> size)
+              : operation_(op)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
+            {
+            }
+
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 std::size_t rows, std::size_t cols)
               : name_(matrix_id)
@@ -317,6 +383,17 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 std::shared_ptr<ct::binary_operator> binary_expr,
                 std::size_t rows, std::size_t cols)
               : name_(matrix_id)
@@ -324,6 +401,17 @@ namespace ct {
               , binary_expr_(binary_expr)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
             {
             }
 
@@ -339,12 +427,33 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 double value, std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
               , value_(value)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                double value, std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , value_(value)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
             {
             }
 

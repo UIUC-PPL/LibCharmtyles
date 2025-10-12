@@ -163,6 +163,7 @@ namespace ct {
 
             void dispatch(std::size_t shape_id)
             {
+                print_instructions();
                 // Send instructions for execution
                 if (shape_vector_queue_[shape_id].size() != 0)
                 {
@@ -395,8 +396,7 @@ namespace ct {
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
 
                 if (op != ct::util::Operation::unary_expr)
-                    std::copy(
-                        right.begin(), right.end(), std::back_inserter(ast));
+                    std::copy(right.begin(), right.end(), std::back_inserter(ast));
 
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
@@ -683,6 +683,20 @@ namespace ct {
             queue.insert(instr, vector_shape_.shape_id);
         }
 
+        vector(std::vector<ct::vec_impl::vec_node>& instr) {
+            ct::vec_impl::vec_node& root = instr.front();
+            size_ = root.vec_len_;
+
+            vector_shape_ = ct::vec_impl::get_vector_shape(size_);
+
+            root.name_ = vector_shape_.vector_id;
+            node_ = ct::vec_impl::vec_node{root};
+
+            ct::vec_impl::vec_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.insert(instr, vector_shape_.shape_id);
+        }
+
         template <typename LHS, typename RHS>
         vector& operator=(ct::vec_impl::vec_expression<LHS, RHS> const& e)
         {
@@ -922,7 +936,6 @@ namespace ct {
             return fval.get();
         }
 
-    private:
         std::vector<ct::vec_impl::vec_node> operator()() const
         {
             ct::vec_impl::vec_node new_node{node_};
@@ -930,7 +943,7 @@ namespace ct {
 
             return std::vector<ct::vec_impl::vec_node>{new_node};
         }
-
+    private:
         std::size_t size_;
         ct::vec_impl::vec_shape_t vector_shape_;
         ct::vec_impl::vec_node node_;
