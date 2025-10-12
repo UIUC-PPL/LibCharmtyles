@@ -32,7 +32,7 @@ public:
 
     void finalize()
     {
-        Kokkos::finalize();
+        // Kokkos::finalize();
     }
 
     void dkload(uint64_t hash)

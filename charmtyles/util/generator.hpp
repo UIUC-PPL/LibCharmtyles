@@ -150,18 +150,15 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-
-        // Default Operator overload for vectors
-        virtual double operator()(std::size_t index, double value)
-        {
-            return -1.0;
+        virtual std::string get_vec_signature(){
+            return "";
         }
 
-        // Default Operator overload for matrices
-        virtual double operator()(
-            std::size_t row_id, std::size_t col_id, double value)
-        {
-            return -1.0;
+        virtual std::string get_mat_signature(){
+            return "";
+        }
+        virtual std::vector<double> get_extra_params(){
+            return {};
         }
     };
 
@@ -182,17 +179,15 @@ namespace ct {
         {
             PUP::able::pup(p);
         }
-
-        virtual double operator()(
-            std::size_t index, double left_val, double right_val)
-        {
-            return -1.0;
+        virtual std::string get_vec_signature(){
+            return "";
         }
 
-        virtual double operator()(std::size_t row_id, std::size_t col_id,
-            double left_val, double right_val)
-        {
-            return -1.0;
+        virtual std::string get_mat_signature(){
+            return "";
+        }
+        virtual std::vector<double> get_extra_params(){
+            return {};
         }
     };
 
