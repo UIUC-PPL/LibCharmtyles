@@ -57,7 +57,9 @@ namespace ct {
             unary_expr = 30,
             // Binary operations
             binary_expr = 40,
-            custom_expr = 50
+            custom_expr = 50,
+            // handled separately as dot / mat_mul
+            matmul = 60
         };
 
         inline bool is_init_type(ct::util::Operation op)

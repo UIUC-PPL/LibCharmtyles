@@ -612,25 +612,23 @@ namespace ct {
         return *this;
     }
 
-    inline ct::mat_mul_impl::mat_mul_expr operator*(
-        matrix const& lhs, matrix const& rhs)
-    {
+    inline ct::mat_mul_impl::mat_mul_expr matmul(matrix const& lhs, matrix const& rhs) {
         return mat_mul_impl::mat_mul_expr(lhs, rhs);
     }
 
-    inline mat_mul_impl::mat_mul_expr operator*(matrix const& lhs, matrix&& rhs)
+    inline mat_mul_impl::mat_mul_expr matmul(matrix const& lhs, matrix&& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
     }
 
-    inline mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix const& rhs)
+    inline mat_mul_impl::mat_mul_expr matmul(matrix&& lhs, matrix const& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
     }
 
-    inline mat_mul_impl::mat_mul_expr operator*(matrix&& lhs, matrix&& rhs)
+    inline mat_mul_impl::mat_mul_expr matmul(matrix&& lhs, matrix&& rhs)
     {
         CkAbort(
             "Matrix Multiplication not implemented for complex operations.");
