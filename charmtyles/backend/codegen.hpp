@@ -340,6 +340,8 @@ private:
             long long rightid = codegen_ast(instruction, node.right_, dim);
             kkTmpVar++;
             kkCustomOpsOrder.push_back({curr_idx, false});
+            kk << "auto tmp" << kkTmpVar << " = ";
+            
             std::string signature;
             if (dim == 1)
                 signature = node.binary_expr_->get_vec_signature();

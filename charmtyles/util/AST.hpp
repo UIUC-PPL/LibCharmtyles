@@ -191,6 +191,13 @@ namespace ct {
                 parse_ast(instr, instr[index].left_);
                 ckout << ")";
                 return;
+            case Operation::binary_expr:
+                ckout << instr[index].binary_expr_->get_name().c_str() << "(";
+                parse_ast(instr, instr[index].left_);
+                ckout << ", ";
+                parse_ast(instr, instr[index].right_);
+                ckout << ")";
+                return;
             case Operation::where:
                 parse_ast(instr, instr[index].ter_);
                 ckout << " ? ";

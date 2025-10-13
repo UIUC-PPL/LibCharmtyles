@@ -487,12 +487,12 @@ namespace ct {
         std::string get_vec_signature()
         {
             return "(int a, double lhs, double rhs, double w1, double "
-                   "w2){return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);}";
+                   "w2){return (w1 * lhs + w2 * rhs) / (w1 + w2);}";
         }
         std::string get_mat_signature()
         {
             return "(int a, int b, double lhs, double rhs, double w1, double "
-                   "w2){return (w1_ * lhs + w2_ * rhs) / (w1_ + w2_);}";
+                   "w2){return (w1 * lhs + w2 * rhs) / (w1 + w2);}";
         }
         std::vector<double> get_extra_params()
         {
@@ -505,71 +505,69 @@ namespace ct {
 
     namespace binary_ops {
 
-        inline std::shared_ptr<ct::binary_operator> add()
+        inline std::shared_ptr<ct::binary_operator> add(const std::vector<double>& args)
         {
             return std::make_shared<add_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> subtract()
+        inline std::shared_ptr<ct::binary_operator> subtract(const std::vector<double>& args)
         {
             return std::make_shared<subtract_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> multiply()
+        inline std::shared_ptr<ct::binary_operator> multiply(const std::vector<double>& args)
         {
             return std::make_shared<multiply_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> divide()
+        inline std::shared_ptr<ct::binary_operator> divide(const std::vector<double>& args)
         {
             return std::make_shared<divide_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> power()
+        inline std::shared_ptr<ct::binary_operator> power(const std::vector<double>& args)
         {
             return std::make_shared<power_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> modulo()
+        inline std::shared_ptr<ct::binary_operator> modulo(const std::vector<double>& args)
         {
             return std::make_shared<modulo_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> max()
+        inline std::shared_ptr<ct::binary_operator> max(const std::vector<double>& args)
         {
             return std::make_shared<max_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> min()
+        inline std::shared_ptr<ct::binary_operator> min(const std::vector<double>& args)
         {
             return std::make_shared<min_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> greater_than()
+        inline std::shared_ptr<ct::binary_operator> greater_than(const std::vector<double>& args)
         {
             return std::make_shared<greater_than_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> less_than()
+        inline std::shared_ptr<ct::binary_operator> less_than(const std::vector<double>& args)
         {
             return std::make_shared<less_than_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> equal(
-            double epsilon = 1e-10)
+        inline std::shared_ptr<ct::binary_operator> equal(const std::vector<double>& args)
         {
-            return std::make_shared<equal_op>(epsilon);
+            return std::make_shared<equal_op>(args[0]);
         }
 
-        inline std::shared_ptr<ct::binary_operator> atan2()
+        inline std::shared_ptr<ct::binary_operator> atan2(const std::vector<double>& args)
         {
             return std::make_shared<atan2_op>();
         }
 
-        inline std::shared_ptr<ct::binary_operator> weighted_average(
-            double w1, double w2)
+        inline std::shared_ptr<ct::binary_operator> weighted_average(const std::vector<double>& args)
         {
-            return std::make_shared<weighted_average_op>(w1, w2);
+            return std::make_shared<weighted_average_op>(args[0], args[1]);
         }
     }    // namespace binary_ops
 

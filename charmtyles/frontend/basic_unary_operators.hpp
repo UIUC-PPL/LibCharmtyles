@@ -412,13 +412,13 @@ namespace ct {
         }
         std::string get_vec_signature()
         {
-            return "(int a, double val, double const){return val + const;}";
+            return "(int a, double val, double constant){return val + constant;}";
         }
 
         std::string get_mat_signature()
         {
-            return "(int a, int b, double val, double const){return val + "
-                   "const;}";
+            return "(int a, int b, double val, double constant){return val + "
+                   "constant;}";
         }
 
         std::vector<double> get_extra_params()
@@ -469,7 +469,7 @@ namespace ct {
 
     namespace unary_ops {
 
-        inline std::shared_ptr<ct::unary_operator> negate()
+        inline std::shared_ptr<ct::unary_operator> negate(const std::vector<double>& args)
         {
             return std::make_shared<negate_op>();
         }
@@ -479,52 +479,52 @@ namespace ct {
             return std::make_shared<abs_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> square()
+        inline std::shared_ptr<ct::unary_operator> square(const std::vector<double>& args)
         {
             return std::make_shared<square_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> sqrt()
+        inline std::shared_ptr<ct::unary_operator> sqrt(const std::vector<double>& args)
         {
             return std::make_shared<sqrt_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> reciprocal()
+        inline std::shared_ptr<ct::unary_operator> reciprocal(const std::vector<double>& args)
         {
             return std::make_shared<reciprocal_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> sin()
+        inline std::shared_ptr<ct::unary_operator> sin(const std::vector<double>& args)
         {
             return std::make_shared<sin_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> cos()
+        inline std::shared_ptr<ct::unary_operator> cos(const std::vector<double>& args)
         {
             return std::make_shared<cos_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> log()
+        inline std::shared_ptr<ct::unary_operator> log(const std::vector<double>& args)
         {
             return std::make_shared<log_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> exp()
+        inline std::shared_ptr<ct::unary_operator> exp(const std::vector<double>& args)
         {
             return std::make_shared<exp_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> scale(double factor)
+        inline std::shared_ptr<ct::unary_operator> scale(const std::vector<double>& args)
         {
-            return std::make_shared<scale_op>(factor);
+            return std::make_shared<scale_op>(args[0]);
         }
 
-        inline std::shared_ptr<ct::unary_operator> add_constant(double constant)
+        inline std::shared_ptr<ct::unary_operator> add_constant(const std::vector<double>& args)
         {
-            return std::make_shared<add_constant_op>(constant);
+            return std::make_shared<add_constant_op>(args[0]);
         }
 
-        inline std::shared_ptr<ct::unary_operator> relu()
+        inline std::shared_ptr<ct::unary_operator> relu(const std::vector<double>& args)
         {
             return std::make_shared<relu_op>();
         }
