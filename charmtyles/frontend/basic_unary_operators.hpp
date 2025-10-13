@@ -474,7 +474,7 @@ namespace ct {
             return std::make_shared<negate_op>();
         }
 
-        inline std::shared_ptr<ct::unary_operator> abs()
+        inline std::shared_ptr<ct::unary_operator> abs(const std::vector<double>& args)
         {
             return std::make_shared<abs_op>();
         }

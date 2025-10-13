@@ -320,9 +320,9 @@ private:
             {
                 kk << "view_map[" << leftid << "](" << kkViewIndxScheme << ")";
             }
-            kk << ",";
 
             size_t argc = node.unary_expr_->get_extra_params().size();
+            if (argc) kk << ", ";
             for (int i = 0; i < argc; i++)
             {
                 kk << "custom_ops_args[" << extraArgCount << "]";
@@ -370,6 +370,7 @@ private:
                 kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";
             }
             size_t argc = node.binary_expr_->get_extra_params().size();
+            if (argc) kk << ", ";
             for (int i = 0; i < argc; i++)
             {
                 kk << "custom_ops_args[" << extraArgCount << "]";

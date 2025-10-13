@@ -139,8 +139,64 @@ namespace ct {
                 ckout << " / ";
                 parse_ast(instr, instr[index].right_);
                 return;
+            case Operation::lesser:
+                parse_ast(instr, instr[index].left_);
+                ckout << " < ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::greater:
+                parse_ast(instr, instr[index].left_);
+                ckout << " > ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::leq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " <= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::geq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " >= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::eq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " == ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::neq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " != ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_and:
+                parse_ast(instr, instr[index].left_);
+                ckout << " & ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_or:
+                parse_ast(instr, instr[index].left_);
+                ckout << " | ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_not:
+                ckout << "!";
+                parse_ast(instr, instr[index].left_);
+                return;
             case Operation::broadcast:
                 ckout << instr[index].value_;
+                return;
+            case Operation::unary_expr:
+                ckout << instr[index].unary_expr_->get_name().c_str() << "(";
+                parse_ast(instr, instr[index].left_);
+                ckout << ")";
+                return;
+            case Operation::where:
+                parse_ast(instr, instr[index].ter_);
+                ckout << " ? ";
+                parse_ast(instr, instr[index].left_);
+                ckout << " : ";
+                parse_ast(instr, instr[index].right_);
                 return;
             default:
                 CmiAbort("Operation %i not implemented", short(instr[index].operation_));
