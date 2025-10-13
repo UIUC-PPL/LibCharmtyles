@@ -392,7 +392,8 @@ private:
         {
             long long terid = codegen_ast(instruction, node.ter_, dim);
             kkTmpVar++;
-            kk << "double tmp" << kkTmpVar << ";\n";
+            size_t kkResIndx = kkTmpVar;
+            kk << "double tmp" << kkResIndx << ";\n";
             kk << "if (";
             if (terid < 0)
             {
@@ -404,7 +405,7 @@ private:
             }
             kk << ") {\n";
             long long leftid = codegen_ast(instruction, node.left_, dim);
-            kk << "tmp" << kkTmpVar << " = ";
+            kk << "tmp" << kkResIndx << " = ";
             if (leftid < 0)
             {
                 kk << "tmp" << -leftid;
@@ -416,7 +417,7 @@ private:
             kk << ";\n";
             kk << "} else {\n";
             long long rightid = codegen_ast(instruction, node.right_, dim);
-            kk << "tmp" << kkTmpVar << " = ";
+            kk << "tmp" << kkResIndx << " = ";
             if (rightid < 0)
             {
                 kk << "tmp" << -rightid;
@@ -427,8 +428,8 @@ private:
             }
             kk << ";\n";
             kk << "}\n";
+            return -static_cast<long long>(kkResIndx);
         }
-            return -static_cast<long long>(kkTmpVar);
         default:
             CmiAbort("Operation not implemented");
         }
