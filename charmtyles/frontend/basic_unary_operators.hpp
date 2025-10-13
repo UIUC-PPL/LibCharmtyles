@@ -264,7 +264,11 @@ namespace ct {
     class log_op : public ct::unary_operator
     {
     public:
-        log_op() = default;
+        log_op() = delete;
+        log_op(double base)
+          : base_(base)
+        {
+        }
         ~log_op() = default;
 
         using ct::unary_operator::unary_operator;
@@ -277,6 +281,7 @@ namespace ct {
         void pup(PUP::er& p) final
         {
             ct::unary_operator::pup(p);
+            p|base_;
         }
         std::string get_name()
         {
@@ -284,18 +289,21 @@ namespace ct {
         }
         std::string get_vec_signature()
         {
-            return "(int a, double val){return Kokkos::log(val);}";
+            return "(int a, double val, double base){return Kokkos::log(val)/Kokkos::log(base);}";
         }
 
         std::string get_mat_signature()
         {
-            return "(int a, int b, double val){return Kokkos::log(val);}";
+            return "(int a, int b, double val, double base){return Kokkos::log(val)/Kokkos::log(base);}";
         }
 
         std::vector<double> get_extra_params()
         {
-            return {};
+            return {base_};
         }
+    private:
+        double base_;
+
     };
 
     class exp_op : public ct::unary_operator
@@ -506,7 +514,7 @@ namespace ct {
 
         inline std::shared_ptr<ct::unary_operator> log(const std::vector<double>& args)
         {
-            return std::make_shared<log_op>();
+            return std::make_shared<log_op>(args[0]);
         }
 
         inline std::shared_ptr<ct::unary_operator> exp(const std::vector<double>& args)
