@@ -571,14 +571,12 @@ namespace ct {
       , node_(matrix_shape_.matrix_id, ct::util::Operation::init_value, 0,
             row_size_, col_size_)
     {
-        ct::mat_impl::mat_shape_t const& lhs_shape = expr.lhs.matrix_shape();
-        ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
-
-        // Dispatch previous instructions belonging to this shape
-        ct::mat_impl::mat_instr_queue_t& mat_queue =
-            CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        ct::mat_impl::mat_instr_queue_t& mat_queue = CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+        mat_queue.insert(node_, matrix_shape_.shape_id);
         mat_queue.dispatch(matrix_shape_.shape_id);
 
+        ct::mat_impl::mat_shape_t const& lhs_shape = expr.lhs.matrix_shape();
+        ct::mat_impl::mat_shape_t const& rhs_shape = expr.rhs.matrix_shape();
         std::size_t& curr_sdag_idx = mat_queue.sdag_idx(matrix_shape_.shape_id);
 
         CProxy_matrix_impl dispatch_proxy = matrix_shape_.proxy;

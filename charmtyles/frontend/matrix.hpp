@@ -736,15 +736,12 @@ namespace ct {
             return *this;
         }
 
-        // TODO: Figure out why this is necessary!
         matrix(matrix&& other)
           : row_size_(other.row_size_)
           , col_size_(other.col_size_)
           , matrix_shape_(other.matrix_shape_)
           , node_(other.node_)
-        {
-            // ckout << "Move constructor called!" << endl;
-        }
+        {}
 
         template <typename LHS, typename RHS>
         matrix(ct::mat_impl::mat_expression<LHS, RHS> const& e)

@@ -656,14 +656,11 @@ namespace ct {
             return *this;
         }
 
-        // TODO: Figure out why this is necessary!
         vector(vector&& other)
           : size_(other.size_)
           , vector_shape_(other.vector_shape_)
           , node_(other.node_)
-        {
-            // ckout << "Move constructor called!" << endl;
-        }
+        {}
 
         template <typename LHS, typename RHS>
         vector(ct::vec_impl::vec_expression<LHS, RHS> const& e)
