@@ -2,6 +2,7 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 
@@ -619,18 +620,34 @@ public:
     }
 
     // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
-    void mat_vec_dot_impl(int mat_idx, double* vec_in_data,
-        std::size_t vec_size, Kokkos::View<double*>& local_result)
+    void mat_vec_dot_impl(int mat_idx, const double* vec_in_data,
+        std::size_t vec_len, Kokkos::View<double*>& local_result)
     {
-        Kokkos::View<double*> vec_in(vec_in_data, vec_size);
+        using UnmanagedConstVector =
+            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
+        std::size_t num_cols = mat.extent(1);
+
+        CkAssert(vec_len >= num_cols &&
+            "Incoming vector does not have enough entries for this matrix tile");
+
+        std::size_t offset = 0;
+        if (vec_len > num_cols)
+        {
+            std::size_t max_offset = vec_len - num_cols;
+            offset = std::min<std::size_t>(
+                static_cast<std::size_t>(thisIndex.x) * col_block_len, max_offset);
+        }
+
+        UnmanagedConstVector vec_in(vec_in_data + offset, num_cols);
 
         // Perform matrix-vector multiplication: result = mat * vec
         Kokkos::parallel_for(
             "mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
                 double sum = 0.0;
-                for (std::size_t j = 0; j < vec_size; ++j)
+                for (std::size_t j = 0; j < num_cols; ++j)
                 {
                     sum += mat(i, j) * vec_in(j);
                 }
@@ -640,18 +657,34 @@ public:
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
-    void vec_mat_dot_impl(int mat_idx, double* vec_in_data,
-        std::size_t vec_size, Kokkos::View<double*>& local_result)
+    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data,
+        std::size_t vec_len, Kokkos::View<double*>& local_result)
     {
-        Kokkos::View<double*> vec_in(vec_in_data, vec_size);
+        using UnmanagedConstVector =
+            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+
         Kokkos::View<double**> mat = mat_map[mat_idx];
+        std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
+
+        CkAssert(vec_len >= num_rows &&
+            "Incoming vector does not have enough entries for this matrix tile");
+
+        std::size_t offset = 0;
+        if (vec_len > num_rows)
+        {
+            std::size_t max_offset = vec_len - num_rows;
+            offset = std::min<std::size_t>(
+                static_cast<std::size_t>(thisIndex.y) * row_block_len, max_offset);
+        }
+
+        UnmanagedConstVector vec_in(vec_in_data + offset, num_rows);
 
         // Perform vector-matrix multiplication: result = vec * mat
         Kokkos::parallel_for(
             "vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
                 double sum = 0.0;
-                for (std::size_t i = 0; i < vec_size; ++i)
+                for (std::size_t i = 0; i < num_rows; ++i)
                 {
                     sum += vec_in(i) * mat(i, j);
                 }

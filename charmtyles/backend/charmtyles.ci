@@ -717,33 +717,29 @@ module libcharmtyles
                     when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
                 serial "mat_vec_dot" {
 
-                    // Get the subvector indices
-                    std::size_t block_dim = col_block_len;
-                    std::size_t vec_size = block_dim;
-                    if (thisIndex.x == num_chares_x - 1 && block_dim % col_block_len != 0) {
-                        vec_size = len % col_block_len;
-                    }
+                    // Determine chunk size expected for this tile and validate incoming data
+                    std::size_t local_cols = mat_map[mat_idx].extent(1);
+                    CkAssert(static_cast<std::size_t>(len) >= local_cols &&
+                        "Matrix tile received vector chunk shorter than expected");
 
                     // Initialize result array
-                    double result[result_size];
-                    for (int i = 0; i != result_size; ++i)
-                        result[i] = 0;
+                    std::vector<double> result(result_size, 0.0);
 
                     // Create view for local result
                     std::size_t num_rows = mat_map[mat_idx].extent(0);
                     Kokkos::View<double*> local_result("local_result", num_rows);
                     
                     // Use public helper method to avoid CUDA lambda visibility issues
-                    mat_vec_dot_impl(mat_idx, data + thisIndex.x * block_dim, vec_size, local_result);
+                    mat_vec_dot_impl(mat_idx, data, static_cast<std::size_t>(len), local_result);
                     
                     // Copy local result to the correct position in the result array
-                    for (std::size_t i = 0; i < num_rows; ++i) {
-                        result[thisIndex.y * row_block_len + i] = local_result(i);
-                    }
+                    auto host_result = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
+                    for (std::size_t i = 0; i < num_rows; ++i)
+                        result[thisIndex.y * row_block_len + i] = host_result(i);
 
                     // TODO: Use Section Reduction!
                     CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
-                    contribute((result_size) * sizeof(double), result, CkReduction::sum_double, cb);
+                    contribute(result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
 
                     ++SDAG_INDEX;
                 }} // matrix vector dot product
@@ -754,33 +750,29 @@ module libcharmtyles
                     when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
                 serial "vec_mat_dot" {
 
-                    // Get the subvector indices
-                    std::size_t block_dim = row_block_len;
-                    std::size_t vec_size = block_dim;
-                    if (thisIndex.y == num_chares_y - 1 && block_dim % row_block_len != 0) {
-                        vec_size = len % row_block_len;
-                    }
+                    // Determine expected chunk size for this tile and validate incoming data
+                    std::size_t local_rows = mat_map[mat_idx].extent(0);
+                    CkAssert(static_cast<std::size_t>(len) >= local_rows &&
+                        "Matrix tile received vector chunk shorter than expected");
 
                     // Initialize result array
-                    double result[result_size];
-                    for (int i = 0; i != result_size; ++i)
-                        result[i] = 0;
+                    std::vector<double> result(result_size, 0.0);
 
                     // Create view for local result
                     std::size_t num_cols = mat_map[mat_idx].extent(1);
                     Kokkos::View<double*> local_result("local_result", num_cols);
                     
                     // Use public helper method to avoid CUDA lambda visibility issues
-                    vec_mat_dot_impl(mat_idx, data + thisIndex.y * block_dim, vec_size, local_result);
+                    vec_mat_dot_impl(mat_idx, data, static_cast<std::size_t>(len), local_result);
                     
                     // Copy local result to the correct position in the result array
-                    for (std::size_t j = 0; j < num_cols; ++j) {
-                        result[thisIndex.x * col_block_len + j] = local_result(j);
-                    }
+                    auto host_result = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
+                    for (std::size_t j = 0; j < num_cols; ++j)
+                        result[thisIndex.x * col_block_len + j] = host_result(j);
 
                     // TODO: Use Section Reduction!
                     CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
-                    contribute((result_size) * sizeof(double), result, CkReduction::sum_double, cb);
+                    contribute(result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
 
                     ++SDAG_INDEX;
                 }} // vector matrix dot product
