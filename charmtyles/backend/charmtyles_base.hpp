@@ -623,9 +623,6 @@ public:
     void mat_vec_dot_impl(int mat_idx, const double* vec_in_data,
         std::size_t vec_len, Kokkos::View<double*>& local_result)
     {
-        using UnmanagedConstVector =
-            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
@@ -641,7 +638,14 @@ public:
                 static_cast<std::size_t>(thisIndex.x) * col_block_len, max_offset);
         }
 
-        UnmanagedConstVector vec_in(vec_in_data + offset, num_cols);
+        using HostConstVector =
+            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        HostConstVector vec_in_host(vec_in_data + offset, num_cols);
+
+        using DeviceVector =
+            Kokkos::View<double*, typename Kokkos::DefaultExecutionSpace::memory_space>;
+        DeviceVector vec_in("vec_in_tile", num_cols);
+        Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform matrix-vector multiplication: result = mat * vec
         Kokkos::parallel_for(
@@ -660,9 +664,6 @@ public:
     void vec_mat_dot_impl(int mat_idx, const double* vec_in_data,
         std::size_t vec_len, Kokkos::View<double*>& local_result)
     {
-        using UnmanagedConstVector =
-            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
@@ -678,7 +679,14 @@ public:
                 static_cast<std::size_t>(thisIndex.y) * row_block_len, max_offset);
         }
 
-        UnmanagedConstVector vec_in(vec_in_data + offset, num_rows);
+        using HostConstVector =
+            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        HostConstVector vec_in_host(vec_in_data + offset, num_rows);
+
+        using DeviceVector =
+            Kokkos::View<double*, typename Kokkos::DefaultExecutionSpace::memory_space>;
+        DeviceVector vec_in("vec_in_tile", num_rows);
+        Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform vector-matrix multiplication: result = vec * mat
         Kokkos::parallel_for(
