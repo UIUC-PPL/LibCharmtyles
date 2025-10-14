@@ -88,24 +88,39 @@ namespace ct {
 
                 return dispatch_count;
             }
-
+            
             void codegen(instr_t& instructions) {
-                for(auto& instruction : instructions) {
-                    auto op = instruction[0].operation_;
-                    if(op == ct::util::Operation::init_random   ||
-                       op == ct::util::Operation::init_value    ||
-                       op == ct::util::Operation::init_generate ||
-                       op == ct::util::Operation::copy          ||
-                       op == ct::util::Operation::custom_expr   ||
-                      (op == ct::util::Operation::inplace_add   &&
-                       instruction[0].copy_id_ != -1)           ||
-                      (op == ct::util::Operation::inplace_sub   &&
-                       instruction[0].copy_id_ != -1)           ||
-                      (op == ct::util::Operation::inplace_divide&&
-                       instruction[0].copy_id_ != -1)) continue;
+                for(size_t i=0;i<instructions.size();) {
+                    instr_t region;
+                    size_t regionIndex = i;
+                    auto op = instructions[regionIndex][0].operation_;
+                    auto multiLineFuse = instructions[regionIndex][0].multiLineFuse;
+                    while(regionIndex<instructions.size() and !(op == ct::util::Operation::init_random   ||
+                        op == ct::util::Operation::init_value    ||
+                        op == ct::util::Operation::init_generate ||
+                        op == ct::util::Operation::copy          ||
+                        op == ct::util::Operation::custom_expr   ||
+                       (op == ct::util::Operation::inplace_add   &&
+                        instructions[regionIndex][0].copy_id_ != -1)||
+                       (op == ct::util::Operation::inplace_sub &&
+                        instructions[regionIndex][0].copy_id_ != -1)||
+                       (op == ct::util::Operation::inplace_divide&&
+                        instructions[regionIndex][0].copy_id_ != -1))){
+                            if(!multiLineFuse) {
+                                region.push_back(instructions[regionIndex]);
+                                break;
+                            }
+                            region.push_back(instructions[regionIndex]);
+                            ++regionIndex;
+                            if(regionIndex==instructions.size()) break;
+                            op = instructions[regionIndex][0].operation_;
+                            multiLineFuse = instructions[regionIndex][0].multiLineFuse;
+                        }
+                    if(region.size()==0) {++i;continue;}
                     cgen.reset();
-                    instruction[0].kernel = cgen.generate_kernel<mat_node, 2>(instruction);
-                    kokkosMgmt.dkload(std::get<0>(instruction[0].kernel));
+                    instructions[i][0].kernel = cgen.generate_kernel<mat_node, 2>(region);
+                    kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
+                    i+=region.size();
                 }
             }
 

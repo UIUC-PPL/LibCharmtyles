@@ -24,9 +24,10 @@ private:
     // a stream to store the generated kernel
     std::stringstream kk;
     std::size_t kkTmpVar;
-    // a vector that stores the index(in ast) of the node that uses some custom binary/unary ops defined by the user.
-    // the second parameter is a flag that indicates if this is a unary or binary op.
-    std::vector<std::pair<size_t, bool>> kkCustomOpsOrder;
+    // a vector that stores, 0 -> index in the merged region of instructions
+    // 1 -> the index(in ast) of the node that uses some custom binary/unary ops defined by the user.
+    // 3 -> flag that indicates if this is a unary or binary op.
+    std::vector<std::tuple<size_t, size_t, bool>> kkCustomOpsOrder;
     // a map from kernel hash -> Kokkos functor
     std::map<uint64_t, bool> kernel_cache;
     // indexing scheme for the corresponding n rank view
@@ -44,6 +45,8 @@ private:
     // list of scalars used by the generated kernel
     std::vector<double> kkScalarVals {};
     std::size_t kkScalarValIdx {};
+    // offset into a region of multiLine fused ASTs
+    size_t kkRegionOffset = 0;
 
     long long getViewIdx(size_t node_id)
     {
@@ -299,7 +302,7 @@ private:
         {
             long long leftid = codegen_ast(instruction, node.left_, dim);
             kkTmpVar++;
-            kkCustomOpsOrder.push_back({curr_idx, true});
+            kkCustomOpsOrder.push_back({kkRegionOffset, curr_idx, true});
             kk << "auto tmp" << kkTmpVar << " = ";
 
             std::string signature;
@@ -339,7 +342,7 @@ private:
             long long leftid = codegen_ast(instruction, node.left_, dim);
             long long rightid = codegen_ast(instruction, node.right_, dim);
             kkTmpVar++;
-            kkCustomOpsOrder.push_back({curr_idx, false});
+            kkCustomOpsOrder.push_back({kkRegionOffset, curr_idx, false});
             kk << "auto tmp" << kkTmpVar << " = ";
             
             std::string signature;
@@ -454,12 +457,13 @@ public:
         kkCustomOpArgIdx = 0;
         kkScalarVals.clear();
         kkScalarValIdx = 0;
+        kkRegionOffset = 0;
     }
 
     template <typename viewType, typename nodeType, size_t dim>
     static void execute(ct::util::kernelInfo const& kernel,
         std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
-        std::vector<nodeType> const& instruction)
+        std::vector<std::vector<nodeType>> const& region)
     {
         using kernelType = void (*)(Kokkos::View<viewType*>,
             Kokkos::View<double*>, Kokkos::View<double*>, std::vector<std::size_t>);
@@ -476,18 +480,24 @@ public:
         std::vector<double> kkCustomOpsArgs;
         for (auto it : std::get<2>(kernel))
         {
-            if (it.second) {
-                auto extra_params = instruction[it.first].unary_expr_->get_extra_params();
+            if (std::get<2>(it))
+            {
+                ckout<<std::get<0>(it)<<" "<<std::get<1>(it)<<" "<<endl;
+                auto extra_params =
+                    region[std::get<0>(it)][std::get<1>(it)].unary_expr_->get_extra_params();
                 if (extra_params.size() == 0)
                     continue;
-                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(), extra_params.begin(), extra_params.end());
+                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
+                    extra_params.begin(), extra_params.end());
             }
             else
             {
-                auto extra_params = instruction[it.first].binary_expr_->get_extra_params();
+                auto extra_params =
+                    region[std::get<0>(it)][std::get<1>(it)].binary_expr_->get_extra_params();
                 if (extra_params.size() == 0)
                     continue;
-                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(), extra_params.begin(), extra_params.end());
+                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
+                    extra_params.begin(), extra_params.end());
             }
         }
         Kokkos::View<double*> kkCustomOpsArgs_d("kkCustomOpsArgs_d", kkCustomOpsArgs.size());
@@ -508,34 +518,37 @@ public:
     }
 
     template <typename T, size_t dim>
-    ct::util::kernelInfo generate_kernel(std::vector<T> const& instruction)
+    ct::util::kernelInfo generate_kernel(std::vector<std::vector<T>> const& instructions)
     {
-        const size_t node_id = instruction[0].name_;
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
-
-        long long resid = codegen_ast(instruction, 0, dim);
-        kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme
-           << ") ";
-        if (instruction[0].operation_ == ct::util::Operation::inplace_add)
-        {
-            kk << "+=";
+        for(auto instruction:instructions){
+            const size_t node_id = instruction[0].name_;
+            long long resid = codegen_ast(instruction, 0, dim);
+            kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme
+               << ") ";
+            if (instruction[0].operation_ == ct::util::Operation::inplace_add)
+            {
+                kk << "+=";
+            }
+            else if (instruction[0].operation_ == ct::util::Operation::inplace_sub)
+            {
+                kk << "-=";
+            }
+            else if (instruction[0].operation_ ==
+                ct::util::Operation::inplace_divide)
+            {
+                kk << "/=";
+            }
+            else
+            {
+                kk << "=";
+            }
+            kk << " tmp" << -resid << ";\n";
+            ++kkRegionOffset;
         }
-        else if (instruction[0].operation_ == ct::util::Operation::inplace_sub)
-        {
-            kk << "-=";
-        }
-        else if (instruction[0].operation_ ==
-            ct::util::Operation::inplace_divide)
-        {
-            kk << "/=";
-        }
-        else
-        {
-            kk << "=";
-        }
-        kk << " tmp" << -resid << ";\n";
+        
 
         return {
             compile(), std::move(kkViewsOrder), std::move(kkCustomOpsOrder), std::move(kkScalarVals)};
