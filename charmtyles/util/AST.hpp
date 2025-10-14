@@ -209,7 +209,7 @@ namespace ct {
             }
         }
 
-        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>>;
+        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>, std::vector<double>>;
     }    // namespace util
 
     namespace vec_impl {
@@ -376,6 +376,7 @@ namespace ct {
                 p | std::get<0>(kernel);
                 p | std::get<1>(kernel);
                 p | std::get<2>(kernel);
+                p | std::get<3>(kernel);
             }
         };
 
@@ -551,6 +552,7 @@ namespace ct {
                 p | std::get<0>(kernel);
                 p | std::get<1>(kernel);
                 p | std::get<2>(kernel);
+                p | std::get<3>(kernel);
             }
         };
 
