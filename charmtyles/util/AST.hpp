@@ -183,7 +183,7 @@ namespace ct {
                 parse_ast(instr, instr[index].left_);
                 return;
             case Operation::broadcast:
-                ckout << instr[index].value_;
+                ckout << "SCALAR(" << instr[index].value_ << ")";
                 return;
             case Operation::unary_expr:
                 ckout << instr[index].unary_expr_->get_name().c_str() << "(";
