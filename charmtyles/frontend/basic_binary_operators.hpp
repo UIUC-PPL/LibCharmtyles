@@ -503,6 +503,48 @@ namespace ct {
         double w1_, w2_;
     };
 
+    class axpy_op : public ct::binary_operator{
+        public:
+        axpy_op() = delete;
+        axpy_op(double alpha)
+          : alpha_(alpha)
+        {
+        }
+        ~axpy_op() = default;
+
+        using ct::binary_operator::binary_operator;
+
+        PUPable_decl(axpy_op);
+        axpy_op(CkMigrateMessage* m)
+          : ct::binary_operator(m)
+        {
+        }
+        void pup(PUP::er& p) final
+        {
+            ct::binary_operator::pup(p);
+            p | alpha_;
+        }
+        std::string get_name()
+        {
+            return "axpy";
+        }
+        std::string get_vec_signature()
+        {
+            return "(int a, double lhs, double rhs, double alpha){return alpha*lhs + rhs;}";
+        }
+        std::string get_mat_signature()
+        {
+            return "(int a, int b, double lhs, double rhs, double alpha){return alpha*lhs + rhs;;}";
+        }
+        std::vector<double> get_extra_params()
+        {
+            return {alpha_};
+        }
+
+    private:
+        double alpha_;        
+    };
+
     namespace binary_ops {
 
         inline std::shared_ptr<ct::binary_operator> add(const std::vector<double>& args)
@@ -568,6 +610,10 @@ namespace ct {
         inline std::shared_ptr<ct::binary_operator> weighted_average(const std::vector<double>& args)
         {
             return std::make_shared<weighted_average_op>(args[0], args[1]);
+        }
+        inline std::shared_ptr<ct::binary_operator> axpy(const std::vector<double>& args)
+        {
+            return std::make_shared<axpy_op>(args[0]);
         }
     }    // namespace binary_ops
 

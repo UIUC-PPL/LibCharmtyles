@@ -55,6 +55,7 @@ public:
 
         ct::vector error = y_train - predictions;
         ct::vector gradient = ct::dot(X_train, error);
+        // TODO: fix with the changed axpy api?
         weight_vector_ = ct::axpy(learning_rate_, gradient, weight_vector_);
 
         for (std::size_t iters = 1; iters != iterations_; ++iters)

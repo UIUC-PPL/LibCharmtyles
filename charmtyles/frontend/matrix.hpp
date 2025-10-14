@@ -96,7 +96,6 @@ namespace ct {
                        op == ct::util::Operation::init_value    ||
                        op == ct::util::Operation::init_generate ||
                        op == ct::util::Operation::copy          ||
-                       op == ct::util::Operation::axpy          ||
                        op == ct::util::Operation::custom_expr   ||
                       (op == ct::util::Operation::inplace_add   &&
                        instruction[0].copy_id_ != -1)           ||

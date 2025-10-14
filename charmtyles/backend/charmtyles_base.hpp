@@ -472,20 +472,6 @@ public:
             }
         }
             return;
-        case ct::util::Operation::axpy:
-        {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-
-            double alpha = node.value_;
-            Kokkos::View<double*> x = vec_map[node.left_];
-            Kokkos::View<double*> y = vec_map[node.right_];
-            Kokkos::View<double*> res = vec_map[node.name_];
-
-            Kokkos::parallel_for(
-                "axpy", x.extent(0),
-                KOKKOS_LAMBDA(const int i) { res(i) = alpha * x(i) + y(i); });
-        }
-            return;
         case ct::util::Operation::custom_expr:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);

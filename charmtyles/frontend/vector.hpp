@@ -100,7 +100,6 @@ namespace ct {
                        op == ct::util::Operation::init_value    ||
                        op == ct::util::Operation::init_generate ||
                        op == ct::util::Operation::copy          ||
-                       op == ct::util::Operation::axpy          ||
                        op == ct::util::Operation::custom_expr   ||
                       (op == ct::util::Operation::inplace_add   &&
                        instruction[0].copy_id_ != -1)           ||
@@ -571,10 +570,6 @@ namespace ct {
         class dot_expression;
     }
 
-    namespace blas_impl {
-        class vec_axpy_expr;
-    }
-
     class vector
     {
         template <typename LHS, typename RHS>
@@ -712,9 +707,6 @@ namespace ct {
 
         vector(dot_impl::dot_expression const&);
         vector& operator=(dot_impl::dot_expression const&);
-
-        vector(blas_impl::vec_axpy_expr const&);
-        vector& operator=(blas_impl::vec_axpy_expr const&);
 
         template <typename LHS, typename RHS, typename THS>
         vector(ct::vec_impl::ter_vec_expression<LHS, RHS, THS> const& e)

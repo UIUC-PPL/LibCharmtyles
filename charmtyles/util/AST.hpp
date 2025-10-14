@@ -37,9 +37,6 @@ namespace ct {
             //Broadcast
             broadcast = 19,
 
-            // Blas
-            axpy = 20,
-
             // Logical
             logical_and = 21,
             logical_or = 22,
