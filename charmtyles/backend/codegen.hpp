@@ -44,8 +44,8 @@ private:
     // definition for the custom unops/binops that will be called in the kernel
     std::set<std::string> kkCustomOpsDef{};
     // list of scalars used by the generated kernel
-    std::vector<double> kkScalarVals {};
-    std::size_t kkScalarValIdx {};
+    std::vector<double> kkScalarVals{};
+    std::size_t kkScalarValIdx{};
     // offset into a region of multiple fused ASTs
     size_t kkRegionOffset = 0;
 
@@ -327,7 +327,8 @@ private:
             }
 
             size_t argc = node.unary_expr_->get_extra_params().size();
-            if (argc) kk << ", ";
+            if (argc)
+                kk << ", ";
             for (int i = 0; i < argc; i++)
             {
                 kk << "custom_ops_args[" << kkCustomOpArgIdx << "]";
@@ -345,7 +346,7 @@ private:
             kkTmpVar++;
             kkCustomOpsOrder.push_back({kkRegionOffset, curr_idx, false});
             kk << "auto tmp" << kkTmpVar << " = ";
-            
+
             std::string signature;
             if (dim == 1)
                 signature = node.binary_expr_->get_vec_signature();
@@ -375,7 +376,8 @@ private:
                 kk << "view_map[" << rightid << "](" << kkViewIndxScheme << ")";
             }
             size_t argc = node.binary_expr_->get_extra_params().size();
-            if (argc) kk << ", ";
+            if (argc)
+                kk << ", ";
             for (int i = 0; i < argc; i++)
             {
                 kk << "custom_ops_args[" << kkCustomOpArgIdx << "]";
@@ -389,7 +391,8 @@ private:
         case ct::util::Operation::broadcast:
         {
             kkTmpVar++;
-            kk << "auto tmp" << kkTmpVar << " = scalar_vals[" << kkScalarValIdx++ << "];\n";
+            kk << "auto tmp" << kkTmpVar << " = scalar_vals["
+               << kkScalarValIdx++ << "];\n";
             kkScalarVals.emplace_back(node.value_);
         }
             return -static_cast<long long>(kkTmpVar);
@@ -466,24 +469,26 @@ public:
         std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
         std::vector<std::vector<nodeType>> const& region)
     {
-        using kernelType = void (*)(Kokkos::View<viewType*>, Kokkos::View<double*>, Kokkos::View<double*>, std::vector<std::size_t>);
+        using kernelType =
+            void (*)(Kokkos::View<viewType*>, Kokkos::View<double*>,
+                Kokkos::View<double*>, std::vector<std::size_t>);
 
         // Arrays used in the kernel
-        Kokkos::View<viewType*> kkVecViews("kkViews", std::get<1>(kernel).size());
+        Kokkos::View<viewType*> kkVecViews(
+            "kkViews", std::get<1>(kernel).size());
         auto kkVecViews_h = Kokkos::create_mirror_view(kkVecViews);
         for (int i = 0; i < std::get<1>(kernel).size(); i++)
             kkVecViews_h(i) = view_map[std::get<1>(kernel)[i]];
         Kokkos::deep_copy(kkVecViews, kkVecViews_h);
 
-        
         // Arguments to the custom operations (unop/binop) used in the kernel
         std::vector<double> kkCustomOpsArgs;
-        for (auto it : std::get<2>(kernel))
+        for (const auto& it : std::get<2>(kernel))
         {
             if (std::get<2>(it))
             {
-                auto extra_params =
-                    region[std::get<0>(it)][std::get<1>(it)].unary_expr_->get_extra_params();
+                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
+                                        .unary_expr_->get_extra_params();
                 if (extra_params.size() == 0)
                     continue;
                 kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
@@ -491,8 +496,8 @@ public:
             }
             else
             {
-                auto extra_params =
-                    region[std::get<0>(it)][std::get<1>(it)].binary_expr_->get_extra_params();
+                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
+                                        .binary_expr_->get_extra_params();
                 if (extra_params.size() == 0)
                     continue;
                 kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
@@ -500,30 +505,37 @@ public:
             }
         }
 
-        Kokkos::View<double*> kkCustomOpsArgs_d("kkCustomOpsArgs_d", kkCustomOpsArgs.size());
+        Kokkos::View<double*> kkCustomOpsArgs_d(
+            "kkCustomOpsArgs_d", kkCustomOpsArgs.size());
         auto kkCustomOpsArgs_h = Kokkos::create_mirror_view(kkCustomOpsArgs_d);
         for (int i = 0; i < kkCustomOpsArgs.size(); i++)
             kkCustomOpsArgs_h(i) = kkCustomOpsArgs[i];
         Kokkos::deep_copy(kkCustomOpsArgs_d, kkCustomOpsArgs_h);
 
         // Scalars used in the kernel
-        Kokkos::View<double*> kkScalarVals("kkScalarVals", std::get<3>(kernel).size());
+        Kokkos::View<double*> kkScalarVals(
+            "kkScalarVals", std::get<3>(kernel).size());
         auto kkScalarVals_h = Kokkos::create_mirror_view(kkScalarVals);
-        for(int i = 0; i < std::get<3>(kernel).size(); i++)
+        for (int i = 0; i < std::get<3>(kernel).size(); i++)
             kkScalarVals_h(i) = std::get<3>(kernel)[i];
         Kokkos::deep_copy(kkScalarVals, kkScalarVals_h);
 
-        void* functor = kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
-        ((kernelType) functor)(std::move(kkVecViews), std::move(kkCustomOpsArgs_d), std::move(kkScalarVals), std::move(dims));
+        void* functor =
+            kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
+        ((kernelType) functor)(std::move(kkVecViews),
+            std::move(kkCustomOpsArgs_d), std::move(kkScalarVals),
+            std::move(dims));
     }
 
     template <typename T, size_t dim>
-    ct::util::kernelInfo generate_kernel(std::vector<std::vector<T>> const& instructions)
+    ct::util::kernelInfo generate_kernel(
+        std::vector<std::vector<T>> const& instructions)
     {
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
-        for(auto instruction:instructions) {
+        for (auto instruction : instructions)
+        {
             const size_t node_id = instruction[0].name_;
             long long resid = codegen_ast(instruction, 0, dim);
             kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme
@@ -532,7 +544,8 @@ public:
             {
                 kk << "+=";
             }
-            else if (instruction[0].operation_ == ct::util::Operation::inplace_sub)
+            else if (instruction[0].operation_ ==
+                ct::util::Operation::inplace_sub)
             {
                 kk << "-=";
             }
@@ -548,9 +561,8 @@ public:
             kk << " tmp" << -resid << ";\n";
             ++kkRegionOffset;
         }
-        
 
-        return {
-            compile(), std::move(kkViewsOrder), std::move(kkCustomOpsOrder), std::move(kkScalarVals)};
+        return {compile(), std::move(kkViewsOrder), std::move(kkCustomOpsOrder),
+            std::move(kkScalarVals)};
     }
 };

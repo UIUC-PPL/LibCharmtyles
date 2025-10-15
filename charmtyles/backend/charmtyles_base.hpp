@@ -251,27 +251,36 @@ public:
     int SDAG_INDEX;
 };
 
-#define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id)                                \
-    if (node_id == vec_map.size())                                             \
+#define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node)                                   \
+    if (node.name_ == vec_map.size())                                          \
     {                                                                          \
         std::size_t vec_dim = get_vec_dim(node.vec_len_);                      \
                                                                                \
-        Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);   \
+        Kokkos::View<double*> vec(                                             \
+            "vec" + std::to_string(node.name_), vec_dim);                      \
         vec_map.emplace_back(vec);                                             \
     }
 
 class vector_impl : public CBase_vector_impl
 {
 public:
-    void update_partitions(std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
+    void update_partitions(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
     {
-        for (size_t i = 0; i < instr_list.size();) {
-            std::vector<std::vector<ct::vec_impl::vec_node>> region = ct::util::carveRegion<ct::vec_impl::vec_node>(instr_list, i);
+        for (size_t i = 0; i < instr_list.size();)
+        {
+            std::vector<std::vector<ct::vec_impl::vec_node>> region =
+                ct::util::carveRegion<ct::vec_impl::vec_node>(instr_list, i);
 
-            if (!region.empty()) {
+            if (!region.empty())
+            {
+                for (const auto& instr : region)
+                    CHECK_IF_EXIST_ELSE_ADD_VECTOR(instr[0]);
                 execute_instruction(region);
                 i += region.size();
-            } else {
+            }
+            else
+            {
                 execute_instruction({instr_list[i]});
                 ++i;
             }
@@ -310,7 +319,8 @@ public:
         return result;
     }
 
-    void execute_instruction(std::vector<std::vector<ct::vec_impl::vec_node>> const& region)
+    void execute_instruction(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& region)
     {
         const std::vector<ct::vec_impl::vec_node>& instruction = region[0];
         const ct::vec_impl::vec_node& node = instruction[0];
@@ -389,17 +399,20 @@ public:
         case ct::util::Operation::binary_expr:
         case ct::util::Operation::where:
         {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(instruction[0].kernel, {vec_map[node_id].size()}, vec_map, region);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
+                instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
+                region);
         }
             return;
         case ct::util::Operation::inplace_add:
         {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -415,11 +428,12 @@ public:
             return;
         case ct::util::Operation::inplace_sub:
         {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -435,11 +449,12 @@ public:
             return;
         case ct::util::Operation::inplace_divide:
         {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -455,7 +470,7 @@ public:
             return;
         case ct::util::Operation::custom_expr:
         {
-            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
 
             const ct::vec_impl::vec_node& node = instruction[0];
             auto a_host = Kokkos::create_mirror_view_and_copy(
@@ -538,14 +553,14 @@ private:
     int dot_counter = 0;
 };
 
-#define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id)                                \
-    if (node_id == mat_map.size())                                             \
+#define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node)                                   \
+    if (node.name_ == mat_map.size())                                          \
     {                                                                          \
         std::size_t num_rows = get_mat_rows(node.mat_row_len_);                \
         std::size_t num_cols = get_mat_cols(node.mat_col_len_);                \
                                                                                \
         Kokkos::View<double**> mat(                                            \
-            "mat" + std::to_string(node_id), num_rows, num_cols);              \
+            "mat" + std::to_string(node.name_), num_rows, num_cols);           \
         mat_map.emplace_back(mat);                                             \
     }
 
@@ -590,15 +605,23 @@ private:
 
     // Instruction related functions - must be public for CUDA lambdas
 public:
-    void update_partitions(std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
+    void update_partitions(
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
     {
-        for (size_t i = 0; i < instr_list.size();) {
-            std::vector<std::vector<ct::mat_impl::mat_node>> region = ct::util::carveRegion<ct::mat_impl::mat_node>(instr_list, i);
+        for (size_t i = 0; i < instr_list.size();)
+        {
+            std::vector<std::vector<ct::mat_impl::mat_node>> region =
+                ct::util::carveRegion<ct::mat_impl::mat_node>(instr_list, i);
 
-            if (!region.empty()) {
+            if (!region.empty())
+            {
+                for (const auto& instr : region)
+                    CHECK_IF_EXIST_ELSE_ADD_MATRIX(instr[0]);
                 execute_instruction(region);
                 i += region.size();
-            } else {
+            }
+            else
+            {
                 execute_instruction({instr_list[i]});
                 ++i;
             }
@@ -614,22 +637,24 @@ public:
         std::size_t num_cols = mat.extent(1);
 
         CkAssert(vec_len >= num_cols &&
-            "Incoming vector does not have enough entries for this matrix tile");
+            "Incoming vector does not have enough entries for this matrix "
+            "tile");
 
         std::size_t offset = 0;
         if (vec_len > num_cols)
         {
             std::size_t max_offset = vec_len - num_cols;
             offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.x) * col_block_len, max_offset);
+                static_cast<std::size_t>(thisIndex.x) * col_block_len,
+                max_offset);
         }
 
-        using HostConstVector =
-            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
+            Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
         HostConstVector vec_in_host(vec_in_data + offset, num_cols);
 
-        using DeviceVector =
-            Kokkos::View<double*, typename Kokkos::DefaultExecutionSpace::memory_space>;
+        using DeviceVector = Kokkos::View<double*,
+            typename Kokkos::DefaultExecutionSpace::memory_space>;
         DeviceVector vec_in("vec_in_tile", num_cols);
         Kokkos::deep_copy(vec_in, vec_in_host);
 
@@ -655,22 +680,24 @@ public:
         std::size_t num_cols = mat.extent(1);
 
         CkAssert(vec_len >= num_rows &&
-            "Incoming vector does not have enough entries for this matrix tile");
+            "Incoming vector does not have enough entries for this matrix "
+            "tile");
 
         std::size_t offset = 0;
         if (vec_len > num_rows)
         {
             std::size_t max_offset = vec_len - num_rows;
             offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.y) * row_block_len, max_offset);
+                static_cast<std::size_t>(thisIndex.y) * row_block_len,
+                max_offset);
         }
 
-        using HostConstVector =
-            Kokkos::View<const double*, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
+            Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
         HostConstVector vec_in_host(vec_in_data + offset, num_rows);
 
-        using DeviceVector =
-            Kokkos::View<double*, typename Kokkos::DefaultExecutionSpace::memory_space>;
+        using DeviceVector = Kokkos::View<double*,
+            typename Kokkos::DefaultExecutionSpace::memory_space>;
         DeviceVector vec_in("vec_in_tile", num_rows);
         Kokkos::deep_copy(vec_in, vec_in_host);
 
@@ -687,7 +714,8 @@ public:
         Kokkos::fence();
     }
 
-    void execute_instruction(std::vector<std::vector<ct::mat_impl::mat_node>> const& region)
+    void execute_instruction(
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& region)
     {
         const std::vector<ct::mat_impl::mat_node>& instruction = region[0];
         ct::mat_impl::mat_node const& node = instruction[0];
@@ -695,20 +723,21 @@ public:
 
         switch (node.operation_)
         {
-        case ct::util::Operation::init_random: {
+        case ct::util::Operation::init_random:
+        {
             CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
-    
+
             std::size_t num_rows = get_mat_rows(node.mat_row_len_);
             std::size_t num_cols = get_mat_cols(node.mat_col_len_);
-    
+
             Kokkos::View<double**> mat(
                 "mat" + std::to_string(node_id), num_rows, num_cols);
             unsigned int seed =
                 static_cast<unsigned int>(time(nullptr)) + node_id;
             Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
-    
+
             Kokkos::parallel_for(
                 "init_random_mat_" + std::to_string(node_id),
                 Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
@@ -720,8 +749,10 @@ public:
                     rand_pool.free_state(gen);
                 });
             mat_map.emplace_back(mat);
-        } return;
-        case ct::util::Operation::init_value: {
+        }
+            return;
+        case ct::util::Operation::init_value:
+        {
             CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
@@ -733,10 +764,12 @@ public:
                 "mat" + std::to_string(node_id), num_rows, num_cols);
             Kokkos::deep_copy(mat, node.value_);
             mat_map.emplace_back(mat);
-        } return;
-        case ct::util::Operation::copy: {
+        }
+            return;
+        case ct::util::Operation::copy:
+        {
             std::size_t copy_id = node.copy_id_;
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             auto dest = mat_map[node_id];
             auto src = mat_map[copy_id];
 
@@ -746,7 +779,8 @@ public:
                 Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
                     {0, 0}, {dest.extent(0), dest.extent(1)}),
                 KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
-        } return;
+        }
+            return;
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::multiply:
@@ -764,13 +798,16 @@ public:
         case ct::util::Operation::logical_not:
         case ct::util::Operation::where:
         {
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
-            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, region);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
+                instruction[0].kernel,
+                {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                mat_map, region);
         }
             return;
         case ct::util::Operation::inplace_add:
         {
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -794,7 +831,7 @@ public:
             return;
         case ct::util::Operation::inplace_sub:
         {
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -818,7 +855,7 @@ public:
             return;
         case ct::util::Operation::inplace_divide:
         {
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
@@ -842,7 +879,7 @@ public:
             return;
         case ct::util::Operation::custom_expr:
         {
-            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
 
             const ct::mat_impl::mat_node& node = instruction[0];
             auto a_host = Kokkos::create_mirror_view_and_copy(
