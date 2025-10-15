@@ -88,48 +88,41 @@ namespace ct {
 
                 return dispatch_count;
             }
-            
+
             void codegen(instr_t& instructions) {
                 for (size_t i = 0; i < instructions.size();) {
                     instr_t region;
                     size_t regionIndex = i;
-                    bool shouldContinueFusing = true;
                     
-                    while (regionIndex < instructions.size() && shouldContinueFusing) {
+                    while (regionIndex < instructions.size()) {
                         auto op = instructions[regionIndex][0].operation_;
-                        bool isSpecialOperation = (op == ct::util::Operation::init_random ||
-                            op == ct::util::Operation::init_value ||
-                            op == ct::util::Operation::init_generate ||
-                            op == ct::util::Operation::copy ||
-                            op == ct::util::Operation::custom_expr ||
-                            (op == ct::util::Operation::inplace_add && 
+                        bool isSpecialOperation = 
+                            (op == ct::util::Operation::init_random   ||
+                             op == ct::util::Operation::init_value    ||
+                             op == ct::util::Operation::init_generate ||
+                             op == ct::util::Operation::copy          ||
+                             op == ct::util::Operation::custom_expr   ||
+                            (op == ct::util::Operation::inplace_add   && 
                             instructions[regionIndex][0].copy_id_ != -1) ||
-                            (op == ct::util::Operation::inplace_sub && 
+                            (op == ct::util::Operation::inplace_sub   && 
                             instructions[regionIndex][0].copy_id_ != -1) ||
                             (op == ct::util::Operation::inplace_divide && 
                             instructions[regionIndex][0].copy_id_ != -1));
 
-                        if (isSpecialOperation) {
-                            shouldContinueFusing = false;
-                            break;
-                        }
-                        
+                        if (isSpecialOperation) break;
                         region.push_back(instructions[regionIndex]);
-                        if (!instructions[regionIndex][0].multiLineFuse) {
-                            shouldContinueFusing = false;
-                        }
+                        if (!instructions[regionIndex][0].multiLineFuse) break;
                         ++regionIndex;
                     }
-                    
-                    if (region.empty()) {
+
+                    if (!region.empty()) {
+                        cgen.reset();
+                        instructions[i][0].kernel = cgen.generate_kernel<mat_node, 2>(region);
+                        kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
+                        i += region.size();
+                    } else {
                         ++i;
-                        continue;
                     }
-                    
-                    cgen.reset();
-                    instructions[i][0].kernel = cgen.generate_kernel<mat_node, 2>(region);
-                    kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
-                    i += region.size();
                 }
             }
 
