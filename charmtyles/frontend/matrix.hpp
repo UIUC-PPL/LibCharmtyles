@@ -90,37 +90,46 @@ namespace ct {
             }
             
             void codegen(instr_t& instructions) {
-                for(size_t i=0;i<instructions.size();) {
+                for (size_t i = 0; i < instructions.size();) {
                     instr_t region;
                     size_t regionIndex = i;
-                    auto op = instructions[regionIndex][0].operation_;
-                    auto multiLineFuse = instructions[regionIndex][0].multiLineFuse;
-                    while(regionIndex<instructions.size() and !(op == ct::util::Operation::init_random   ||
-                        op == ct::util::Operation::init_value    ||
-                        op == ct::util::Operation::init_generate ||
-                        op == ct::util::Operation::copy          ||
-                        op == ct::util::Operation::custom_expr   ||
-                       (op == ct::util::Operation::inplace_add   &&
-                        instructions[regionIndex][0].copy_id_ != -1)||
-                       (op == ct::util::Operation::inplace_sub &&
-                        instructions[regionIndex][0].copy_id_ != -1)||
-                       (op == ct::util::Operation::inplace_divide&&
-                        instructions[regionIndex][0].copy_id_ != -1))){
-                            if(!multiLineFuse) {
-                                region.push_back(instructions[regionIndex]);
-                                break;
-                            }
-                            region.push_back(instructions[regionIndex]);
-                            ++regionIndex;
-                            if(regionIndex==instructions.size()) break;
-                            op = instructions[regionIndex][0].operation_;
-                            multiLineFuse = instructions[regionIndex][0].multiLineFuse;
+                    bool shouldContinueFusing = true;
+                    
+                    while (regionIndex < instructions.size() && shouldContinueFusing) {
+                        auto op = instructions[regionIndex][0].operation_;
+                        bool isSpecialOperation = (op == ct::util::Operation::init_random ||
+                            op == ct::util::Operation::init_value ||
+                            op == ct::util::Operation::init_generate ||
+                            op == ct::util::Operation::copy ||
+                            op == ct::util::Operation::custom_expr ||
+                            (op == ct::util::Operation::inplace_add && 
+                            instructions[regionIndex][0].copy_id_ != -1) ||
+                            (op == ct::util::Operation::inplace_sub && 
+                            instructions[regionIndex][0].copy_id_ != -1) ||
+                            (op == ct::util::Operation::inplace_divide && 
+                            instructions[regionIndex][0].copy_id_ != -1));
+
+                        if (isSpecialOperation) {
+                            shouldContinueFusing = false;
+                            break;
                         }
-                    if(region.size()==0) {++i;continue;}
+                        
+                        region.push_back(instructions[regionIndex]);
+                        if (!instructions[regionIndex][0].multiLineFuse) {
+                            shouldContinueFusing = false;
+                        }
+                        ++regionIndex;
+                    }
+                    
+                    if (region.empty()) {
+                        ++i;
+                        continue;
+                    }
+                    
                     cgen.reset();
                     instructions[i][0].kernel = cgen.generate_kernel<mat_node, 2>(region);
                     kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
-                    i+=region.size();
+                    i += region.size();
                 }
             }
 
