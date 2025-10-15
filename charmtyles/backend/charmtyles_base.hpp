@@ -263,22 +263,18 @@ public:
 class vector_impl : public CBase_vector_impl
 {
 public:
-    void update_partitions(
-        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
+    void update_partitions(std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
     {
-        std::vector<std::vector<ct::vec_impl::vec_node>> region;
-        for (size_t i=0; i<instr_list.size(); i++) {
-            size_t regionIndex = i;
-            while(regionIndex < instr_list.size() and instr_list[regionIndex][0].multiLineFuse == true){
-                auto node = instr_list[regionIndex][0];
-                size_t node_id = instr_list[regionIndex][0].name_;
-                size_t vec_dim;
-                CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id)
-                region.push_back(instr_list[regionIndex]);
-               ++regionIndex;
+        for (size_t i = 0; i < instr_list.size();) {
+            std::vector<std::vector<ct::vec_impl::vec_node>> region = ct::util::carveRegion<ct::vec_impl::vec_node>(instr_list, i);
+
+            if (!region.empty()) {
+                execute_instruction(region);
+                i += region.size();
+            } else {
+                execute_instruction({instr_list[i]});
+                ++i;
             }
-            execute_instruction(instr_list[i], region);
-            i = regionIndex;
         }
     }
 
@@ -314,15 +310,13 @@ public:
         return result;
     }
 
-    void execute_instruction(
-        std::vector<ct::vec_impl::vec_node> const& instruction,
-        std::vector<std::vector<ct::vec_impl::vec_node>> const& region,
-        std::size_t index = 0)
+    void execute_instruction(std::vector<std::vector<ct::vec_impl::vec_node>> const& region)
     {
-        ct::vec_impl::vec_node const& node = instruction[index];
+        const std::vector<ct::vec_impl::vec_node>& instruction = region[0];
+        const ct::vec_impl::vec_node& node = instruction[0];
         std::size_t node_id = node.name_;
 
-        switch (instruction[index].operation_)
+        switch (node.operation_)
         {
         case ct::util::Operation::init_random:
         {
@@ -396,16 +390,7 @@ public:
         case ct::util::Operation::where:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-
-            if(region.size()==0){
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
-                    instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
-                    {instruction});
-            } else {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
-                    instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
-                    region);
-            }
+            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(instruction[0].kernel, {vec_map[node_id].size()}, vec_map, region);
         }
             return;
         case ct::util::Operation::inplace_add:
@@ -414,15 +399,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                        1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                        {instruction});
-                } else {
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                        1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                        region);
-                }
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -442,15 +419,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                    1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                    {instruction});
-                } else {
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                    1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                    region);
-                }
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -470,15 +439,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                        1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                        {instruction});
-                } else {
-                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                        1>(node.kernel, {vec_map[node_id].size()}, vec_map,
-                        region);
-                }
+                    Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -629,25 +590,20 @@ private:
 
     // Instruction related functions - must be public for CUDA lambdas
 public:
-    void update_partitions(
-        std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
-        {
-            std::vector<std::vector<ct::mat_impl::mat_node>> region;
-            for (size_t i=0;i<instr_list.size();i++){
-                size_t regionIndex = i;
-                while(regionIndex < instr_list.size() and instr_list[regionIndex][0].multiLineFuse == true){
-                    auto node = instr_list[regionIndex][0];
-                    size_t node_id = instr_list[regionIndex][0].name_;
-                    size_t num_rows;
-                    size_t num_cols;
-                    CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id)
-                    region.push_back(instr_list[regionIndex]);
-                   ++regionIndex;
-                }
-                execute_instruction(instr_list[i], region);
-                i = regionIndex;
-            };
+    void update_partitions(std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
+    {
+        for (size_t i = 0; i < instr_list.size();) {
+            std::vector<std::vector<ct::mat_impl::mat_node>> region = ct::util::carveRegion<ct::mat_impl::mat_node>(instr_list, i);
+
+            if (!region.empty()) {
+                execute_instruction(region);
+                i += region.size();
+            } else {
+                execute_instruction({instr_list[i]});
+                ++i;
+            }
         }
+    }
 
     // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
     void mat_vec_dot_impl(int mat_idx, const double* vec_in_data,
@@ -731,12 +687,10 @@ public:
         Kokkos::fence();
     }
 
-    void execute_instruction(
-        std::vector<ct::mat_impl::mat_node> const& instruction,
-        std::vector<std::vector<ct::mat_impl::mat_node>> const& region,
-        std::size_t index = 0)
+    void execute_instruction(std::vector<std::vector<ct::mat_impl::mat_node>> const& region)
     {
-        ct::mat_impl::mat_node const& node = instruction[index];
+        const std::vector<ct::mat_impl::mat_node>& instruction = region[0];
+        ct::mat_impl::mat_node const& node = instruction[0];
         std::size_t node_id = node.name_;
 
         switch (node.operation_)
@@ -811,17 +765,7 @@ public:
         case ct::util::Operation::where:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
-            if(region.size()==0){
-                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
-                    instruction[0].kernel,
-                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                    mat_map, {instruction});
-            } else {
-                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
-                    instruction[0].kernel,
-                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                    mat_map, region);
-            }
+            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(instruction[0].kernel, {mat_map[node_id].extent(0), mat_map[node_id].extent(1)}, mat_map, region);
         }
             return;
         case ct::util::Operation::inplace_add:
@@ -830,17 +774,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, {instruction});
-                } else {
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, region);
-                }
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
             }
             else
             {
@@ -861,17 +798,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, {instruction});
-                } else {
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, region);
-                }
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
             }
             else
             {
@@ -892,18 +822,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                if(region.size()==0){
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, {instruction});
-                }
-                else {
-                    Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                        2>(instruction[0].kernel,
-                        {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
-                        mat_map, region);
-                }
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
             }
             else
             {

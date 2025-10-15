@@ -210,6 +210,34 @@ namespace ct {
         }
 
         using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::tuple<size_t, size_t, bool>>, std::vector<double>>;
+
+        template<typename T>
+        std::vector<std::vector<T>> carveRegion(const std::vector<std::vector<T>>& instructions, std::size_t regionIndx) {
+            std::vector<std::vector<T>> region;
+
+            while (regionIndx < instructions.size()) {
+                auto op = instructions[regionIndx][0].operation_;
+                bool isSpecialOperation = 
+                    (op == Operation::init_random   ||
+                     op == Operation::init_value    ||
+                     op == Operation::init_generate ||
+                     op == Operation::copy          ||
+                     op == Operation::custom_expr   ||
+                    (op == Operation::inplace_add   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_sub   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_divide && 
+                    instructions[regionIndx][0].copy_id_ != -1));
+
+                if (isSpecialOperation) break;
+                region.push_back(instructions[regionIndx]);
+                if (!instructions[regionIndx][0].multiLineFuse) break;
+                ++regionIndx;
+            }
+
+            return std::move(region);
+        }
     }    // namespace util
 
     namespace vec_impl {
