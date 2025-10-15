@@ -750,7 +750,7 @@ public:
 
     void execute_instruction(
         std::vector<ct::mat_impl::mat_node> const& instruction,
-        std::vector<std::vector<ct::mat_impl::mat_node>> const& region,std::vector<nodeType> 
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& region,
         std::size_t index = 0)
     {
         ct::mat_impl::mat_node const& node = instruction[index];

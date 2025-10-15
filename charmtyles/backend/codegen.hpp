@@ -482,7 +482,6 @@ public:
         {
             if (std::get<2>(it))
             {
-                ckout<<std::get<0>(it)<<" "<<std::get<1>(it)<<" "<<endl;
                 auto extra_params =
                     region[std::get<0>(it)][std::get<1>(it)].unary_expr_->get_extra_params();
                 if (extra_params.size() == 0)
