@@ -254,7 +254,7 @@ public:
 #define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id)                                \
     if (node_id == vec_map.size())                                             \
     {                                                                          \
-        vec_dim = get_vec_dim(node.vec_len_);                                  \
+        std::size_t vec_dim = get_vec_dim(node.vec_len_);                      \
                                                                                \
         Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);   \
         vec_map.emplace_back(vec);                                             \
@@ -267,7 +267,7 @@ public:
         std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
     {
         std::vector<std::vector<ct::vec_impl::vec_node>> region;
-        for (size_t i=0;i<instr_list.size();i++){
+        for (size_t i=0; i<instr_list.size(); i++) {
             size_t regionIndex = i;
             while(regionIndex < instr_list.size() and instr_list[regionIndex][0].multiLineFuse == true){
                 auto node = instr_list[regionIndex][0];
@@ -322,23 +322,6 @@ public:
         ct::vec_impl::vec_node const& node = instruction[index];
         std::size_t node_id = node.name_;
 
-        // Useful variables in switch statement
-        std::size_t vec_dim{0};
-        std::size_t total_size{0};
-        std::size_t unrolled_size{0};
-        std::size_t remainder_start{0};
-        std::size_t copy_id{0};
-
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dist(0., 1.);
-
         switch (instruction[index].operation_)
         {
         case ct::util::Operation::init_random:
@@ -347,7 +330,7 @@ public:
                 "A vector is initialized before a dependent vector "
                 "initialization.");
 
-            vec_dim = get_vec_dim(node.vec_len_);
+            std::size_t vec_dim = get_vec_dim(node.vec_len_);
             Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
             vec_map.emplace_back(vec);
             unsigned int seed =
@@ -370,7 +353,7 @@ public:
                 "A vector is initialized before a dependent vector "
                 "initialization.");
 
-            vec_dim = get_vec_dim(node.vec_len_);
+            std::size_t vec_dim = get_vec_dim(node.vec_len_);
 
             // TODO: Do Random Initialization here
             Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
@@ -380,7 +363,7 @@ public:
             return;
         case ct::util::Operation::copy:
         {
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
 
             if (node_id == vec_map.size())
                 vec_map.emplace_back(
@@ -428,7 +411,7 @@ public:
         case ct::util::Operation::inplace_add:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){
@@ -456,7 +439,7 @@ public:
         case ct::util::Operation::inplace_sub:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){
@@ -484,7 +467,7 @@ public:
         case ct::util::Operation::inplace_divide:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){
@@ -597,8 +580,8 @@ private:
 #define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id)                                \
     if (node_id == mat_map.size())                                             \
     {                                                                          \
-        num_rows = get_mat_rows(node.mat_row_len_);                            \
-        num_cols = get_mat_cols(node.mat_col_len_);                            \
+        std::size_t num_rows = get_mat_rows(node.mat_row_len_);                \
+        std::size_t num_cols = get_mat_cols(node.mat_col_len_);                \
                                                                                \
         Kokkos::View<double**> mat(                                            \
             "mat" + std::to_string(node_id), num_rows, num_cols);              \
@@ -755,91 +738,61 @@ public:
     {
         ct::mat_impl::mat_node const& node = instruction[index];
         std::size_t node_id = node.name_;
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
-
-        // Useful variables in switch statement
-        std::size_t num_rows{0};
-        std::size_t num_cols{0};
-        std::size_t total_size{0};
-        std::size_t unrolled_size{0};
-        std::size_t remainder_start{0};
-        std::size_t copy_id{0};
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dist(0., 1.);
 
         switch (node.operation_)
         {
-        case ct::util::Operation::init_random:
-
+        case ct::util::Operation::init_random: {
+            CkAssert((mat_map.size() == node_id) &&
+                "A matrix is initialized before a dependent matrix "
+                "initialization.");
+    
+            std::size_t num_rows = get_mat_rows(node.mat_row_len_);
+            std::size_t num_cols = get_mat_cols(node.mat_col_len_);
+    
+            Kokkos::View<double**> mat(
+                "mat" + std::to_string(node_id), num_rows, num_cols);
+            unsigned int seed =
+                static_cast<unsigned int>(time(nullptr)) + node_id;
+            Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
+    
+            Kokkos::parallel_for(
+                "init_random_mat_" + std::to_string(node_id),
+                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    {0, 0}, {num_rows, num_cols}),
+                KOKKOS_LAMBDA(int i, int j) {
+                    auto gen = rand_pool.get_state();
+                    double r = gen.drand();
+                    mat(i, j) = r;
+                    rand_pool.free_state(gen);
+                });
+            mat_map.emplace_back(mat);
+        } return;
+        case ct::util::Operation::init_value: {
             CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
 
-            num_rows = get_mat_rows(node.mat_row_len_);
-            num_cols = get_mat_cols(node.mat_col_len_);
+            std::size_t num_rows = get_mat_rows(node.mat_row_len_);
+            std::size_t num_cols = get_mat_cols(node.mat_col_len_);
 
-            {
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                unsigned int seed =
-                    static_cast<unsigned int>(time(nullptr)) + node_id;
-                Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
-
-                Kokkos::parallel_for(
-                    "init_random_mat_" + std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                        {0, 0}, {num_rows, num_cols}),
-                    KOKKOS_LAMBDA(int i, int j) {
-                        auto gen = rand_pool.get_state();
-                        double r = gen.drand();
-                        mat(i, j) = r;
-                        rand_pool.free_state(gen);
-                    });
-                mat_map.emplace_back(mat);
-            }
-
-            return;
-
-        case ct::util::Operation::init_value:
-            CkAssert((mat_map.size() == node_id) &&
-                "A matrix is initialized before a dependent matrix "
-                "initialization.");
-
-            num_rows = get_mat_rows(node.mat_row_len_);
-            num_cols = get_mat_cols(node.mat_col_len_);
-
-            {
-                Kokkos::View<double**> mat(
-                    "mat" + std::to_string(node_id), num_rows, num_cols);
-                Kokkos::deep_copy(mat, node.value_);
-                mat_map.emplace_back(mat);
-            }
-
-            return;
-
-        case ct::util::Operation::copy:
-            copy_id = node.copy_id_;
+            Kokkos::View<double**> mat(
+                "mat" + std::to_string(node_id), num_rows, num_cols);
+            Kokkos::deep_copy(mat, node.value_);
+            mat_map.emplace_back(mat);
+        } return;
+        case ct::util::Operation::copy: {
+            std::size_t copy_id = node.copy_id_;
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
+            auto dest = mat_map[node_id];
+            auto src = mat_map[copy_id];
 
-            {
-                auto dest = mat_map[node_id];
-                auto src = mat_map[copy_id];
-
-                Kokkos::parallel_for(
-                    "copy_mat_" + std::to_string(copy_id) + "_" +
-                        std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                        {0, 0}, {dest.extent(0), dest.extent(1)}),
-                    KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
-            }
-
-            return;
-
+            Kokkos::parallel_for(
+                "copy_mat_" + std::to_string(copy_id) + "_" +
+                    std::to_string(node_id),
+                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    {0, 0}, {dest.extent(0), dest.extent(1)}),
+                KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
+        } return;
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::multiply:
@@ -874,7 +827,7 @@ public:
         case ct::util::Operation::inplace_add:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){
@@ -905,7 +858,7 @@ public:
         case ct::util::Operation::inplace_sub:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){
@@ -936,7 +889,7 @@ public:
         case ct::util::Operation::inplace_divide:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node_id);
-            copy_id = node.copy_id_;
+            std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
                 if(region.size()==0){

@@ -24,8 +24,9 @@ private:
     // a stream to store the generated kernel
     std::stringstream kk;
     std::size_t kkTmpVar;
-    // a vector that stores, 0 -> index in the merged region of instructions
-    // 1 -> the index(in ast) of the node that uses some custom binary/unary ops defined by the user.
+    // a vector that stores:
+    // 1 -> index into the merged region of instructions
+    // 2 -> the index(in ast) of the node that uses some custom binary/unary ops defined by the user.
     // 3 -> flag that indicates if this is a unary or binary op.
     std::vector<std::tuple<size_t, size_t, bool>> kkCustomOpsOrder;
     // a map from kernel hash -> Kokkos functor
@@ -45,7 +46,7 @@ private:
     // list of scalars used by the generated kernel
     std::vector<double> kkScalarVals {};
     std::size_t kkScalarValIdx {};
-    // offset into a region of multiLine fused ASTs
+    // offset into a region of multiple fused ASTs
     size_t kkRegionOffset = 0;
 
     long long getViewIdx(size_t node_id)
@@ -465,8 +466,7 @@ public:
         std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
         std::vector<std::vector<nodeType>> const& region)
     {
-        using kernelType = void (*)(Kokkos::View<viewType*>,
-            Kokkos::View<double*>, Kokkos::View<double*>, std::vector<std::size_t>);
+        using kernelType = void (*)(Kokkos::View<viewType*>, Kokkos::View<double*>, Kokkos::View<double*>, std::vector<std::size_t>);
 
         // Arrays used in the kernel
         Kokkos::View<viewType*> kkVecViews("kkViews", std::get<1>(kernel).size());
@@ -499,6 +499,7 @@ public:
                     extra_params.begin(), extra_params.end());
             }
         }
+
         Kokkos::View<double*> kkCustomOpsArgs_d("kkCustomOpsArgs_d", kkCustomOpsArgs.size());
         auto kkCustomOpsArgs_h = Kokkos::create_mirror_view(kkCustomOpsArgs_d);
         for (int i = 0; i < kkCustomOpsArgs.size(); i++)
@@ -522,7 +523,7 @@ public:
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
-        for(auto instruction:instructions){
+        for(auto instruction:instructions) {
             const size_t node_id = instruction[0].name_;
             long long resid = codegen_ast(instruction, 0, dim);
             kk << "view_map[" << getViewIdx(node_id) << "](" << kkViewIndxScheme
