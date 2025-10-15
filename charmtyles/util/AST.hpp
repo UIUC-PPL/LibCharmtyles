@@ -209,7 +209,35 @@ namespace ct {
             }
         }
 
-        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::pair<size_t, bool>>, std::vector<double>>;
+        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::tuple<size_t, size_t, bool>>, std::vector<double>>;
+
+        template<typename T>
+        std::vector<std::vector<T>> carveRegion(const std::vector<std::vector<T>>& instructions, std::size_t regionIndx) {
+            std::vector<std::vector<T>> region;
+
+            while (regionIndx < instructions.size()) {
+                auto op = instructions[regionIndx][0].operation_;
+                bool isSpecialOperation = 
+                    (op == Operation::init_random   ||
+                     op == Operation::init_value    ||
+                     op == Operation::init_generate ||
+                     op == Operation::copy          ||
+                     op == Operation::custom_expr   ||
+                    (op == Operation::inplace_add   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_sub   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_divide && 
+                    instructions[regionIndx][0].copy_id_ != -1));
+
+                if (isSpecialOperation) break;
+                region.push_back(instructions[regionIndx]);
+                if (!instructions[regionIndx][0].multiLineFuse) break;
+                ++regionIndx;
+            }
+
+            return std::move(region);
+        }
     }    // namespace util
 
     namespace vec_impl {
@@ -234,6 +262,7 @@ namespace ct {
             std::size_t ter_ = -1;
 
             ct::util::kernelInfo kernel;
+            bool multiLineFuse = false;
 
             // Only called when initializing through expression
             vec_node() = default;
@@ -373,10 +402,8 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
-                p | std::get<0>(kernel);
-                p | std::get<1>(kernel);
-                p | std::get<2>(kernel);
-                p | std::get<3>(kernel);
+                p | kernel;
+                p | multiLineFuse;
             }
         };
 
@@ -405,6 +432,7 @@ namespace ct {
             std::size_t ter_ = -1;
 
             ct::util::kernelInfo kernel;
+            bool multiLineFuse = false;
 
             // Only called when initializing through expression
             mat_node() = default;
@@ -549,10 +577,8 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
-                p | std::get<0>(kernel);
-                p | std::get<1>(kernel);
-                p | std::get<2>(kernel);
-                p | std::get<3>(kernel);
+                p | kernel;
+                p | multiLineFuse;
             }
         };
 

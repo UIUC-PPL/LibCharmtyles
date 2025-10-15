@@ -94,25 +94,19 @@ namespace ct {
             }
 
             void codegen(instr_t& instructions) {
-                for(auto& instruction : instructions) {
-                    auto op = instruction[0].operation_;
-                    if(op == ct::util::Operation::init_random   ||
-                       op == ct::util::Operation::init_value    ||
-                       op == ct::util::Operation::init_generate ||
-                       op == ct::util::Operation::copy          ||
-                       op == ct::util::Operation::custom_expr   ||
-                      (op == ct::util::Operation::inplace_add   &&
-                       instruction[0].copy_id_ != -1)           ||
-                      (op == ct::util::Operation::inplace_sub   &&
-                       instruction[0].copy_id_ != -1)           ||
-                      (op == ct::util::Operation::inplace_divide&&
-                       instruction[0].copy_id_ != -1)) continue;
-                    cgen.reset();
-                    instruction[0].kernel = cgen.generate_kernel<vec_node, 1>(instruction);
-                    kokkosMgmt.dkload(std::get<0>(instruction[0].kernel));
+                for (size_t i = 0; i < instructions.size();) {
+                    instr_t region = ct::util::carveRegion<vec_node>(instructions, i);
+
+                    if (!region.empty()) {
+                        cgen.reset();
+                        instructions[i][0].kernel = cgen.generate_kernel<vec_node, 1>(region);
+                        kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
+                        i += region.size();
+                    } else {
+                        ++i;
+                    }
                 }
             }
-
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
