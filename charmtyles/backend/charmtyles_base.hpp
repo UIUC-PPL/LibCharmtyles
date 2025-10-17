@@ -468,6 +468,13 @@ public:
             }
         }
             return;
+        case ct::util::Operation::dealloc: {
+            /**
+             * TODO: This might fail due to a double free depending on how charm runtime 
+             *       destroys the charmArrays. 
+             */
+            vec_map[node_id].~View();
+        } return;
         case ct::util::Operation::custom_expr:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
@@ -877,6 +884,13 @@ public:
             }
         }
             return;
+        case ct::util::Operation::dealloc: {
+            /**
+             * TODO: This might fail due to a double free depending on how charm runtime 
+             *       destroys the charmArrays. 
+             */
+            mat_map[node_id].~View();
+        } return;
         case ct::util::Operation::custom_expr:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);

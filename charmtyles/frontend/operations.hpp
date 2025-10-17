@@ -905,11 +905,19 @@ namespace ct {
             size, std::make_shared<from_vector_generator>(data, size));
     }
 
+    inline std::unique_ptr<ct::vector> from_vector_unique(const double* data, uint64_t size) {
+        return std::make_unique<ct::vector>(size, std::make_shared<from_vector_generator>(data, size));
+    }
+
     inline ct::matrix from_matrix(
         const double* data, uint64_t rows, uint64_t cols)
     {
         return ct::matrix(rows, cols,
             std::make_shared<from_matrix_generator>(data, rows, cols));
+    }
+
+    inline std::unique_ptr<ct::matrix> from_matrix_unique(const double* data, uint64_t rows, uint64_t cols) {
+        return std::make_unique<ct::matrix>(rows, cols, std::make_shared<from_matrix_generator>(data, rows, cols));
     }
 
 }    // namespace ct
