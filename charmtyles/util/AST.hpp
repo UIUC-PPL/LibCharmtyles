@@ -56,9 +56,7 @@ namespace ct {
             binary_expr = 40,
             custom_expr = 50,
             // handled separately as dot / mat_mul
-            matmul = 60,
-            // deletion
-            dealloc = 70
+            matmul = 60
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -199,9 +197,6 @@ namespace ct {
                 parse_ast(instr, instr[index].right_);
                 ckout << ")";
                 return;
-            case Operation::dealloc:
-                ckout << "delete " << instr[index].name_;
-                return;
             case Operation::where:
                 parse_ast(instr, instr[index].ter_);
                 ckout << " ? ";
@@ -226,7 +221,6 @@ namespace ct {
                     (op == Operation::init_random   ||
                      op == Operation::init_value    ||
                      op == Operation::init_generate ||
-                     op == Operation::dealloc       ||
                      op == Operation::copy          ||
                      op == Operation::custom_expr   ||
                     (op == Operation::inplace_add   && 

@@ -1017,12 +1017,6 @@ namespace ct {
 
             return std::vector<ct::mat_impl::mat_node>{new_node};
         }
-
-        ~matrix() {
-            ct::mat_impl::mat_node delNode(matrix_shape_.matrix_id, ct::util::Operation::dealloc, row_size_, col_size_);
-            ct::mat_impl::mat_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
-            queue.insert(delNode, matrix_shape_.shape_id);
-        }
     private:
         std::size_t row_size_;
         std::size_t col_size_;

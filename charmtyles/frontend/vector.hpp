@@ -926,12 +926,6 @@ namespace ct {
 
             return std::vector<ct::vec_impl::vec_node>{new_node};
         }
-
-        ~vector() {
-            ct::vec_impl::vec_node delNode(vector_shape_.vector_id, ct::util::Operation::dealloc, size_);
-            ct::vec_impl::vec_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
-            queue.insert(delNode, vector_shape_.shape_id);
-        }
     private:
         std::size_t size_;
         ct::vec_impl::vec_shape_t vector_shape_;
