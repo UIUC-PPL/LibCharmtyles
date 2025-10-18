@@ -41,16 +41,14 @@ if(Charm_ENABLE_GPU)
     target_link_libraries(vector Kokkos::kokkos)
 
     add_custom_command(
-    OUTPUT "${CMAKE_BINARY_DIR}/vector.out"
-    COMMAND ${CHARMC} -c++ ${KOKKOS_DIR}/bin/nvcc_wrapper $<TARGET_OBJECTS:vector> -o "${CMAKE_BINARY_DIR}/vector.out" ${GPU_LINK_OPTS}
-    DEPENDS vector
-    COMMENT "Linking charm build against kokkos and cuda"
-    VERBATIM
+        OUTPUT "${CMAKE_BINARY_DIR}/vector.out"
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} $<TARGET_OBJECTS:vector> -o ${CMAKE_BINARY_DIR}/vector.out
+        DEPENDS vector
+        COMMENT "Linking charm build against kokkos and cuda"
     )
 
-    # Create a target so the command is run when you build (ALL makes it part of the default build)
-    add_custom_target(vector_out ALL
-    DEPENDS "${CMAKE_BINARY_DIR}/vector.out"
+    add_custom_target(result ALL
+        DEPENDS "${CMAKE_BINARY_DIR}/vector.out"
     )
 else()
     add_executable(vector.out vector.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
