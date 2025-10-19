@@ -473,7 +473,8 @@ public:
              * TODO: This might fail due to a double free depending on how charm runtime 
              *       destroys the charmArrays. 
              */
-            vec_map[node_id].~View();
+            Kokkos::View<double*> releivingRef;
+            vec_map[node_id] = releivingRef;
         } return;
         case ct::util::Operation::custom_expr:
         {
@@ -889,7 +890,8 @@ public:
              * TODO: This might fail due to a double free depending on how charm runtime 
              *       destroys the charmArrays. 
              */
-            mat_map[node_id].~View();
+            Kokkos::View<double**> releivingRef;
+            mat_map[node_id] = releivingRef;
         } return;
         case ct::util::Operation::custom_expr:
         {
