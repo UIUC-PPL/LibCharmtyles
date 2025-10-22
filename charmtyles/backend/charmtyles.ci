@@ -170,7 +170,9 @@ module libcharmtyles
                 when send_to_matrix[SDAG_INDEX](
                     int sdag_index, int vec_idx, int rhs_sdag_idx, CProxy_matrix_impl proxy) {
                 serial "send_to_matrix" {
-                    proxy.receive_to_matrix(rhs_sdag_idx, vec_map[vec_idx].size(), vec_map[vec_idx].data());
+                    auto host_cpy = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]);
+                    proxy.receive_to_matrix(rhs_sdag_idx, vec_map[vec_idx].size(), host_cpy.data());
+
                 
                     ++SDAG_INDEX;
                 }} // send to matrix
@@ -182,7 +184,10 @@ module libcharmtyles
                     if (vector_idx == vec_map.size())
                         vec_map.emplace_back(Kokkos::View<double*>("FIXME_2", len));
 
-                    std::copy(result, result + len, vec_map[vector_idx].data());
+                    auto host_cpy = Kokkos::create_mirror_view(vec_map[vector_idx]);
+                    std::copy(result, result + len, host_cpy.data());
+                    Kokkos::deep_copy(vec_map[vector_idx], host_cpy);
+
 
                     ++SDAG_INDEX;
                 }}} // update index + update vector
@@ -843,6 +848,7 @@ module libcharmtyles
                 when get_value[SDAG_INDEX](int sdag_index, int matrix_id, CProxy_get_mat_future proxy) {
                 serial "get_value" {
                     Kokkos::View<double**>& mat = mat_map[matrix_id];
+                    auto mat_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), mat);
                     size_t row_size = mat.extent(0);
                     size_t col_size = mat.extent(1);
 
@@ -853,7 +859,7 @@ module libcharmtyles
                     arr_portion[0] = static_cast<double>(row_index);
                     arr_portion[1] = static_cast<double>(col_index);
                     arr_portion[2] = static_cast<double>(row_size);
-                    std::copy(mat.data(), mat.data()+(row_size*col_size), arr_portion.begin() + 3);
+                    std::copy(mat_h.data(), mat_h.data()+(row_size*col_size), arr_portion.begin() + 3);
                     
                     CkCallback cb(CkReductionTarget(get_mat_future, construct_matrix), proxy);
                     contribute(arr_portion, CkReduction::set, cb);
