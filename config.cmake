@@ -1,8 +1,28 @@
-set(CHARM_DIR "/home/anant/winter2024/lbp/study/charm/netlrts-linux-x86_64/")
-set(BASE_DIR "/home/anant/sem7/multilinefuse")
-set(EIGEN_DIR "/usr/include/eigen3")
-set(CUDA_DIR  "/path/to/CUDA/directory")
-set(KOKKOS_DIR "${BASE_DIR}/kokkos/install")
+if(DEFINED ENV{CHARM_DIR})
+    set(CHARM_DIR "$ENV{CHARM_DIR}")
+else()
+    set(CHARM_DIR "/Users/advaittahilyani/charm/netlrts-darwin-arm8/")
+endif()
+
+if(DEFINED ENV{BASE_DIR})
+    set(BASE_DIR "$ENV{BASE_DIR}")
+else()
+    get_filename_component(BASE_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
+endif()
+
+if(DEFINED ENV{EIGEN_DIR})
+    set(EIGEN_DIR "$ENV{EIGEN_DIR}")
+else()
+    set(EIGEN_DIR "/opt/homebrew/Cellar/eigen/3.4.0_1/include/eigen3")
+endif()
+
+# set(CUDA_DIR  "/path/to/CUDA/directory")
+
+if(DEFINED ENV{KOKKOS_DIR})
+    set(KOKKOS_DIR "$ENV{KOKKOS_DIR}")
+else()
+    set(KOKKOS_DIR "/Users/advaittahilyani/kokkos-serial")
+endif()
 
 set(CHARMC "${CHARM_DIR}/bin/charmc")
 set(CPU_OPTS "-c++-option -std=c++20 -O3 -march=native -DNDEBUG")
