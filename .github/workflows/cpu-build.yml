@@ -16,7 +16,8 @@ jobs:
       KOKKOS_DIR: ${{ github.workspace }}/.deps/kokkos/install
       BASE_DIR: ${{ github.workspace }}
       EIGEN_DIR: /usr/include/eigen3
-      BUILD_DIR: ${{ github.workspace }}/tests/vector/build
+      VECTOR_BUILD_DIR: ${{ github.workspace }}/tests/vector/build
+      COMPREHENSIVE_BUILD_DIR: ${{ github.workspace }}/tests/comprehensive/build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,11 +70,25 @@ jobs:
           ./build charm++ netlrts-linux-x86_64 --with-production -j"$(nproc)"
           popd
 
-      - name: Reset build directory
-        run: rm -rf "${BUILD_DIR}"
+      - name: Reset vector build directory
+        run: rm -rf "${VECTOR_BUILD_DIR}"
 
       - name: Configure vector tests
-        run: cmake -S tests/vector -B "${BUILD_DIR}" -DCharm_ENABLE_GPU=OFF
+        run: cmake -S tests/vector -B "${VECTOR_BUILD_DIR}" -DCharm_ENABLE_GPU=OFF
 
       - name: Build vector tests
-        run: cmake --build "${BUILD_DIR}" --target vector.out -- -j"$(nproc)"
+        run: cmake --build "${VECTOR_BUILD_DIR}" --target vector.out -- -j"$(nproc)"
+
+      - name: Reset comprehensive build directory
+        run: rm -rf "${COMPREHENSIVE_BUILD_DIR}"
+
+      - name: Configure comprehensive test suite
+        run: cmake -S tests/comprehensive -B "${COMPREHENSIVE_BUILD_DIR}" -DCharm_ENABLE_GPU=OFF
+
+      - name: Build comprehensive test suite
+        run: cmake --build "${COMPREHENSIVE_BUILD_DIR}" --target comprehensive_tests.out -- -j"$(nproc)"
+
+      - name: Run comprehensive test suite
+        working-directory: ${{ env.COMPREHENSIVE_BUILD_DIR }}
+        run: |
+          "${CHARM_DIR}/bin/charmrun" +p2 ./comprehensive_tests.out ++local
