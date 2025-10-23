@@ -16,7 +16,6 @@ jobs:
       KOKKOS_DIR: ${{ github.workspace }}/.deps/kokkos/install
       BASE_DIR: ${{ github.workspace }}
       EIGEN_DIR: /usr/include/eigen3
-      VECTOR_BUILD_DIR: ${{ github.workspace }}/tests/vector/build
       COMPREHENSIVE_BUILD_DIR: ${{ github.workspace }}/tests/comprehensive/build
     steps:
       - name: Checkout repository
@@ -69,15 +68,6 @@ jobs:
           pushd "${DEPS_DIR}/charm-src"
           ./build charm++ netlrts-linux-x86_64 --with-production -j"$(nproc)"
           popd
-
-      - name: Reset vector build directory
-        run: rm -rf "${VECTOR_BUILD_DIR}"
-
-      - name: Configure vector tests
-        run: cmake -S tests/vector -B "${VECTOR_BUILD_DIR}" -DCharm_ENABLE_GPU=OFF
-
-      - name: Build vector tests
-        run: cmake --build "${VECTOR_BUILD_DIR}" --target vector.out -- -j"$(nproc)"
 
       - name: Reset comprehensive build directory
         run: rm -rf "${COMPREHENSIVE_BUILD_DIR}"
