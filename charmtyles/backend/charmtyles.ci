@@ -63,7 +63,7 @@ module libcharmtyles
                     ++SDAG_INDEX;
                 }} // add_scalar
 
-                when reduction[SDAG_INDEX](double value) {
+                when reduction(double value) {
                     case {
                         when update_scalar[SDAG_INDEX](int sdag_index, int scalar_id) {
                         serial "reduction" {
@@ -196,9 +196,10 @@ module libcharmtyles
                 serial "reduce_sum" {
                     Kokkos::View<double*> lhs = vec_map[vector_id];
 
-                    Eigen::Map<Eigen::VectorXd> elhs(lhs.data(), lhs.size());
-
-                    double result = elhs.sum();
+                    double result = 0.0;
+                    Kokkos::parallel_reduce("reduce_sum", lhs.extent(0), KOKKOS_LAMBDA(const int i, double& local_sum) {
+                        local_sum += lhs(i);
+                    }, result);
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
@@ -835,9 +836,10 @@ module libcharmtyles
                 serial "reduce_sum" {
                     Kokkos::View<double**>& lhs = mat_map[matrix_id];
 
-                    Eigen::Map<Eigen::MatrixXd> elhs(lhs.data(), lhs.extent(0), lhs.extent(1));
-
-                    double result = elhs.sum();
+                    double result = 0.0;
+                    Kokkos::parallel_reduce("reduce_sum", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0}, {lhs.extent(0), lhs.extent(1)}), KOKKOS_LAMBDA(const int i, const int j, double& local_sum) {
+                        local_sum += lhs(i, j);
+                    }, result);
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
