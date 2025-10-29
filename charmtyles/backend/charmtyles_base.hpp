@@ -2,6 +2,7 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
+#include <KokkosBlas2_gemv.hpp>
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
@@ -667,15 +668,7 @@ public:
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform matrix-vector multiplication: result = mat * vec
-        Kokkos::parallel_for(
-            "mat_vec_dot", num_rows, KOKKOS_LAMBDA(int i) {
-                double sum = 0.0;
-                for (std::size_t j = 0; j < num_cols; ++j)
-                {
-                    sum += mat(i, j) * vec_in(j);
-                }
-                local_result(i) = sum;
-            });
+        KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
         Kokkos::fence();
     }
 
@@ -710,15 +703,7 @@ public:
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform vector-matrix multiplication: result = vec * mat
-        Kokkos::parallel_for(
-            "vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
-                double sum = 0.0;
-                for (std::size_t i = 0; i < num_rows; ++i)
-                {
-                    sum += vec_in(i) * mat(i, j);
-                }
-                local_result(j) = sum;
-            });
+        KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
         Kokkos::fence();
     }
 

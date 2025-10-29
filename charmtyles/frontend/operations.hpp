@@ -277,6 +277,7 @@ namespace ct {
                 bool vec_mat = true)
               : lhs(lhs_)
               , rhs(rhs_)
+              , is_vec_mat(vec_mat)
             {
             }
 

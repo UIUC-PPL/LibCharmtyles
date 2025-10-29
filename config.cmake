@@ -23,6 +23,7 @@ if(DEFINED ENV{KOKKOS_DIR})
 else()
     set(KOKKOS_DIR "/home/shogo/master/Kale/LibCharmtyles/kokkos/install")
 endif()
+set(KOKKOS_KERNELS_DIR "${BASE_DIR}/kokkos-kernels/install")
 
 set(CHARMC "${CHARM_DIR}/bin/charmc")
 set(CPU_OPTS "-c++-option -std=c++20 -O3 -march=native -DNDEBUG")
