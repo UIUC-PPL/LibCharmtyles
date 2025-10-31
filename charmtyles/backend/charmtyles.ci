@@ -758,7 +758,8 @@ module libcharmtyles
 
                     mat_vec_dot_impl(mat_idx, data, local_result);
 
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.y * row_block_len, local_result_size, local_result.data());
+                    auto local_result_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
+                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.y * row_block_len, local_result_size, local_result_host.data());
                     ++SDAG_INDEX;
                 }}} // matrix vector dot product
 
@@ -773,7 +774,8 @@ module libcharmtyles
 
                     vec_mat_dot_impl(mat_idx, data, local_result);
 
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.x * col_block_len, local_result_size, local_result.data());
+                    auto local_result_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
+                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.x * col_block_len, local_result_size, local_result_host.data());
                     ++SDAG_INDEX;
                 }}} // vector matrix dot product
 
