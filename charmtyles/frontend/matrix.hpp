@@ -153,7 +153,7 @@ namespace ct {
 
             void dispatch(std::size_t shape_id)
             {
-                print_instructions();
+                //print_instructions();
                 // Send instruction for execution
                 if (shape_matrix_queue_[shape_id].size() != 0)
                 {

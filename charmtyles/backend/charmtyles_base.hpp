@@ -101,26 +101,28 @@ public:
             localArr[indx + i] += data[i];
 
         if (contributeCnt == num_active_chares) {
-            thisProxy[0].reduce(resultSize, localArr.data());
+            thisProxy[0].reduce(false, resultSize, localArr.data());
         }
     }
 
-    void reduce(int len, double* data) {
+    void reduce(bool dummy, int len, double* data) {
         resultCnt++;
 
-        if (resultArr.size() != len) {
-            resultArr.resize(len);
-            std::fill(resultArr.begin(), resultArr.end(), 0.0);
+        if (!dummy) {
+            if (resultArr.size() != len) {
+                resultArr.resize(len);
+                std::fill(resultArr.begin(), resultArr.end(), 0.0);
+            }
+    
+            for (int i = 0; i < len; ++i)
+                resultArr[i] += data[i];
         }
-
-        for (int i = 0; i < len; ++i)
-            resultArr[i] += data[i];
 
         if(resultCnt == CkNumNodes()) {
             std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
             for(int i = 0; ;i++) {
-                if(i * vec_len >= len) break;
-                int length = (((i + 1) * vec_len) >= len) ? (len - (i * vec_len)) : vec_len;
+                if(i * vec_len >= resultSize) break;
+                int length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
                 result_proxy[i].update_vector(length, resultArr.data() + i * vec_len);
             }
         }
@@ -139,9 +141,12 @@ public:
             }
             current = current->next();
         }
-        for(int i = 0; i < num_active_chares; i++) {
+        
+        for(int i = 0; i < num_active_chares; i++)
             chunkProxies[i].active_chares_set(sdag_indexes[i]);
-        }
+
+        if (num_active_chares == 0)
+            thisProxy[0].reduce(true, 0, nullptr);
     }
 
     void reset() {

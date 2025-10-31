@@ -924,7 +924,7 @@ module libcharmtyles
     nodegroup reductionGroup {
         entry reductionGroup();
         entry void accumulate(CProxy_vector_impl result_proxy, int result_size, int indx, int len, double data[len]);
-        entry void reduce(int len, double data[len]);
+        entry void reduce(bool dummy, int len, double data[len]);
         entry void reset();
         entry [reductiontarget] void numActiveChares(CkReductionMsg *msg);
     }
