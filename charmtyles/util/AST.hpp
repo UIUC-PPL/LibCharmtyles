@@ -37,9 +37,6 @@ namespace ct {
             //Broadcast
             broadcast = 19,
 
-            // Blas
-            axpy = 20,
-
             // Logical
             logical_and = 21,
             logical_or = 22,
@@ -57,7 +54,11 @@ namespace ct {
             unary_expr = 30,
             // Binary operations
             binary_expr = 40,
-            custom_expr = 50
+            custom_expr = 50,
+            // handled separately as dot / mat_mul
+            matmul = 60,
+            // deletion
+            dealloc = 70
         };
 
         inline bool is_init_type(ct::util::Operation op)
@@ -129,11 +130,120 @@ namespace ct {
                 ckout << " - ";
                 parse_ast(instr, instr[index].right_);
                 return;
+            case Operation::multiply:
+                parse_ast(instr, instr[index].left_);
+                ckout << " * ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::divide:
+                parse_ast(instr, instr[index].left_);
+                ckout << " / ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::lesser:
+                parse_ast(instr, instr[index].left_);
+                ckout << " < ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::greater:
+                parse_ast(instr, instr[index].left_);
+                ckout << " > ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::leq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " <= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::geq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " >= ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::eq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " == ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::neq:
+                parse_ast(instr, instr[index].left_);
+                ckout << " != ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_and:
+                parse_ast(instr, instr[index].left_);
+                ckout << " & ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_or:
+                parse_ast(instr, instr[index].left_);
+                ckout << " | ";
+                parse_ast(instr, instr[index].right_);
+                return;
+            case Operation::logical_not:
+                ckout << "!";
+                parse_ast(instr, instr[index].left_);
+                return;
+            case Operation::broadcast:
+                ckout << "SCALAR(" << instr[index].value_ << ")";
+                return;
+            case Operation::unary_expr:
+                ckout << instr[index].unary_expr_->get_name().c_str() << "(";
+                parse_ast(instr, instr[index].left_);
+                ckout << ")";
+                return;
+            case Operation::binary_expr:
+                ckout << instr[index].binary_expr_->get_name().c_str() << "(";
+                parse_ast(instr, instr[index].left_);
+                ckout << ", ";
+                parse_ast(instr, instr[index].right_);
+                ckout << ")";
+                return;
+            case Operation::dealloc:
+                ckout << "delete " << instr[index].name_;
+                return;
+            case Operation::where:
+                parse_ast(instr, instr[index].ter_);
+                ckout << " ? ";
+                parse_ast(instr, instr[index].left_);
+                ckout << " : ";
+                parse_ast(instr, instr[index].right_);
+                return;
             default:
-                CmiAbort("Operation not implemented");
+                CmiAbort("Operation %i not implemented", short(instr[index].operation_));
             }
         }
 
+        using kernelInfo = std::tuple<uint64_t, std::vector<size_t>, std::vector<std::tuple<size_t, size_t, bool>>, std::vector<double>>;
+
+        template<typename T>
+        std::vector<std::vector<T>> carveRegion(const std::vector<std::vector<T>>& instructions, std::size_t regionIndx) {
+            std::vector<std::vector<T>> region;
+
+            while (regionIndx < instructions.size()) {
+                auto op = instructions[regionIndx][0].operation_;
+                bool isSpecialOperation = 
+                    (op == Operation::init_random   ||
+                     op == Operation::init_value    ||
+                     op == Operation::init_generate ||
+                     op == Operation::dealloc       ||
+                     op == Operation::copy          ||
+                     op == Operation::custom_expr   ||
+                    (op == Operation::inplace_add   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_sub   && 
+                    instructions[regionIndx][0].copy_id_ != -1) ||
+                    (op == Operation::inplace_divide && 
+                    instructions[regionIndx][0].copy_id_ != -1));
+
+                if (isSpecialOperation) break;
+                region.push_back(instructions[regionIndx]);
+                if (!instructions[regionIndx][0].multiLineFuse) break;
+                ++regionIndx;
+            }
+
+            return std::move(region);
+        }
     }    // namespace util
 
     namespace vec_impl {
@@ -157,6 +267,9 @@ namespace ct {
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
 
+            ct::util::kernelInfo kernel;
+            bool multiLineFuse = false;
+
             // Only called when initializing through expression
             vec_node() = default;
             vec_node(vec_node const& other) = default;
@@ -165,6 +278,12 @@ namespace ct {
             explicit vec_node(ct::util::Operation op, std::size_t size)
               : operation_(op)
               , vec_len_(size)
+            {
+            }
+
+            explicit vec_node(ct::util::Operation op, std::vector<std::size_t> size)
+              : operation_(op)
+              , vec_len_(size[0])
             {
             }
 
@@ -187,12 +306,32 @@ namespace ct {
             }
 
             explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , vec_len_(size[0])
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
                 std::shared_ptr<ct::binary_operator> binary_expr,
                 std::size_t vec_len)
               : name_(name)
               , operation_(op)
               , binary_expr_(binary_expr)
               , vec_len_(vec_len)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , vec_len_(size[0])
             {
             }
 
@@ -206,6 +345,16 @@ namespace ct {
             {
             }
 
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , vec_len_(size[0])
+            {
+            }
+
             explicit vec_node(
                 std::size_t name, ct::util::Operation op, vec_node const& other)
               : name_(name)
@@ -214,6 +363,15 @@ namespace ct {
               , binary_expr_(other.binary_expr_)
               , copy_id_(other.name_)
               , vec_len_(other.vec_len_)
+            {
+            }
+
+            explicit vec_node(std::size_t name, ct::util::Operation op,
+                double value, std::vector<std::size_t> size)
+              : name_(name)
+              , operation_(op)
+              , value_(value)
+              , vec_len_(size[0])
             {
             }
 
@@ -250,6 +408,8 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
+                p | kernel;
+                p | multiLineFuse;
             }
         };
 
@@ -277,6 +437,9 @@ namespace ct {
             std::size_t right_ = -1;
             std::size_t ter_ = -1;
 
+            ct::util::kernelInfo kernel;
+            bool multiLineFuse = false;
+
             // Only called when initializing through expression
             mat_node() = default;
 
@@ -285,6 +448,14 @@ namespace ct {
               : operation_(op)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(
+                ct::util::Operation op, std::vector<std::size_t> size)
+              : operation_(op)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
             {
             }
 
@@ -309,6 +480,17 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::unary_operator> unary_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , unary_expr_(unary_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 std::shared_ptr<ct::binary_operator> binary_expr,
                 std::size_t rows, std::size_t cols)
               : name_(matrix_id)
@@ -316,6 +498,17 @@ namespace ct {
               , binary_expr_(binary_expr)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::binary_operator> binary_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , binary_expr_(binary_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
             {
             }
 
@@ -331,12 +524,33 @@ namespace ct {
             }
 
             explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                std::shared_ptr<ct::custom_operator> custom_expr,
+                std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , custom_expr_(custom_expr)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
                 double value, std::size_t rows, std::size_t cols)
               : name_(matrix_id)
               , operation_(op)
               , value_(value)
               , mat_row_len_(rows)
               , mat_col_len_(cols)
+            {
+            }
+
+            explicit mat_node(std::size_t matrix_id, ct::util::Operation op,
+                double value, std::vector<std::size_t> size)
+              : name_(matrix_id)
+              , operation_(op)
+              , value_(value)
+              , mat_row_len_(size[0])
+              , mat_col_len_(size[1])
             {
             }
 
@@ -369,6 +583,8 @@ namespace ct {
                 p | left_;
                 p | right_;
                 p | ter_;
+                p | kernel;
+                p | multiLineFuse;
             }
         };
 

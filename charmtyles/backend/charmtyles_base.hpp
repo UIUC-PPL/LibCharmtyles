@@ -1,16 +1,171 @@
 #pragma once
 
-#include <charmtyles/util/AST.hpp>
-#include <charmtyles/util/generator.hpp>
-#include <charmtyles/util/matrix_view.hpp>
-#include <charmtyles/util/sizes.hpp>
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
+#include <KokkosBlas2_gemv.hpp>
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
 class CProxy_scalar_impl;
 class CProxy_get_partial_vec_future;
+class CProxy_KokkosGroup;
 
+#include <charmtyles/util/sizes.hpp>
 #include <charmtyles/backend/libcharmtyles.decl.h>
+
+class KokkosGroup : public CBase_KokkosGroup
+{
+private:
+    std::map<uint64_t, void*> kernelHandles;
+    std::string to_string(uint64_t const hash)
+    {
+        std::ostringstream oss;
+        oss << std::hex << std::setw(16) << std::setfill('0') << hash;
+        return oss.str();
+    }
+
+public:
+    KokkosGroup()
+    {
+        Kokkos::initialize();
+    }
+
+    void finalize()
+    {
+        // Kokkos::finalize();
+    }
+
+    void dkload(uint64_t hash)
+    {
+        if (kernelHandles.find(hash) != kernelHandles.end())
+            return;
+        std::string lib_name("libkernel-" + to_string(hash) + ".so");
+        void* handle = dlopen(std::string("./" + lib_name).c_str(), RTLD_NOW);
+        void* functor = dlsym(handle, "run_kernel");
+        kernelHandles[hash] = functor;
+    }
+
+    void* getHandle(uint64_t hash)
+    {
+        return kernelHandles[hash];
+    }
+};
+
+CProxy_KokkosGroup kokkosMgmt;
+
+struct reductionMgmtPayload {
+    int process;
+    int sdag_indx;
+    CProxyElement_matrix_impl proxy;
+};
+
+class reductionGroup : public CBase_reductionGroup {
+private:
+    int num_active_chares;
+    std::vector<int> sdag_indexes;
+    std::vector<CProxyElement_matrix_impl> chunkProxies;
+
+    int resultSize;
+    int contributeCnt;
+    std::vector<double> localArr;
+    CProxy_vector_impl result_proxy;
+
+    int resultCnt;
+    std::vector<double> resultArr;
+public:
+    reductionGroup() {
+        num_active_chares = 0;
+        chunkProxies.reserve(5);
+        sdag_indexes.reserve(5);
+
+        contributeCnt = 0;
+        resultSize = 0;
+
+        resultCnt = 0;
+    }
+
+    void accumulate(CProxy_vector_impl _result_proxy, int result_size, int indx, int len, double* data) {
+        contributeCnt++;
+
+        if (localArr.size() != result_size) {
+            localArr.resize(result_size);
+            std::fill(localArr.begin(), localArr.end(), 0.0);
+            resultSize = result_size;
+            result_proxy = _result_proxy;
+        }
+
+        for (int i = 0; i < len; ++i)
+            localArr[indx + i] += data[i];
+
+        if (contributeCnt == num_active_chares) {
+            thisProxy[0].reduce(false, resultSize, localArr.data());
+        }
+    }
+
+    void reduce(bool dummy, int len, double* data) {
+        resultCnt++;
+
+        if (!dummy) {
+            if (resultArr.size() != len) {
+                resultArr.resize(len);
+                std::fill(resultArr.begin(), resultArr.end(), 0.0);
+            }
+    
+            for (int i = 0; i < len; ++i)
+                resultArr[i] += data[i];
+        }
+
+        if(resultCnt == CkNumNodes()) {
+            std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
+            for(int i = 0; ;i++) {
+                if(i * vec_len >= resultSize) break;
+                int length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
+                result_proxy[i].update_vector(length, resultArr.data() + i * vec_len);
+            }
+        }
+    }
+
+    void numActiveChares(CkReductionMsg *msg) {
+        CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            reductionMgmtPayload result = *(reductionMgmtPayload*)(&current->data);
+            int process = result.process;
+            if (process == thisIndex) {
+                num_active_chares++;
+                sdag_indexes.emplace_back(result.sdag_indx);
+                chunkProxies.emplace_back(result.proxy);
+            }
+            current = current->next();
+        }
+        
+        for(int i = 0; i < num_active_chares; i++)
+            chunkProxies[i].active_chares_set(sdag_indexes[i]);
+
+        if (num_active_chares == 0)
+            thisProxy[0].reduce(true, 0, nullptr);
+    }
+
+    void reset() {
+        num_active_chares = 0;
+        chunkProxies.clear();
+        sdag_indexes.clear();
+
+        contributeCnt = 0;
+        resultSize = 0;
+        localArr.clear();
+
+        resultCnt = 0;
+        resultArr.clear();
+    }
+};
+
+CProxy_reductionGroup reductionMgmt;
+
+#include "codegen.hpp"
 
 /* readonly */ CProxy_scalar_impl scalar_impl_proxy;
 
@@ -69,8 +224,7 @@ public:
     void construct_vector(CkReductionMsg* msg)
     {
         std::vector<double> out(len, 0.);
-        CkReduction::setElement* current =
-            (CkReduction::setElement*) msg->getData();
+        CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
         while (current != NULL)
         {
             double* result = (double*) &current->data;
@@ -202,15 +356,288 @@ public:
         thisProxy.main_kernel();
     }
 
-private:
     std::vector<double> scal_map;
 
     int SDAG_INDEX;
 };
 
+#define CHECK_IF_EXIST_ELSE_ADD_VECTOR(node)                                   \
+    if (node.name_ == vec_map.size())                                          \
+    {                                                                          \
+        std::size_t vec_dim = get_vec_dim(node.vec_len_);                      \
+                                                                               \
+        Kokkos::View<double*> vec(                                             \
+            "vec" + std::to_string(node.name_), vec_dim);                      \
+        vec_map.emplace_back(vec);                                             \
+    }
+
 class vector_impl : public CBase_vector_impl
 {
-    // Helper private functions
+public:
+    void update_partitions(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
+    {
+        for (size_t i = 0; i < instr_list.size();)
+        {
+            std::vector<std::vector<ct::vec_impl::vec_node>> region =
+                ct::util::carveRegion<ct::vec_impl::vec_node>(instr_list, i);
+
+            if (!region.empty())
+            {
+                for (const auto& instr : region)
+                    CHECK_IF_EXIST_ELSE_ADD_VECTOR(instr[0]);
+                execute_instruction(region);
+                i += region.size();
+            }
+            else
+            {
+                execute_instruction({instr_list[i]});
+                ++i;
+            }
+        }
+    }
+
+    // Helper method for generator initialization - must be public for CUDA lambdas
+    Kokkos::View<double*> generator_init_impl(
+        std::size_t vec_dim, std::shared_ptr<ct::generator> gen_ptr)
+    {
+        Kokkos::View<double*> gen_vec("Label", vec_dim);
+
+        for (int dimX = 0; dimX != vec_dim; ++dimX)
+        {
+            gen_vec(dimX) =
+                gen_ptr->generate(thisIndex * vec_block_size + dimX);
+        }
+
+        return gen_vec;
+    }
+
+    // Helper method for vector dot product - must be public for CUDA lambdas
+    double vector_dot_impl(int lhs_id, int rhs_id)
+    {
+        Kokkos::View<double*> lhs = vec_map[lhs_id];
+        Kokkos::View<double*> rhs = vec_map[rhs_id];
+
+        double result = 0.0;
+        Kokkos::parallel_reduce(
+            lhs.size(),
+            KOKKOS_LAMBDA(const int i, double& local_sum) {
+                local_sum += lhs(i) * rhs(i);
+            },
+            result);
+
+        return result;
+    }
+
+    void execute_instruction(
+        std::vector<std::vector<ct::vec_impl::vec_node>> const& region)
+    {
+        const std::vector<ct::vec_impl::vec_node>& instruction = region[0];
+        const ct::vec_impl::vec_node& node = instruction[0];
+        std::size_t node_id = node.name_;
+
+        switch (node.operation_)
+        {
+        case ct::util::Operation::init_random:
+        {
+            CkAssert((vec_map.size() == node_id) &&
+                "A vector is initialized before a dependent vector "
+                "initialization.");
+
+            std::size_t vec_dim = get_vec_dim(node.vec_len_);
+            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+            vec_map.emplace_back(vec);
+            unsigned int seed =
+                static_cast<unsigned int>(time(nullptr)) + node_id;
+            Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
+
+            Kokkos::parallel_for(
+                "init_random_" + std::to_string(node_id),
+                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
+                    auto gen = rand_pool.get_state();
+                    double r = gen.drand();
+                    vec_map[node_id](i) = r;
+                    rand_pool.free_state(gen);
+                });
+        }
+            return;
+        case ct::util::Operation::init_value:
+        {
+            CkAssert((vec_map.size() == node_id) &&
+                "A vector is initialized before a dependent vector "
+                "initialization.");
+
+            std::size_t vec_dim = get_vec_dim(node.vec_len_);
+
+            // TODO: Do Random Initialization here
+            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+            Kokkos::deep_copy(vec, node.value_);
+            vec_map.emplace_back(vec);
+        }
+            return;
+        case ct::util::Operation::copy:
+        {
+            std::size_t copy_id = node.copy_id_;
+
+            if (node_id == vec_map.size())
+                vec_map.emplace_back(
+                    Kokkos::View<double*>("FIXME", vec_map[copy_id].size()));
+
+            auto dest = vec_map[node_id];
+            auto src = vec_map[copy_id];
+
+            Kokkos::parallel_for(
+                "copy_" + std::to_string(copy_id) + "_" +
+                    std::to_string(node_id),
+                dest.size(), KOKKOS_LAMBDA(int i) { dest(i) = src(i); });
+        }
+            return;
+        case ct::util::Operation::add:
+        case ct::util::Operation::sub:
+        case ct::util::Operation::multiply:
+        case ct::util::Operation::divide:
+        case ct::util::Operation::geq:
+        case ct::util::Operation::leq:
+        case ct::util::Operation::greater:
+        case ct::util::Operation::lesser:
+        case ct::util::Operation::eq:
+        case ct::util::Operation::neq:
+        case ct::util::Operation::logical_and:
+        case ct::util::Operation::logical_or:
+        case ct::util::Operation::logical_not:
+        case ct::util::Operation::unary_expr:
+        case ct::util::Operation::binary_expr:
+        case ct::util::Operation::where:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
+                instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
+                region);
+        }
+            return;
+        case ct::util::Operation::inplace_add:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+            }
+            else
+            {
+                auto dest = vec_map[node_id];
+                auto src = vec_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) += src(i); });
+            }
+        }
+            return;
+        case ct::util::Operation::inplace_sub:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+            }
+            else
+            {
+                auto dest = vec_map[node_id];
+                auto src = vec_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) -= src(i); });
+            }
+        }
+            return;
+        case ct::util::Operation::inplace_divide:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+            }
+            else
+            {
+                auto dest = vec_map[node_id];
+                auto src = vec_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "copy_" + std::to_string(copy_id) + "_" +
+                        std::to_string(node_id),
+                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) /= src(i); });
+            }
+        }
+            return;
+        case ct::util::Operation::dealloc: {
+            /**
+             * TODO: This might fail due to a double free depending on how charm runtime 
+             *       destroys the charmArrays. 
+             */
+            Kokkos::View<double*> releivingRef;
+            vec_map[node_id] = releivingRef;
+        } return;
+        case ct::util::Operation::custom_expr:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
+
+            const ct::vec_impl::vec_node& node = instruction[0];
+            auto a_host = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), vec_map[node_id]);
+            const std::size_t n = a_host.extent(0);
+            auto a = std::vector<double>(a_host.data(), a_host.data() + n);
+
+            auto b_host = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), vec_map[instruction[node.left_].name_]);
+            auto b = std::vector<double>(b_host.data(), b_host.data() + n);
+
+            node.custom_expr_->operator()(n, a, b);
+
+            Kokkos::View<double*> a_new("vec" + std::to_string(node_id), n);
+            Kokkos::View<double*> b_new(
+                "vec" + std::to_string(instruction[node.left_].name_), n);
+
+            auto a_new_host = Kokkos::create_mirror_view(a_new);
+            auto b_new_host = Kokkos::create_mirror_view(b_new);
+
+            for (auto i = 0; i < n; i++)
+            {
+                a_new_host(i) = a[i];
+                b_new_host(i) = b[i];
+            }
+            Kokkos::deep_copy(a_new, a_new_host);
+            Kokkos::deep_copy(b_new, b_new_host);
+            vec_map[node_id] = a_new;
+            vec_map[instruction[node.left_].name_] = b_new;
+        }
+            return;
+        default:
+            CmiAbort("Operation not implemented");
+        }
+    }
+
+public:
+    vector_impl_SDAG_CODE;
+
+    vector_impl(int num_chares_, int vec_block_size_)
+      : num_chares(num_chares_)
+      , SDAG_INDEX(0)
+      , vec_block_size(vec_block_size_)
+    {
+        vec_map.reserve(1000);
+
+        thisProxy[thisIndex].main_kernel();
+    }
+
 private:
     std::size_t get_vec_dim(std::size_t vec_len)
     {
@@ -236,404 +663,24 @@ private:
         }
     }
 
-    // Instruction related private functions
-private:
-    void update_partitions(
-        std::vector<std::vector<ct::vec_impl::vec_node>> const& instr_list)
-    {
-        for (auto const& ast : instr_list)
-            execute_instruction(ast);
-    }
-
-    void execute_instruction(
-        std::vector<ct::vec_impl::vec_node> const& instruction,
-        std::size_t index = 0)
-    {
-        ct::vec_impl::vec_node const& node = instruction[index];
-        std::size_t node_id = node.name_;
-
-        // Useful variables in switch statement
-        std::size_t vec_dim{0};
-        std::size_t total_size{0};
-        std::size_t unrolled_size{0};
-        std::size_t remainder_start{0};
-        std::size_t copy_id{0};
-
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dist(0., 1.);
-
-        switch (instruction[index].operation_)
-        {
-        case ct::util::Operation::init_random:
-
-            CkAssert((vec_map.size() == node_id) &&
-                "A vector is initialized before a dependent vector "
-                "initialization.");
-
-            vec_dim = get_vec_dim(node.vec_len_);
-
-            // TODO: Do Random Initialization here
-            vec_map.emplace_back(std::vector<double>(vec_dim));
-
-            for (double& val : vec_map[node.name_])
-            {
-                val = dist(gen);
-            }
-
-            return;
-
-        case ct::util::Operation::init_value:
-            CkAssert((vec_map.size() == node_id) &&
-                "A vector is initialized before a dependent vector "
-                "initialization.");
-
-            vec_dim = get_vec_dim(node.vec_len_);
-
-            // TODO: Do Random Initialization here
-            vec_map.emplace_back(std::vector<double>(vec_dim, node.value_));
-
-            return;
-
-        case ct::util::Operation::copy:
-            copy_id = node.copy_id_;
-
-            if (node_id == vec_map.size())
-                vec_map.emplace_back(
-                    std::vector<double>(vec_map[copy_id].size()));
-
-            total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                vec_map[node_id][i] = vec_map[copy_id][i];
-                vec_map[node_id][i + 1] = vec_map[copy_id][i + 1];
-                vec_map[node_id][i + 2] = vec_map[copy_id][i + 2];
-                vec_map[node_id][i + 3] = vec_map[copy_id][i + 3];
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] = vec_map[copy_id][i];
-            }
-
-            return;
-
-        case ct::util::Operation::add:
-        case ct::util::Operation::sub:
-        case ct::util::Operation::multiply:
-        case ct::util::Operation::divide:
-        case ct::util::Operation::geq:
-        case ct::util::Operation::leq:
-        case ct::util::Operation::greater:
-        case ct::util::Operation::lesser:
-        case ct::util::Operation::eq:
-        case ct::util::Operation::neq:
-        case ct::util::Operation::logical_and:
-        case ct::util::Operation::logical_or:
-        case ct::util::Operation::logical_not:
-        case ct::util::Operation::unary_expr:
-        case ct::util::Operation::binary_expr:
-        case ct::util::Operation::where:
-
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-
-            total_size = vec_map[node_id].size();
-            unrolled_size = vec_map[node_id].size() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
-                vec_map[node_id][i + 1] =
-                    execute_ast_for_idx(instruction, 0, i + 1);
-                vec_map[node_id][i + 2] =
-                    execute_ast_for_idx(instruction, 0, i + 2);
-                vec_map[node_id][i + 3] =
-                    execute_ast_for_idx(instruction, 0, i + 3);
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                vec_map[node_id][i] = execute_ast_for_idx(instruction, 0, i);
-            }
-
-            return;
-        case ct::util::Operation::inplace_add:
-            copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-            total_size = vec_map[node_id].size();
-            unrolled_size = total_size / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    vec_map[node_id][i] +=
-                        execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] +=
-                        execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] +=
-                        execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] +=
-                        execute_ast_for_idx(instruction, 1, i + 3);
-                }
-                else
-                {
-                    vec_map[node_id][i] += vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] += vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] += vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] += vec_map[copy_id][i + 3];
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] +=
-                        execute_ast_for_idx(instruction, 1, i);
-                else
-                    vec_map[node_id][i] += vec_map[copy_id][i];
-            }
-
-            return;
-        case ct::util::Operation::inplace_sub:
-            copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-            total_size = vec_map[node_id].size();
-            unrolled_size = total_size / 4;
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    vec_map[node_id][i] -=
-                        execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] -=
-                        execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] -=
-                        execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] -=
-                        execute_ast_for_idx(instruction, 1, i + 3);
-                }
-                else
-                {
-                    vec_map[node_id][i] -= vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] -= vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] -= vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] -= vec_map[copy_id][i + 3];
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] -=
-                        execute_ast_for_idx(instruction, 1, i);
-                else
-                    vec_map[node_id][i] -= vec_map[copy_id][i];
-            }
-            return;
-        case ct::util::Operation::inplace_divide:
-            copy_id = node.copy_id_;
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-            total_size = vec_map[node_id].size();
-            unrolled_size = total_size / 4;
-            remainder_start = unrolled_size * 4;
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                {
-                    vec_map[node_id][i] /=
-                        execute_ast_for_idx(instruction, 1, i);
-                    vec_map[node_id][i + 1] /=
-                        execute_ast_for_idx(instruction, 1, i + 1);
-                    vec_map[node_id][i + 2] /=
-                        execute_ast_for_idx(instruction, 1, i + 2);
-                    vec_map[node_id][i + 3] /=
-                        execute_ast_for_idx(instruction, 1, i + 3);
-                }
-                else
-                {
-                    vec_map[node_id][i] /= vec_map[copy_id][i];
-                    vec_map[node_id][i + 1] /= vec_map[copy_id][i + 1];
-                    vec_map[node_id][i + 2] /= vec_map[copy_id][i + 2];
-                    vec_map[node_id][i + 3] /= vec_map[copy_id][i + 3];
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                if (copy_id == static_cast<std::size_t>(-1))
-                    vec_map[node_id][i] /=
-                        execute_ast_for_idx(instruction, 1, i);
-                else
-                    vec_map[node_id][i] /= vec_map[copy_id][i];
-            }
-            return;
-        case ct::util::Operation::axpy:
-        {
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-
-            double alpha = node.value_;
-            std::vector<double>& x = vec_map[node.left_];
-            std::vector<double>& y = vec_map[node.right_];
-            std::vector<double>& res = vec_map[node.name_];
-
-            Eigen::Map<Eigen::VectorXd> ex(x.data(), x.size());
-            Eigen::Map<Eigen::VectorXd> ey(y.data(), y.size());
-            Eigen::Map<Eigen::VectorXd> er(res.data(), res.size());
-
-            er = alpha * ex + ey;
-
-            return;
-        }
-        case ct::util::Operation::custom_expr:
-        {
-            if (node_id == vec_map.size())
-            {
-                vec_dim = get_vec_dim(node.vec_len_);
-
-                vec_map.emplace_back(std::vector<double>(vec_dim));
-            }
-
-            const ct::vec_impl::vec_node& node = instruction[0];
-            node.custom_expr_->operator()(vec_dim, vec_map[node_id],
-                vec_map[instruction[node.left_].name_]);
-            return;
-        }
-
-        default:
-            CmiAbort("Operation not implemented");
-        }
-    }
-
-    double execute_ast_for_idx(
-        std::vector<ct::vec_impl::vec_node> const& instruction,
-        std::size_t curr_idx, std::size_t iter_idx)
-    {
-        const ct::vec_impl::vec_node& node = instruction[curr_idx];
-
-        switch (node.operation_)
-        {
-        case ct::util::Operation::noop:
-            return vec_map[node.name_][iter_idx];
-        case ct::util::Operation::add:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) +
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::sub:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) -
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::divide:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) /
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::multiply:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) *
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::eq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) ==
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::neq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) !=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::geq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) >=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::leq:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) <=
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::greater:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) >
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::lesser:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) <
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_and:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) &&
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_or:
-            return execute_ast_for_idx(instruction, node.left_, iter_idx) ||
-                execute_ast_for_idx(instruction, node.right_, iter_idx);
-        case ct::util::Operation::logical_not:
-            return !execute_ast_for_idx(instruction, node.left_, iter_idx);
-        case ct::util::Operation::unary_expr:
-            return node.unary_expr_->operator()(iter_idx,
-                execute_ast_for_idx(instruction, node.left_, iter_idx));
-        case ct::util::Operation::binary_expr:
-            return node.binary_expr_->operator()(iter_idx,
-                execute_ast_for_idx(instruction, node.left_, iter_idx),
-                execute_ast_for_idx(instruction, node.right_, iter_idx));
-        case ct::util::Operation::broadcast:
-            return node.value_;
-        case ct::util::Operation::where:
-            if (execute_ast_for_idx(instruction, node.ter_, iter_idx))
-            {
-                return execute_ast_for_idx(instruction, node.left_, iter_idx);
-            }
-            else
-            {
-                return execute_ast_for_idx(instruction, node.right_, iter_idx);
-            }
-        default:
-            CmiAbort("Operation not implemented");
-        }
-
-        // Control should not reach here!
-        return 0.;
-    }
-
-public:
-    vector_impl_SDAG_CODE;
-
-    vector_impl(int num_chares_, int vec_block_size_)
-      : num_chares(num_chares_)
-      , SDAG_INDEX(0)
-      , vec_block_size(vec_block_size_)
-    {
-        vec_map.reserve(1000);
-
-        thisProxy[thisIndex].main_kernel();
-    }
-
-private:
     int num_chares;
-    std::vector<std::vector<double>> vec_map;
+    std::vector<Kokkos::View<double*>> vec_map;
 
     int SDAG_INDEX;
     int vec_block_size;
     int dot_counter = 0;
 };
+
+#define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node)                                   \
+    if (node.name_ == mat_map.size())                                          \
+    {                                                                          \
+        std::size_t num_rows = get_mat_rows(node.mat_row_len_);                \
+        std::size_t num_cols = get_mat_cols(node.mat_col_len_);                \
+                                                                               \
+        Kokkos::View<double**> mat(                                            \
+            "mat" + std::to_string(node.name_), num_rows, num_cols);           \
+        mat_map.emplace_back(mat);                                             \
+    }
 
 class matrix_impl : public CBase_matrix_impl
 {
@@ -674,110 +721,140 @@ private:
         }
     }
 
-    // Instruction related private functions
-private:
+    // Instruction related functions - must be public for CUDA lambdas
+public:
     void update_partitions(
         std::vector<std::vector<ct::mat_impl::mat_node>> const& instr_list)
     {
-        for (auto const& ast : instr_list)
-            execute_instruction(ast);
+        for (size_t i = 0; i < instr_list.size();)
+        {
+            std::vector<std::vector<ct::mat_impl::mat_node>> region =
+                ct::util::carveRegion<ct::mat_impl::mat_node>(instr_list, i);
+
+            if (!region.empty())
+            {
+                for (const auto& instr : region)
+                    CHECK_IF_EXIST_ELSE_ADD_MATRIX(instr[0]);
+                execute_instruction(region);
+                i += region.size();
+            }
+            else
+            {
+                execute_instruction({instr_list[i]});
+                ++i;
+            }
+        }
+    }
+
+    // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
+    void mat_vec_dot_impl(int mat_idx, const double* vec_in_data, Kokkos::View<double*>& local_result)
+    {
+        Kokkos::View<double**> mat = mat_map[mat_idx];
+        std::size_t num_rows = mat.extent(0);
+        std::size_t num_cols = mat.extent(1);
+
+        using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
+            Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        HostConstVector vec_in_host(vec_in_data, num_cols);
+
+        using DeviceVector = Kokkos::View<double*,
+            typename Kokkos::DefaultExecutionSpace::memory_space>;
+        DeviceVector vec_in("vec_in_tile", num_cols);
+        Kokkos::deep_copy(vec_in, vec_in_host);
+
+        // Perform matrix-vector multiplication: result = mat * vec
+        KokkosBlas::gemv("N" , 1.0 , mat , vec_in , 0.0, local_result);
+        Kokkos::fence();
+    }
+
+    // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
+    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data, Kokkos::View<double*>& local_result)
+    {
+        Kokkos::View<double**> mat = mat_map[mat_idx];
+        std::size_t num_rows = mat.extent(0);
+        std::size_t num_cols = mat.extent(1);
+
+        using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
+            Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+        HostConstVector vec_in_host(vec_in_data, num_rows);
+
+        using DeviceVector = Kokkos::View<double*,
+            typename Kokkos::DefaultExecutionSpace::memory_space>;
+        DeviceVector vec_in("vec_in_tile", num_rows);
+        Kokkos::deep_copy(vec_in, vec_in_host);
+
+        // Perform vector-matrix multiplication: result = vec * mat
+        KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
+        Kokkos::fence();
     }
 
     void execute_instruction(
-        std::vector<ct::mat_impl::mat_node> const& instruction,
-        std::size_t index = 0)
+        std::vector<std::vector<ct::mat_impl::mat_node>> const& region)
     {
-        ct::mat_impl::mat_node const& node = instruction[index];
+        const std::vector<ct::mat_impl::mat_node>& instruction = region[0];
+        ct::mat_impl::mat_node const& node = instruction[0];
         std::size_t node_id = node.name_;
-        std::shared_ptr<ct::unary_operator> const& unary_expr =
-            node.unary_expr_;
-        std::shared_ptr<ct::binary_operator> const& binary_expr =
-            node.binary_expr_;
-
-        // Useful variables in switch statement
-        std::size_t num_rows{0};
-        std::size_t num_cols{0};
-        std::size_t total_size{0};
-        std::size_t unrolled_size{0};
-        std::size_t remainder_start{0};
-        std::size_t copy_id{0};
-        ct::util::matrix_view mat{};
-
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dist(0., 1.);
 
         switch (node.operation_)
         {
         case ct::util::Operation::init_random:
-
+        {
             CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
 
-            num_rows = get_mat_rows(node.mat_row_len_);
-            num_cols = get_mat_cols(node.mat_col_len_);
+            std::size_t num_rows = get_mat_rows(node.mat_row_len_);
+            std::size_t num_cols = get_mat_cols(node.mat_col_len_);
 
-            mat = ct::util::matrix_view{num_rows, num_cols};
-            for (int row = 0; row != mat.rows(); ++row)
-                for (int col = 0; col != mat.cols(); ++col)
-                    mat(row, col) = dist(gen);
+            Kokkos::View<double**> mat(
+                "mat" + std::to_string(node_id), num_rows, num_cols);
+            unsigned int seed =
+                static_cast<unsigned int>(time(nullptr)) + node_id;
+            Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
 
-            mat_map.emplace_back(std::move(mat));
-
+            Kokkos::parallel_for(
+                "init_random_mat_" + std::to_string(node_id),
+                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    {0, 0}, {num_rows, num_cols}),
+                KOKKOS_LAMBDA(int i, int j) {
+                    auto gen = rand_pool.get_state();
+                    double r = gen.drand();
+                    mat(i, j) = r;
+                    rand_pool.free_state(gen);
+                });
+            mat_map.emplace_back(mat);
+        }
             return;
-
         case ct::util::Operation::init_value:
+        {
             CkAssert((mat_map.size() == node_id) &&
                 "A matrix is initialized before a dependent matrix "
                 "initialization.");
 
-            num_rows = get_mat_rows(node.mat_row_len_);
-            num_cols = get_mat_cols(node.mat_col_len_);
+            std::size_t num_rows = get_mat_rows(node.mat_row_len_);
+            std::size_t num_cols = get_mat_cols(node.mat_col_len_);
 
-            mat = ct::util::matrix_view{num_rows, num_cols, node.value_};
-            mat_map.emplace_back(std::move(mat));
-
+            Kokkos::View<double**> mat(
+                "mat" + std::to_string(node_id), num_rows, num_cols);
+            Kokkos::deep_copy(mat, node.value_);
+            mat_map.emplace_back(mat);
+        }
             return;
-
         case ct::util::Operation::copy:
-            copy_id = node.copy_id_;
+        {
+            std::size_t copy_id = node.copy_id_;
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            auto dest = mat_map[node_id];
+            auto src = mat_map[copy_id];
 
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                mat = ct::util::matrix_view{num_rows, num_cols};
-
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            total_size = mat_map[node_id].rows();
-            unrolled_size = mat_map[node_id].rows() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    mat_map[node_id](i, j) = mat_map[copy_id](i, j);
-                    mat_map[node_id](i + 1, j) = mat_map[copy_id](i + 1, j);
-                    mat_map[node_id](i + 2, j) = mat_map[copy_id](i + 2, j);
-                    mat_map[node_id](i + 3, j) = mat_map[copy_id](i + 3, j);
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    mat_map[node_id](i, j) = mat_map[copy_id](i, j);
-                }
-            }
-
+            Kokkos::parallel_for(
+                "copy_mat_" + std::to_string(copy_id) + "_" +
+                    std::to_string(node_id),
+                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    {0, 0}, {dest.extent(0), dest.extent(1)}),
+                KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
+        }
             return;
-
         case ct::util::Operation::add:
         case ct::util::Operation::sub:
         case ct::util::Operation::multiply:
@@ -794,324 +871,149 @@ private:
         case ct::util::Operation::logical_or:
         case ct::util::Operation::logical_not:
         case ct::util::Operation::where:
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                mat = ct::util::matrix_view{num_rows, num_cols};
-
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            total_size = mat_map[node_id].rows();
-            unrolled_size = mat_map[node_id].rows() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    mat_map[node_id](i, j) =
-                        execute_ast_for_idx(instruction, 0, i, j);
-                    mat_map[node_id](i + 1, j) =
-                        execute_ast_for_idx(instruction, 0, i + 1, j);
-                    mat_map[node_id](i + 2, j) =
-                        execute_ast_for_idx(instruction, 0, i + 2, j);
-                    mat_map[node_id](i + 3, j) =
-                        execute_ast_for_idx(instruction, 0, i + 3, j);
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    mat_map[node_id](i, j) =
-                        execute_ast_for_idx(instruction, 0, i, j);
-                }
-            }
-
+        {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
+                instruction[0].kernel,
+                {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                mat_map, region);
+        }
             return;
         case ct::util::Operation::inplace_add:
-            copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                mat = ct::util::matrix_view{num_rows, num_cols};
-
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            total_size = mat_map[node_id].rows();
-            unrolled_size = mat_map[node_id].rows() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == -1)
-                    {
-                        mat_map[node_id](i, j) +=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                        mat_map[node_id](i + 1, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 1, j);
-                        mat_map[node_id](i + 2, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 2, j);
-                        mat_map[node_id](i + 3, j) +=
-                            execute_ast_for_idx(instruction, 1, i + 3, j);
-                    }
-                    else
-                    {
-                        mat_map[node_id](i, j) += mat_map[copy_id](i, j);
-                        mat_map[node_id](i + 1, j) +=
-                            mat_map[copy_id](i + 1, j);
-                        mat_map[node_id](i + 2, j) +=
-                            mat_map[copy_id](i + 2, j);
-                        mat_map[node_id](i + 3, j) +=
-                            mat_map[copy_id](i + 3, j);
-                    }
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        mat_map[node_id](i, j) +=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                    else
-                        mat_map[node_id](i, j) += mat_map[copy_id](i, j);
-                }
-            }
-
-            return;
-        case ct::util::Operation::inplace_sub:
-            copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-                mat = ct::util::matrix_view{num_rows, num_cols};
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            total_size = mat_map[node_id].rows();
-            unrolled_size = mat_map[node_id].rows() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                    {
-                        mat_map[node_id](i, j) -=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                        mat_map[node_id](i + 1, j) -=
-                            execute_ast_for_idx(instruction, 1, i + 1, j);
-                        mat_map[node_id](i + 2, j) -=
-                            execute_ast_for_idx(instruction, 1, i + 2, j);
-                        mat_map[node_id](i + 3, j) -=
-                            execute_ast_for_idx(instruction, 1, i + 3, j);
-                    }
-                    else
-                    {
-                        mat_map[node_id](i, j) -= mat_map[copy_id](i, j);
-                        mat_map[node_id](i + 1, j) -=
-                            mat_map[copy_id](i + 1, j);
-                        mat_map[node_id](i + 2, j) -=
-                            mat_map[copy_id](i + 2, j);
-                        mat_map[node_id](i + 3, j) -=
-                            mat_map[copy_id](i + 3, j);
-                    }
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        mat_map[node_id](i, j) -=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                    else
-                        mat_map[node_id](i, j) -= mat_map[copy_id](i, j);
-                }
-            }
-            return;
-
-        case ct::util::Operation::inplace_divide:
-            copy_id = node.copy_id_;
-            if (node_id == mat_map.size())
-            {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-                mat = ct::util::matrix_view{num_rows, num_cols};
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            total_size = mat_map[node_id].rows();
-            unrolled_size = mat_map[node_id].rows() / 4;
-            remainder_start = unrolled_size * 4;
-
-            for (std::size_t i = 0; i != remainder_start; i += 4)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                    {
-                        mat_map[node_id](i, j) /=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                        mat_map[node_id](i + 1, j) /=
-                            execute_ast_for_idx(instruction, 1, i + 1, j);
-                        mat_map[node_id](i + 2, j) /=
-                            execute_ast_for_idx(instruction, 1, i + 2, j);
-                        mat_map[node_id](i + 3, j) /=
-                            execute_ast_for_idx(instruction, 1, i + 3, j);
-                    }
-                    else
-                    {
-                        mat_map[node_id](i, j) /= mat_map[copy_id](i, j);
-                        mat_map[node_id](i + 1, j) /=
-                            mat_map[copy_id](i + 1, j);
-                        mat_map[node_id](i + 2, j) /=
-                            mat_map[copy_id](i + 2, j);
-                        mat_map[node_id](i + 3, j) /=
-                            mat_map[copy_id](i + 3, j);
-                    }
-                }
-            }
-
-            for (std::size_t i = remainder_start; i != total_size; ++i)
-            {
-                for (std::size_t j = 0; j != mat_map[node_id].cols(); ++j)
-                {
-                    if (copy_id == static_cast<std::size_t>(-1))
-                        mat_map[node_id](i, j) /=
-                            execute_ast_for_idx(instruction, 1, i, j);
-                    else
-                        mat_map[node_id](i, j) /= mat_map[copy_id](i, j);
-                }
-            }
-            return;
-
-        case ct::util::Operation::custom_expr:
         {
-            if (node_id == mat_map.size())
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
             {
-                num_rows = get_mat_rows(node.mat_row_len_);
-                num_cols = get_mat_cols(node.mat_col_len_);
-
-                mat = ct::util::matrix_view{num_rows, num_cols};
-
-                mat_map.emplace_back(std::move(mat));
-            }
-
-            const ct::mat_impl::mat_node& node = instruction[0];
-            node.custom_expr_->operator()(num_rows, num_cols, mat_map[node_id],
-                mat_map[instruction[node.left_].name_]);
-            return;
-        }
-
-        default:
-            CmiAbort("Operation not implemented");
-        }
-    }
-
-    double execute_ast_for_idx(
-        std::vector<ct::mat_impl::mat_node> const& instruction,
-        std::size_t curr_idx, std::size_t iter_i, std::size_t iter_j)
-    {
-        const ct::mat_impl::mat_node& node = instruction[curr_idx];
-
-        switch (node.operation_)
-        {
-        case ct::util::Operation::noop:
-            return mat_map[node.name_](iter_i, iter_j);
-
-        case ct::util::Operation::add:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) +
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-
-        case ct::util::Operation::sub:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) -
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::multiply:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) *
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::divide:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) /
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::greater:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) >
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::lesser:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) <
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::geq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) >=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::leq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) <=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::eq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) ==
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::neq:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) !=
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::unary_expr:
-            return node.unary_expr_->operator()(iter_i, iter_j,
-                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j));
-        case ct::util::Operation::binary_expr:
-            return node.binary_expr_->operator()(iter_i, iter_j,
-                execute_ast_for_idx(instruction, node.left_, iter_i, iter_j),
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j));
-        case ct::util::Operation::broadcast:
-            return node.value_;
-        case ct::util::Operation::logical_and:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) &&
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::logical_or:
-            return execute_ast_for_idx(
-                       instruction, node.left_, iter_i, iter_j) ||
-                execute_ast_for_idx(instruction, node.right_, iter_i, iter_j);
-        case ct::util::Operation::logical_not:
-            return !execute_ast_for_idx(
-                instruction, node.left_, iter_i, iter_j);
-        case ct::util::Operation::where:
-            if (execute_ast_for_idx(instruction, node.ter_, iter_i, iter_j))
-            {
-                return execute_ast_for_idx(
-                    instruction, node.left_, iter_i, iter_j);
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
             }
             else
             {
-                return execute_ast_for_idx(
-                    instruction, node.right_, iter_i, iter_j);
+                auto dest = mat_map[node_id];
+                auto src = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(int i, int j) { dest(i, j) += src(i, j); });
             }
+        }
+            return;
+        case ct::util::Operation::inplace_sub:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
+            }
+            else
+            {
+                auto dest = mat_map[node_id];
+                auto src = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(int i, int j) { dest(i, j) -= src(i, j); });
+            }
+        }
+            return;
+        case ct::util::Operation::inplace_divide:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+            std::size_t copy_id = node.copy_id_;
+            if (copy_id == -1)
+            {
+                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                    2>(instruction[0].kernel,
+                    {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
+                    mat_map, region);
+            }
+            else
+            {
+                auto dest = mat_map[node_id];
+                auto src = mat_map[copy_id];
+
+                Kokkos::parallel_for(
+                    "inplace_add_mat_" + std::to_string(node_id),
+                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                        {0, 0}, {dest.extent(0), dest.extent(1)}),
+                    KOKKOS_LAMBDA(int i, int j) { dest(i, j) /= src(i, j); });
+            }
+        }
+            return;
+        case ct::util::Operation::dealloc: {
+            /**
+             * TODO: This might fail due to a double free depending on how charm runtime 
+             *       destroys the charmArrays. 
+             */
+            Kokkos::View<double**> releivingRef;
+            mat_map[node_id] = releivingRef;
+        } return;
+        case ct::util::Operation::custom_expr:
+        {
+            CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
+
+            const ct::mat_impl::mat_node& node = instruction[0];
+            auto a_host = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), mat_map[node_id]);
+            const std::size_t rows = a_host.extent(0);
+            const std::size_t cols = a_host.extent(1);
+
+            std::vector<std::vector<double>> a;
+            for (int i = 0; i < rows; i++)
+            {
+                a.push_back(std::vector<double>(
+                    a_host.data() + i * cols, a_host.data() + i * cols + cols));
+            }
+
+            auto b_host = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), mat_map[instruction[node.left_].name_]);
+            std::vector<std::vector<double>> b;
+            for (int i = 0; i < rows; i++)
+            {
+                b.push_back(std::vector<double>(
+                    b_host.data() + i * cols, b_host.data() + i * cols + cols));
+            }
+
+            node.custom_expr_->operator()(rows, cols, a, b);
+
+            Kokkos::View<double**> a_new(
+                "mat" + std::to_string(node_id), rows, cols);
+            Kokkos::View<double**> b_new(
+                "mat" + std::to_string(instruction[node.left_].name_), rows,
+                cols);
+
+            auto a_new_host = Kokkos::create_mirror_view(a_new);
+            auto b_new_host = Kokkos::create_mirror_view(b_new);
+
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < cols; j++)
+                {
+                    a_new_host(i, j) = a[i][j];
+                    b_new_host(i, j) = b[i][j];
+                }
+            }
+
+            Kokkos::deep_copy(a_new, a_new_host);
+            Kokkos::deep_copy(b_new, b_new_host);
+            mat_map[node_id] = a_new;
+            mat_map[instruction[node.left_].name_] = b_new;
+        }
+            return;
         default:
             CmiAbort("Operation not implemented");
         }
-
-        // Control should not reach here!
-        return 0.;
     }
 
 public:
@@ -1130,7 +1032,7 @@ public:
     }
 
 private:
-    std::vector<ct::util::matrix_view> mat_map;
+    std::vector<Kokkos::View<double**>> mat_map;
 
     int num_chares_y;
     int num_chares_x;

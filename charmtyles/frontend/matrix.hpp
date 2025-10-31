@@ -89,6 +89,21 @@ namespace ct {
                 return dispatch_count;
             }
 
+            void codegen(instr_t& instructions) {
+                for (size_t i = 0; i < instructions.size();) {
+                    instr_t region = ct::util::carveRegion<mat_node>(instructions, i);
+
+                    if (!region.empty()) {
+                        cgen.reset();
+                        instructions[i][0].kernel = cgen.generate_kernel<mat_node, 2>(region);
+                        kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
+                        i += region.size();
+                    } else {
+                        ++i;
+                    }
+                }
+            }
+
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
@@ -116,6 +131,7 @@ namespace ct {
                     // Dispatch all non-empty vectors!
                     if (shape_matrix_queue_[i].size() != 0)
                     {
+                        codegen(shape_matrix_queue_[i]);
                         is_dispatched = true;
 
                         std::size_t& sdag_index = sdag_index_[i];
@@ -137,9 +153,11 @@ namespace ct {
 
             void dispatch(std::size_t shape_id)
             {
+                //print_instructions();
                 // Send instruction for execution
                 if (shape_matrix_queue_[shape_id].size() != 0)
                 {
+                    codegen(shape_matrix_queue_[shape_id]);
                     std::size_t& sdag_index = sdag_index_[shape_id];
 
                     CProxy_matrix_impl dispatch_proxy =
@@ -179,6 +197,8 @@ namespace ct {
         private:
             std::vector<instr_t> shape_matrix_queue_;
             std::vector<std::size_t> sdag_index_;
+
+            Codegen cgen;
         };
         CT_GENERATE_SINGLETON(mat_instr_queue_t, mat_instr_queue);
 
@@ -212,13 +232,8 @@ namespace ct {
             if (it == shape_info.end())
             {
                 // Create a new proxy for this shape and assign it to shape_info
-                CProxy_matrix_impl proxy =
-                    CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x,
-                        CT_ACCESS_SINGLETON(ct::util::matrix_block_rows),
-                        CT_ACCESS_SINGLETON(ct::util::matrix_block_cols),
-                        num_chares_x, num_chares_y);
-                shape_info.emplace_back(ct::mat_impl::mat_shape_t{
-                    0, num_chares_x, num_chares_y, proxy});
+                CProxy_matrix_impl proxy = CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x, row_block_len, col_block_len, num_chares_x, num_chares_y);
+                shape_info.emplace_back(ct::mat_impl::mat_shape_t{0, num_chares_x, num_chares_y, proxy});
 
                 ct::mat_impl::mat_shape_t matrix_shape = shape_info.back();
 
@@ -715,20 +730,34 @@ namespace ct {
             return *this;
         }
 
-        // TODO: Figure out why this is necessary!
         matrix(matrix&& other)
           : row_size_(other.row_size_)
           , col_size_(other.col_size_)
           , matrix_shape_(other.matrix_shape_)
           , node_(other.node_)
-        {
-            // ckout << "Move constructor called!" << endl;
-        }
+        {}
 
         template <typename LHS, typename RHS>
         matrix(ct::mat_impl::mat_expression<LHS, RHS> const& e)
         {
             std::vector<ct::mat_impl::mat_node> instr = e();
+            ct::mat_impl::mat_node& root = instr.front();
+            row_size_ = root.mat_row_len_;
+            col_size_ = root.mat_col_len_;
+
+            matrix_shape_ = ct::mat_impl::get_mat_shape(row_size_, col_size_);
+
+            root.name_ = matrix_shape_.matrix_id;
+            node_ = ct::mat_impl::mat_node{root};
+
+            ct::mat_impl::mat_instr_queue_t& queue =
+                CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+
+            queue.insert(instr, matrix_shape_.shape_id);
+        }
+
+        matrix(std::vector<ct::mat_impl::mat_node>& instr)
+        {
             ct::mat_impl::mat_node& root = instr.front();
             row_size_ = root.mat_row_len_;
             col_size_ = root.mat_col_len_;
@@ -981,7 +1010,6 @@ namespace ct {
             return fval.get();
         }
 
-    private:
         std::vector<ct::mat_impl::mat_node> operator()() const
         {
             ct::mat_impl::mat_node new_node{node_};
@@ -990,25 +1018,15 @@ namespace ct {
             return std::vector<ct::mat_impl::mat_node>{new_node};
         }
 
+        ~matrix() {
+            ct::mat_impl::mat_node delNode(matrix_shape_.matrix_id, ct::util::Operation::dealloc, row_size_, col_size_);
+            ct::mat_impl::mat_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::mat_impl::mat_instr_queue);
+            queue.insert(delNode, matrix_shape_.shape_id);
+        }
+    private:
         std::size_t row_size_;
         std::size_t col_size_;
         ct::mat_impl::mat_shape_t matrix_shape_;
         ct::mat_impl::mat_node node_;
     };
-
-    namespace traits {
-        template <typename T>
-        struct is_mat_type_impl
-        {
-            constexpr static bool value = false;
-        };
-
-        template <>
-        struct is_mat_type_impl<ct::matrix>
-        {
-            constexpr static bool value = true;
-        };
-
-    }    // namespace traits
-
 }    // namespace ct

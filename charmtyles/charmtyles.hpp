@@ -4,16 +4,15 @@
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
-#include <charmtyles/util/matrix_view.hpp>
 #include <charmtyles/util/singleton.hpp>
 #include <charmtyles/util/sizes.hpp>
 
+#include <charmtyles/frontend/basic_binary_operators.hpp>
+#include <charmtyles/frontend/basic_unary_operators.hpp>
 #include <charmtyles/frontend/matrix.hpp>
 #include <charmtyles/frontend/operations.hpp>
 #include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
-#include <charmtyles/frontend/basic_unary_operators.hpp>
-#include <charmtyles/frontend/basic_binary_operators.hpp>
 
 namespace ct {
 
@@ -35,6 +34,14 @@ namespace ct {
         col_len = 1 << 10;
 
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
+
+        kokkosMgmt = CProxy_KokkosGroup::ckNew();
+        reductionMgmt = CProxy_reductionGroup::ckNew();
+    }
+
+    void finalize()
+    {
+        kokkosMgmt.finalize();
     }
 
     void sync(ct::mat_impl::mat_shape_t const& matrix_shape)
