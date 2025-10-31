@@ -169,16 +169,29 @@ module libcharmtyles
                 }} // dot
 
                 when send_to_matrix[SDAG_INDEX](
-                    int sdag_index, int vec_idx, int rhs_sdag_idx, int col_block_len, int numCharesY, CProxy_matrix_impl proxy) {
+                    int sdag_index, int vec_idx, int rhs_sdag_idx, int row_block_len, int col_block_len, int numCharesX, int numCharesY, bool is_vec_mat, CProxy_matrix_impl proxy) {
                 serial "send_to_matrix" {
                     double* vector_to_send = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]).data();
-                    std::size_t xIndx = (thisIndex * vec_block_size) / col_block_len;
-                    std::size_t numChunks = std::ceil(vec_map[vec_idx].size() / (col_block_len * 1.0));
-                    for(std::size_t i = 0; i < numChunks; i++) {
-                        for(std::size_t j = 0; j < numCharesY; j++) {
-                            proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
-                            (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
-                            ,vector_to_send + i * col_block_len);
+
+                    if (is_vec_mat) {
+                        std::size_t yIndx = (thisIndex * vec_block_size) / row_block_len;
+                        std::size_t numChunks = std::ceil(vec_map[vec_idx].size() / (row_block_len * 1.0));
+                        for(std::size_t i = 0; i < numChunks; i++) {
+                            for(std::size_t j = 0; j < numCharesX; j++) {
+                                proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
+                                (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                ,vector_to_send + i * row_block_len);
+                            }
+                        }
+                    } else {
+                        std::size_t xIndx = (thisIndex * vec_block_size) / col_block_len;
+                        std::size_t numChunks = std::ceil(vec_map[vec_idx].size() / (col_block_len * 1.0));
+                        for(std::size_t i = 0; i < numChunks; i++) {
+                            for(std::size_t j = 0; j < numCharesY; j++) {
+                                proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
+                                (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                ,vector_to_send + i * col_block_len);
+                            }
                         }
                     }
 
@@ -638,7 +651,7 @@ module libcharmtyles
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>, CProxy_set_future);
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
         entry void dot(int, int, int, int);
-        entry void send_to_matrix(int, int, int, int, int, CProxy_matrix_impl);
+        entry void send_to_matrix(int, int, int, int, int, int, int, bool, CProxy_matrix_impl);
         entry void update_vector(int len, double result[len]);
         entry void update_index(int, int);
         entry void reduce_sum(int, int, int);
@@ -755,25 +768,12 @@ module libcharmtyles
                     when active_chares_set[SDAG_INDEX](int sdag_idx) {
                     when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
                 serial "vec_mat_dot" {
-                    // Initialize result array
-                    std::vector<double> result(result_size, 0.0);
+                    std::size_t local_result_size = mat_map[mat_idx].extent(1);
+                    Kokkos::View<double*> local_result("local_result", local_result_size);
 
-                    // Create view for local result
-                    std::size_t num_cols = mat_map[mat_idx].extent(1);
-                    Kokkos::View<double*> local_result("local_result", num_cols);
-                    
-                    // Use public helper method to avoid CUDA lambda visibility issues
                     vec_mat_dot_impl(mat_idx, data, local_result);
-                    
-                    // Copy local result to the correct position in the result array
-                    auto host_result = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
-                    for (std::size_t j = 0; j < num_cols; ++j)
-                        result[thisIndex.x * col_block_len + j] = host_result(j);
 
-                    // TODO: Use Section Reduction!
-                    // CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
-                    // contribute(result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
-
+                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.x * col_block_len, local_result_size, local_result.data());
                     ++SDAG_INDEX;
                 }}} // vector matrix dot product
 

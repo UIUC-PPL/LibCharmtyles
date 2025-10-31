@@ -13,8 +13,8 @@ class CProxy_scalar_impl;
 class CProxy_get_partial_vec_future;
 class CProxy_KokkosGroup;
 
-#include <charmtyles/backend/libcharmtyles.decl.h>
 #include <charmtyles/util/sizes.hpp>
+#include <charmtyles/backend/libcharmtyles.decl.h>
 
 class KokkosGroup : public CBase_KokkosGroup
 {

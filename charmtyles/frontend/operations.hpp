@@ -326,10 +326,12 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        std::size_t col_block_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
         std::size_t numCharesY = rhs_shape.num_chares_y;
+        std::size_t numCharesX = rhs_shape.num_chares_x;
+        std::size_t row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
+        std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
 
-        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, col_block_len, numCharesY, dispatch_proxy);
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
         reductionMgmt.reset();
         dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
@@ -375,10 +377,12 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        std::size_t col_block_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
         std::size_t numCharesY = rhs_shape.num_chares_y;
+        std::size_t numCharesX = rhs_shape.num_chares_x;
+        std::size_t row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
+        std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
 
-        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, col_block_len, numCharesY, dispatch_proxy);
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
         reductionMgmt.reset();
         dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
