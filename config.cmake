@@ -20,8 +20,10 @@ endif()
 
 if(DEFINED ENV{KOKKOS_DIR})
     set(KOKKOS_DIR "$ENV{KOKKOS_DIR}")
+    set(KOKKOS_KERNELS_DIR "$ENV{KOKKOS_KERNELS_DIR}")
 else()
-    set(KOKKOS_DIR "/home/shogo/master/Kale/LibCharmtyles/kokkos/install")
+    set(KOKKOS_DIR "${BASE_DIR}/kokkos/install")
+    set(KOKKOS_KERNELS_DIR "${BASE_DIR}/kokkos-kernels/install")
 endif()
 set(KOKKOS_KERNELS_DIR "${BASE_DIR}/kokkos-kernels/install")
 

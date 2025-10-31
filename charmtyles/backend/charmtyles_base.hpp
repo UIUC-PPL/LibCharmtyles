@@ -14,6 +14,7 @@ class CProxy_get_partial_vec_future;
 class CProxy_KokkosGroup;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
+#include <charmtyles/util/sizes.hpp>
 
 class KokkosGroup : public CBase_KokkosGroup
 {
@@ -54,6 +55,110 @@ public:
 };
 
 CProxy_KokkosGroup kokkosMgmt;
+
+struct reductionMgmtPayload {
+    int process;
+    int sdag_indx;
+    CProxyElement_matrix_impl proxy;
+};
+
+class reductionGroup : public CBase_reductionGroup {
+private:
+    int num_active_chares;
+    std::vector<int> sdag_indexes;
+    std::vector<CProxyElement_matrix_impl> chunkProxies;
+
+    int resultSize;
+    int contributeCnt;
+    std::vector<double> localArr;
+    CProxy_vector_impl result_proxy;
+
+    int resultCnt;
+    std::vector<double> resultArr;
+public:
+    reductionGroup() {
+        num_active_chares = 0;
+        chunkProxies.reserve(5);
+        sdag_indexes.reserve(5);
+
+        contributeCnt = 0;
+        resultSize = 0;
+
+        resultCnt = 0;
+    }
+
+    void accumulate(CProxy_vector_impl _result_proxy, int result_size, int indx, int len, double* data) {
+        contributeCnt++;
+
+        if (localArr.size() != result_size) {
+            localArr.resize(result_size);
+            std::fill(localArr.begin(), localArr.end(), 0.0);
+            resultSize = result_size;
+            result_proxy = _result_proxy;
+        }
+
+        for (int i = 0; i < len; ++i)
+            localArr[indx + i] += data[i];
+
+        if (contributeCnt == num_active_chares) {
+            thisProxy[0].reduce(resultSize, localArr.data());
+        }
+    }
+
+    void reduce(int len, double* data) {
+        resultCnt++;
+
+        if (resultArr.size() != len) {
+            resultArr.resize(len);
+            std::fill(resultArr.begin(), resultArr.end(), 0.0);
+        }
+
+        for (int i = 0; i < len; ++i)
+            resultArr[i] += data[i];
+
+        if(resultCnt == CkNumNodes()) {
+            std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
+            for(int i = 0; ;i++) {
+                if(i * vec_len >= len) break;
+                int length = (((i + 1) * vec_len) >= len) ? (len - (i * vec_len)) : vec_len;
+                result_proxy[i].update_vector(length, resultArr.data() + i * vec_len);
+            }
+        }
+    }
+
+    void numActiveChares(CkReductionMsg *msg) {
+        CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            reductionMgmtPayload result = *(reductionMgmtPayload*)(&current->data);
+            int process = result.process;
+            if (process == thisIndex) {
+                num_active_chares++;
+                sdag_indexes.emplace_back(result.sdag_indx);
+                chunkProxies.emplace_back(result.proxy);
+            }
+            current = current->next();
+        }
+        for(int i = 0; i < num_active_chares; i++) {
+            chunkProxies[i].active_chares_set(sdag_indexes[i]);
+        }
+    }
+
+    void reset() {
+        num_active_chares = 0;
+        chunkProxies.clear();
+        sdag_indexes.clear();
+
+        contributeCnt = 0;
+        resultSize = 0;
+        localArr.clear();
+
+        resultCnt = 0;
+        resultArr.clear();
+    }
+};
+
+CProxy_reductionGroup reductionMgmt;
 
 #include "codegen.hpp"
 
@@ -114,8 +219,7 @@ public:
     void construct_vector(CkReductionMsg* msg)
     {
         std::vector<double> out(len, 0.);
-        CkReduction::setElement* current =
-            (CkReduction::setElement*) msg->getData();
+        CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
         while (current != NULL)
         {
             double* result = (double*) &current->data;
@@ -638,29 +742,15 @@ public:
     }
 
     // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
-    void mat_vec_dot_impl(int mat_idx, const double* vec_in_data,
-        std::size_t vec_len, Kokkos::View<double*>& local_result)
+    void mat_vec_dot_impl(int mat_idx, const double* vec_in_data, Kokkos::View<double*>& local_result)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
-        CkAssert(vec_len >= num_cols &&
-            "Incoming vector does not have enough entries for this matrix "
-            "tile");
-
-        std::size_t offset = 0;
-        if (vec_len > num_cols)
-        {
-            std::size_t max_offset = vec_len - num_cols;
-            offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.x) * col_block_len,
-                max_offset);
-        }
-
         using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
             Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        HostConstVector vec_in_host(vec_in_data + offset, num_cols);
+        HostConstVector vec_in_host(vec_in_data, num_cols);
 
         using DeviceVector = Kokkos::View<double*,
             typename Kokkos::DefaultExecutionSpace::memory_space>;
@@ -668,34 +758,20 @@ public:
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform matrix-vector multiplication: result = mat * vec
-        KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
+        KokkosBlas::gemv("N" , 1.0 , mat , vec_in , 0.0, local_result);
         Kokkos::fence();
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
-    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data,
-        std::size_t vec_len, Kokkos::View<double*>& local_result)
+    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data, Kokkos::View<double*>& local_result)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
-        CkAssert(vec_len >= num_rows &&
-            "Incoming vector does not have enough entries for this matrix "
-            "tile");
-
-        std::size_t offset = 0;
-        if (vec_len > num_rows)
-        {
-            std::size_t max_offset = vec_len - num_rows;
-            offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.y) * row_block_len,
-                max_offset);
-        }
-
         using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
             Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        HostConstVector vec_in_host(vec_in_data + offset, num_rows);
+        HostConstVector vec_in_host(vec_in_data, num_rows);
 
         using DeviceVector = Kokkos::View<double*,
             typename Kokkos::DefaultExecutionSpace::memory_space>;

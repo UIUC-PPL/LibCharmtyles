@@ -326,17 +326,17 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        lhs_proxy.send_to_matrix(
-            lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
+        std::size_t col_block_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
+        std::size_t numCharesY = rhs_shape.num_chares_y;
+
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, col_block_len, numCharesY, dispatch_proxy);
+        reductionMgmt.reset();
+        dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -375,16 +375,17 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        lhs_proxy.send_to_matrix(
-            lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
+        std::size_t col_block_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
+        std::size_t numCharesY = rhs_shape.num_chares_y;
+
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, col_block_len, numCharesY, dispatch_proxy);
+        reductionMgmt.reset();
+        dispatch_proxy.update_active_chares(rhs_sdag_idx);
+
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(

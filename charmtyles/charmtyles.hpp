@@ -21,21 +21,22 @@ namespace ct {
         scalar_impl_proxy = CProxy_scalar_impl::ckNew();
 
         std::size_t& vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
-        vec_len = 1 << 20;
+        vec_len = 20;
 
         ckout << "Vector Block Length Set to: " << vec_len << endl;
 
         std::size_t& row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
-        row_len = 1 << 10;
+        row_len = 10;
 
         ckout << "Matrix Row Block Length Set to: " << row_len << endl;
 
         std::size_t& col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
-        col_len = 1 << 10;
+        col_len = 10;
 
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
 
         kokkosMgmt = CProxy_KokkosGroup::ckNew();
+        reductionMgmt = CProxy_reductionGroup::ckNew();
     }
 
     void finalize()
