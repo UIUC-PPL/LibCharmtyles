@@ -77,19 +77,21 @@ namespace ct {
             std::size_t dispatch_size() const
             {
                 std::size_t dispatch_count = 0;
-                for (std::size_t i = 0; i != shape_matrix_queue_.size(); ++i)
-                {
-                    // Dispatch all non-empty vectors!
-                    if (shape_matrix_queue_[i].size() != 0)
-                    {
-                        ++dispatch_count;
-                    }
-                }
+                // for (std::size_t i = 0; i != shape_matrix_queue_.size(); ++i)
+                // {
+                //     // Dispatch all non-empty vectors!
+                //     if (shape_matrix_queue_[i].size() != 0)
+                //     {
+                //         ++dispatch_count;
+                //     }
+                // }
+                dispatch_count = shape_matrix_queue_.size();
 
                 return dispatch_count;
             }
 
             void codegen(instr_t& instructions) {
+                traceBeginUserBracketEvent(2);
                 for (size_t i = 0; i < instructions.size();) {
                     instr_t region = ct::util::carveRegion<mat_node>(instructions, i);
 
@@ -102,6 +104,7 @@ namespace ct {
                         ++i;
                     }
                 }
+                traceEndUserBracketEvent(2);
             }
 
             void print_instructions() const
@@ -125,35 +128,36 @@ namespace ct {
 
             void dispatch(ck::future<bool> is_done, CProxy_set_future proxy)
             {
-                bool is_dispatched = false;
+                if(shape_matrix_queue_.size()==0)
+                    {
+                        is_done.set(true);
+                        return;
+                    }
                 for (std::size_t i = 0; i != shape_matrix_queue_.size(); ++i)
                 {
                     // Dispatch all non-empty vectors!
+                    std::size_t& sdag_index = sdag_index_[i];
+                    CProxy_matrix_impl dispatch_proxy =
+                        CT_ACCESS_SINGLETON(mat_shape_info)[i].proxy;
                     if (shape_matrix_queue_[i].size() != 0)
                     {
                         codegen(shape_matrix_queue_[i]);
-                        is_dispatched = true;
-
-                        std::size_t& sdag_index = sdag_index_[i];
-
-                        CProxy_matrix_impl dispatch_proxy =
-                            CT_ACCESS_SINGLETON(mat_shape_info)[i].proxy;
 
                         dispatch_proxy.compute(
                             sdag_index, shape_matrix_queue_[i], proxy);
 
                         ++sdag_index;
                         shape_matrix_queue_[i].clear();
+                    } else {
+                        dispatch_proxy.synchronize(sdag_index, proxy);
+                        ++sdag_index;
                     }
                 }
-
-                if (!is_dispatched)
-                    is_done.set(true);
             }
 
             void dispatch(std::size_t shape_id)
             {
-                print_instructions();
+                // print_instructions();
                 // Send instruction for execution
                 if (shape_matrix_queue_[shape_id].size() != 0)
                 {

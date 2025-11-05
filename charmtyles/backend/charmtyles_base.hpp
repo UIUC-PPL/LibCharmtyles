@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
+//make all the hapi dependencies cuda only
+#include "hapi.h"
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
@@ -14,6 +16,10 @@ class CProxy_get_partial_vec_future;
 class CProxy_KokkosGroup;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
+
+using ExecSpace = Kokkos::DefaultExecutionSpace;
+using RangePolicy = Kokkos::RangePolicy<ExecSpace>;
+using MDRangePolicy = Kokkos::MDRangePolicy<Kokkos::Rank<2>, ExecSpace>;
 
 class KokkosGroup : public CBase_KokkosGroup
 {
@@ -30,6 +36,10 @@ public:
     KokkosGroup()
     {
         Kokkos::initialize();
+        hapiCheck(cudaSetDevice(0));//later make RR on gpus
+        auto start = CkTimer();
+        hapiCreateStreams();
+        ckout << "Time to create streams " <<CkTimer() - start << endl;
     }
 
     void finalize()
@@ -258,7 +268,7 @@ public:
         std::size_t vec_dim = get_vec_dim(node.vec_len_);                      \
                                                                                \
         Kokkos::View<double*> vec(                                             \
-            "vec" + std::to_string(node.name_), vec_dim);                      \
+            Kokkos::view_alloc("vec" + std::to_string(node.name_), exec_space), vec_dim);\
         vec_map.emplace_back(vec);                                             \
     }
 
@@ -288,7 +298,8 @@ public:
         }
     }
 
-    // Helper method for generator initialization - must be public for CUDA lambdas
+    // Helper method for generator initialization - must be public for CUDA lamdas
+    // TODO: does not work for cuda as of now(gen_ptr is cpu ptr)
     Kokkos::View<double*> generator_init_impl(
         std::size_t vec_dim, std::shared_ptr<ct::generator> gen_ptr)
     {
@@ -311,7 +322,7 @@ public:
 
         double result = 0.0;
         Kokkos::parallel_reduce(
-            lhs.size(),
+            RangePolicy(exec_space, 0,lhs.size()),
             KOKKOS_LAMBDA(const int i, double& local_sum) {
                 local_sum += lhs(i) * rhs(i);
             },
@@ -336,20 +347,21 @@ public:
                 "initialization.");
 
             std::size_t vec_dim = get_vec_dim(node.vec_len_);
-            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
-            vec_map.emplace_back(vec);
+            Kokkos::View<double*> vec(Kokkos::view_alloc("vec" + std::to_string(node_id), exec_space), vec_dim);
+            
             unsigned int seed =
                 static_cast<unsigned int>(time(nullptr)) + node_id;
             Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
 
             Kokkos::parallel_for(
                 "init_random_" + std::to_string(node_id),
-                vec_map[node_id].size(), KOKKOS_LAMBDA(int i) {
+                RangePolicy(exec_space, 0, vec.size()), KOKKOS_LAMBDA(int i) {
                     auto gen = rand_pool.get_state();
                     double r = gen.drand();
-                    vec_map[node_id](i) = r;
+                    vec(i) = r;
                     rand_pool.free_state(gen);
                 });
+            vec_map.emplace_back(vec);
         }
             return;
         case ct::util::Operation::init_value:
@@ -360,9 +372,8 @@ public:
 
             std::size_t vec_dim = get_vec_dim(node.vec_len_);
 
-            // TODO: Do Random Initialization here
-            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
-            Kokkos::deep_copy(vec, node.value_);
+            Kokkos::View<double*> vec(Kokkos::view_alloc("vec" + std::to_string(node_id), exec_space), vec_dim);
+            Kokkos::deep_copy(exec_space, vec, node.value_);
             vec_map.emplace_back(vec);
         }
             return;
@@ -372,7 +383,7 @@ public:
 
             if (node_id == vec_map.size())
                 vec_map.emplace_back(
-                    Kokkos::View<double*>("FIXME", vec_map[copy_id].size()));
+                    Kokkos::View<double*>(Kokkos::view_alloc("FIXME", exec_space), vec_map[copy_id].size()));
 
             auto dest = vec_map[node_id];
             auto src = vec_map[copy_id];
@@ -380,7 +391,7 @@ public:
             Kokkos::parallel_for(
                 "copy_" + std::to_string(copy_id) + "_" +
                     std::to_string(node_id),
-                dest.size(), KOKKOS_LAMBDA(int i) { dest(i) = src(i); });
+                    RangePolicy(exec_space, 0, dest.size()), KOKKOS_LAMBDA(int i) { dest(i) = src(i); });
         }
             return;
         case ct::util::Operation::add:
@@ -401,7 +412,8 @@ public:
         case ct::util::Operation::where:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
-            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node, 1>(
+            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node ,1>(
+                exec_space,
                 instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
                 region);
         }
@@ -413,7 +425,7 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                    1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -423,7 +435,7 @@ public:
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
                         std::to_string(node_id),
-                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) += src(i); });
+                    RangePolicy(exec_space, 0, dest.size()), KOKKOS_LAMBDA(int i) { dest(i) += src(i); });
             }
         }
             return;
@@ -434,7 +446,7 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                    1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -444,7 +456,7 @@ public:
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
                         std::to_string(node_id),
-                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) -= src(i); });
+                    RangePolicy(exec_space, 0, dest.size()), KOKKOS_LAMBDA(int i) { dest(i) -= src(i); });
             }
         }
             return;
@@ -455,7 +467,7 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
-                    1>(node.kernel, {vec_map[node_id].size()}, vec_map, region);
+                    1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
             {
@@ -465,7 +477,7 @@ public:
                 Kokkos::parallel_for(
                     "copy_" + std::to_string(copy_id) + "_" +
                         std::to_string(node_id),
-                    dest.size(), KOKKOS_LAMBDA(int i) { dest(i) /= src(i); });
+                    RangePolicy(exec_space, 0, dest.size()), KOKKOS_LAMBDA(int i) { dest(i) /= src(i); });
             }
         }
             return;
@@ -526,6 +538,9 @@ public:
     {
         vec_map.reserve(1000);
 
+        auto stream = hapiGetStream();
+        exec_space = ExecSpace(stream);
+
         thisProxy[thisIndex].main_kernel();
     }
 
@@ -559,7 +574,7 @@ private:
 
     int SDAG_INDEX;
     int vec_block_size;
-    int dot_counter = 0;
+    ExecSpace exec_space;
 };
 
 #define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node)                                   \
@@ -569,7 +584,7 @@ private:
         std::size_t num_cols = get_mat_cols(node.mat_col_len_);                \
                                                                                \
         Kokkos::View<double**> mat(                                            \
-            "mat" + std::to_string(node.name_), num_rows, num_cols);           \
+            Kokkos::view_alloc("mat" + std::to_string(node.name_), exec_space), num_rows, num_cols);           \
         mat_map.emplace_back(mat);                                             \
     }
 
@@ -662,14 +677,26 @@ public:
             Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
         HostConstVector vec_in_host(vec_in_data + offset, num_cols);
 
-        using DeviceVector = Kokkos::View<double*,
-            typename Kokkos::DefaultExecutionSpace::memory_space>;
-        DeviceVector vec_in("vec_in_tile", num_cols);
+        Kokkos::View<double*> vec_in(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform matrix-vector multiplication: result = mat * vec
-        KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
-        Kokkos::fence();
+        // auto start = CkTimer();
+        // KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
+        // Kokkos::fence();
+        // ckout<<"kk impl "<<CkTimer() - start<<endl;
+        // start = CkTimer();  
+        Kokkos::parallel_for(
+            "mat_vec_dot", RangePolicy(exec_space, 0, num_rows), KOKKOS_LAMBDA(int i) {
+                double sum = 0.0;
+                for (std::size_t j = 0; j < num_cols; ++j)
+                {
+                    sum += mat(i, j) * vec_in(j);
+                }
+                local_result(i) = sum;
+            });
+        // ckout<<"naive impl"<<CkTimer() - start<<endl;
+        exec_space.fence();
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
@@ -703,7 +730,17 @@ public:
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform vector-matrix multiplication: result = vec * mat
-        KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
+        // KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
+        // TODO: look at what's the bug here for GPUS
+        Kokkos::parallel_for(
+            "vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
+                double sum = 0.0;
+                for (std::size_t i = 0; i < num_rows; ++i)
+                {
+                    sum += vec_in(i) * mat(i, j);
+                }
+                local_result(j) = sum;
+            });
         Kokkos::fence();
     }
 
@@ -726,14 +763,14 @@ public:
             std::size_t num_cols = get_mat_cols(node.mat_col_len_);
 
             Kokkos::View<double**> mat(
-                "mat" + std::to_string(node_id), num_rows, num_cols);
+                Kokkos::view_alloc("mat" + std::to_string(node_id), exec_space), num_rows, num_cols);
             unsigned int seed =
                 static_cast<unsigned int>(time(nullptr)) + node_id;
             Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
 
             Kokkos::parallel_for(
                 "init_random_mat_" + std::to_string(node_id),
-                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                MDRangePolicy(exec_space,
                     {0, 0}, {num_rows, num_cols}),
                 KOKKOS_LAMBDA(int i, int j) {
                     auto gen = rand_pool.get_state();
@@ -754,8 +791,8 @@ public:
             std::size_t num_cols = get_mat_cols(node.mat_col_len_);
 
             Kokkos::View<double**> mat(
-                "mat" + std::to_string(node_id), num_rows, num_cols);
-            Kokkos::deep_copy(mat, node.value_);
+                Kokkos::view_alloc("mat" + std::to_string(node_id), exec_space), num_rows, num_cols);
+            Kokkos::deep_copy(exec_space, mat, node.value_);
             mat_map.emplace_back(mat);
         }
             return;
@@ -766,12 +803,14 @@ public:
             auto dest = mat_map[node_id];
             auto src = mat_map[copy_id];
 
-            Kokkos::parallel_for(
-                "copy_mat_" + std::to_string(copy_id) + "_" +
-                    std::to_string(node_id),
-                Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                    {0, 0}, {dest.extent(0), dest.extent(1)}),
-                KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
+            Kokkos::deep_copy(exec_space, dest, src);
+
+            // Kokkos::parallel_for(
+            //     "copy_mat_" + std::to_string(copy_id) + "_" +
+            //         std::to_string(node_id),
+            //     Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+            //         {0, 0}, {dest.extent(0), dest.extent(1)}),
+            //     KOKKOS_LAMBDA(int i, int j) { dest(i, j) = src(i, j); });
         }
             return;
         case ct::util::Operation::add:
@@ -793,6 +832,7 @@ public:
         {
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
+                exec_space,
                 instruction[0].kernel,
                 {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                 mat_map, region);
@@ -805,7 +845,8 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                    2>(instruction[0].kernel,
+                    2>(exec_space,
+                    instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, region);
             }
@@ -816,7 +857,7 @@ public:
 
                 Kokkos::parallel_for(
                     "inplace_add_mat_" + std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    MDRangePolicy(exec_space,
                         {0, 0}, {dest.extent(0), dest.extent(1)}),
                     KOKKOS_LAMBDA(int i, int j) { dest(i, j) += src(i, j); });
             }
@@ -829,7 +870,7 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                    2>(instruction[0].kernel,
+                    2>(exec_space, instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, region);
             }
@@ -840,7 +881,7 @@ public:
 
                 Kokkos::parallel_for(
                     "inplace_add_mat_" + std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    MDRangePolicy(exec_space,
                         {0, 0}, {dest.extent(0), dest.extent(1)}),
                     KOKKOS_LAMBDA(int i, int j) { dest(i, j) -= src(i, j); });
             }
@@ -853,7 +894,9 @@ public:
             if (copy_id == -1)
             {
                 Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
-                    2>(instruction[0].kernel,
+                    2>(
+                    exec_space,    
+                    instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, region);
             }
@@ -864,7 +907,7 @@ public:
 
                 Kokkos::parallel_for(
                     "inplace_add_mat_" + std::to_string(node_id),
-                    Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                    MDRangePolicy(exec_space,
                         {0, 0}, {dest.extent(0), dest.extent(1)}),
                     KOKKOS_LAMBDA(int i, int j) { dest(i, j) /= src(i, j); });
             }
@@ -947,6 +990,8 @@ public:
       , SDAG_INDEX(0)
     {
         mat_map.reserve(1000);
+        auto stream = hapiGetStream();
+        exec_space = ExecSpace(stream);
         thisProxy(thisIndex.x, thisIndex.y).main_kernel();
     }
 
@@ -960,4 +1005,5 @@ private:
     int col_block_len;
     int SDAG_INDEX;
     int block;
+    ExecSpace exec_space;
 };

@@ -13,6 +13,8 @@
 #include <charmtyles/util/generator.hpp>
 #include <charmtyles/util/sizes.hpp>
 
+using ExecSpace = Kokkos::DefaultExecutionSpace;
+
 class Codegen
 {
 private:
@@ -48,6 +50,8 @@ private:
     std::size_t kkScalarValIdx{};
     // offset into a region of multiple fused ASTs
     size_t kkRegionOffset = 0;
+
+    std::string kkPreamble{};
 
     long long getViewIdx(size_t node_id)
     {
@@ -113,13 +117,14 @@ private:
             return hash;
         std::string file_name("kernel-" + to_string(hash) + ".cc");
         std::string lib_name("libkernel-" + to_string(hash) + ".so");
-        std::string kkPreamble{};
         for (auto customOpsDef : kkCustomOpsDef)
         {
             kkPreamble += customOpsDef + "\n";
         }
         std::string kernel(R"(
         #include <Kokkos_Core.hpp>
+
+        using ExecSpace = Kokkos::DefaultExecutionSpace;
     )" + kkPreamble +
             R"(struct ASTFunctor {
         Kokkos::View<)" +
@@ -140,7 +145,7 @@ private:
         }
     };
 
-    extern "C" void run_kernel(Kokkos::View<)" +
+    extern "C" void run_kernel(ExecSpace exec_space,Kokkos::View<)" +
             kkViewType +
             R"(*> view_map, Kokkos::View<double*> custom_ops_args, Kokkos::View<double*> scalar_vals, std::vector<std::size_t> dims) {
         ASTFunctor kernel(view_map, custom_ops_args, scalar_vals);
@@ -226,12 +231,11 @@ private:
     {
         if (dim == 1)
         {
-            kkRangePolicy += "Kokkos::RangePolicy<>(0, dims[0])";
+            kkRangePolicy += "RangePolicy(exec_space, 0, dims[0])";
         }
         else
         {
-            kkRangePolicy += "Kokkos::MDRangePolicy<Kokkos::Rank<" +
-                std::to_string(dim) + ">>({";
+            kkRangePolicy += "MDRangePolicy(exec_space, {";
             for (size_t i = 0; i < dim; i++)
             {
                 kkRangePolicy += "0";
@@ -249,6 +253,11 @@ private:
         }
     }
 
+    inline void getkkPreamble(const size_t dim) noexcept
+    {
+        kkPreamble = R"(using RangePolicy = Kokkos::RangePolicy<ExecSpace>;
+        using MDRangePolicy = Kokkos::MDRangePolicy<Kokkos::Rank<)"+std::to_string(dim)+R"(>, ExecSpace>;)" + kkPreamble;
+    }
     template <typename T>
     long long codegen_ast(std::vector<T> const& instruction,
         std::size_t curr_idx, std::size_t dim)
@@ -462,15 +471,17 @@ public:
         kkScalarVals.clear();
         kkScalarValIdx = 0;
         kkRegionOffset = 0;
+        kkPreamble.clear();
     }
 
     template <typename viewType, typename nodeType, size_t dim>
-    static void execute(ct::util::kernelInfo const& kernel,
+    static void execute(ExecSpace exec_space, ct::util::kernelInfo const& kernel,
         std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
         std::vector<std::vector<nodeType>> const& region)
     {
+        traceBeginUserBracketEvent(4);
         using kernelType =
-            void (*)(Kokkos::View<viewType*>, Kokkos::View<double*>,
+            void (*)(ExecSpace, Kokkos::View<viewType*>, Kokkos::View<double*>,
                 Kokkos::View<double*>, std::vector<std::size_t>);
 
         // Arrays used in the kernel
@@ -522,9 +533,11 @@ public:
 
         void* functor =
             kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
-        ((kernelType) functor)(std::move(kkVecViews),
+        ((kernelType) functor)(std::move(exec_space), std::move(kkVecViews),
             std::move(kkCustomOpsArgs_d), std::move(kkScalarVals),
             std::move(dims));
+        traceEndUserBracketEvent(4);
+
     }
 
     template <typename T, size_t dim>
@@ -534,6 +547,8 @@ public:
         genIndxScheme(dim);
         genKkViewType(dim);
         genkkRangePolicy(dim);
+        getkkPreamble(dim);
+        
         for (auto instruction : instructions)
         {
             const size_t node_id = instruction[0].name_;

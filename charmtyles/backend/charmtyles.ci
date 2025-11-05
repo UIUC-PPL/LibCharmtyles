@@ -182,11 +182,11 @@ module libcharmtyles
                 serial "update vector" {
                     // TODO: use vector back_inserter here!
                     if (vector_idx == vec_map.size())
-                        vec_map.emplace_back(Kokkos::View<double*>("FIXME_2", len));
+                        vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
 
                     auto host_cpy = Kokkos::create_mirror_view(vec_map[vector_idx]);
                     std::copy(result, result + len, host_cpy.data());
-                    Kokkos::deep_copy(vec_map[vector_idx], host_cpy);
+                    Kokkos::deep_copy(exec_space, vec_map[vector_idx], host_cpy);
 
 
                     ++SDAG_INDEX;
@@ -197,9 +197,9 @@ module libcharmtyles
                     Kokkos::View<double*> lhs = vec_map[vector_id];
 
                     double result = 0.0;
-                    Kokkos::parallel_reduce("reduce_sum", lhs.extent(0), KOKKOS_LAMBDA(const int i, double& local_sum) {
-                        local_sum += lhs(i);
-                    }, result);
+                    // Kokkos::parallel_reduce("reduce_sum", lhs.extent(0), KOKKOS_LAMBDA(const int i, double& local_sum) {
+                    //     local_sum += lhs(i);
+                    // }, result);
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
@@ -722,6 +722,7 @@ module libcharmtyles
                     CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
                     when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
                 serial "mat_vec_dot" {
+                    traceBeginUserBracketEvent(3);
 
                     // Determine chunk size expected for this tile and validate incoming data
                     std::size_t local_cols = mat_map[mat_idx].extent(1);
@@ -733,7 +734,7 @@ module libcharmtyles
 
                     // Create view for local result
                     std::size_t num_rows = mat_map[mat_idx].extent(0);
-                    Kokkos::View<double*> local_result("local_result", num_rows);
+                    Kokkos::View<double*> local_result(Kokkos::view_alloc("local_result", exec_space), num_rows);
                     
                     // Use public helper method to avoid CUDA lambda visibility issues
                     mat_vec_dot_impl(mat_idx, data, static_cast<std::size_t>(len), local_result);
@@ -748,6 +749,7 @@ module libcharmtyles
                     contribute(result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
 
                     ++SDAG_INDEX;
+                    traceEndUserBracketEvent(3);
                 }} // matrix vector dot product
 
                 when vec_mat_dot[SDAG_INDEX](
@@ -837,9 +839,9 @@ module libcharmtyles
                     Kokkos::View<double**>& lhs = mat_map[matrix_id];
 
                     double result = 0.0;
-                    Kokkos::parallel_reduce("reduce_sum", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0}, {lhs.extent(0), lhs.extent(1)}), KOKKOS_LAMBDA(const int i, const int j, double& local_sum) {
-                        local_sum += lhs(i, j);
-                    }, result);
+                    // Kokkos::parallel_reduce("reduce_sum", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0}, {lhs.extent(0), lhs.extent(1)}), KOKKOS_LAMBDA(const int i, const int j, double& local_sum) {
+                    //     local_sum += lhs(i, j);
+                    // }, result);
 
                     CkCallback cb(CkReductionTarget(scalar_impl, reduction), scalar_impl_proxy);
                     contribute(sizeof(double), &result, CkReduction::sum_double, cb, scal_sdag_idx);
@@ -861,7 +863,11 @@ module libcharmtyles
                     arr_portion[0] = static_cast<double>(row_index);
                     arr_portion[1] = static_cast<double>(col_index);
                     arr_portion[2] = static_cast<double>(row_size);
-                    std::copy(mat_h.data(), mat_h.data()+(row_size*col_size), arr_portion.begin() + 3);
+
+                    //use loop to be layout agnostic
+                    for(size_t i=0;i<row_size;++i)
+                        for(size_t j=0;j<col_size;++j)
+                            arr_portion[3 + i*col_size + j] = mat_h(i,j);
                     
                     CkCallback cb(CkReductionTarget(get_mat_future, construct_matrix), proxy);
                     contribute(arr_portion, CkReduction::set, cb);
@@ -917,7 +923,7 @@ module libcharmtyles
         entry void all(int sdag_index, int matrix_id, CProxy_set_future proxy);
     }
 
-    group KokkosGroup {
+    nodegroup KokkosGroup {
         entry KokkosGroup();
         entry void finalize();
         entry void dkload(uint64_t);
