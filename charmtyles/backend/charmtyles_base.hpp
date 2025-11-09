@@ -7,7 +7,9 @@
 #include <iomanip>
 #include <sstream>
 //make all the hapi dependencies cuda only
+#ifdef KOKKOS_ENABLE_CUDA
 #include "hapi.h"
+#endif
 
 class CProxy_vector_impl;
 class CProxy_matrix_impl;
@@ -36,9 +38,9 @@ public:
     KokkosGroup()
     {
         Kokkos::initialize();
-        hapiCheck(cudaSetDevice(0));//later make RR on gpus
+        hapiCheck(cudaSetDevice(CkMyPe()));//later make RR on gpus
         auto start = CkTimer();
-        hapiCreateStreams();//we can just wrap it later
+        hapiCreateStreams();
         ckout << "Time to create streams " <<CkTimer() - start << endl;
     }
 
@@ -575,6 +577,14 @@ private:
     int SDAG_INDEX;
     int vec_block_size;
     ExecSpace exec_space;
+    
+    //context for async callback of send_to_matrix
+    struct send_to_matrix_ctx_t {
+        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> host_cpy;
+        CProxy_matrix_impl proxy;
+        int rhs_sdag_idx;
+        int vec_idx;
+    } send_to_matrix_context;
 };
 
 #define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node)                                   \
@@ -664,16 +674,16 @@ public:
             "Incoming vector does not have enough entries for this matrix "
             "tile");
 
-        // KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
-        Kokkos::parallel_for(
-            "mat_vec_dot", RangePolicy(exec_space, 0, num_rows), KOKKOS_LAMBDA(int i) {
-                double sum = 0.0;
-                for (std::size_t j = 0; j < num_cols; ++j)
-                {
-                    sum += mat(i, j) * vec_in(j);
-                }
-                local_result(i) = sum;
-            });
+        KokkosBlas::gemv(exec_space, "N",1.0,mat,vec_in,0.0,local_result);
+        // Kokkos::parallel_for(
+        //     "mat_vec_dot", RangePolicy(exec_space, 0, num_rows), KOKKOS_LAMBDA(int i) {
+        //         double sum = 0.0;
+        //         for (std::size_t j = 0; j < num_cols; ++j)
+        //         {
+        //             sum += mat(i, j) * vec_in(j);
+        //         }
+        //         local_result(i) = sum;
+        //     });
         Kokkos::deep_copy(exec_space, local_result_h, local_result);
         hapiAddCallback(exec_space.cuda_stream(), cb);
     }
@@ -994,4 +1004,5 @@ private:
         Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> vec_in_h;
         CProxy_vector_impl result_proxy;
     } mat_vec_dot_context;
+    
 };

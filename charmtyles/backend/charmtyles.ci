@@ -170,12 +170,25 @@ module libcharmtyles
                 when send_to_matrix[SDAG_INDEX](
                     int sdag_index, int vec_idx, int rhs_sdag_idx, CProxy_matrix_impl proxy) {
                 serial "send_to_matrix" {
-                    auto host_cpy = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]);
-                    proxy.receive_to_matrix(rhs_sdag_idx, vec_map[vec_idx].size(), host_cpy.data());
+                    if (send_to_matrix_context.host_cpy.size() != vec_map[vec_idx].size())
+                        send_to_matrix_context.host_cpy = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("host_cpy", vec_map[vec_idx].size());
+                    Kokkos::deep_copy(exec_space, send_to_matrix_context.host_cpy, vec_map[vec_idx]);
+                    CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex);
 
-                
-                    ++SDAG_INDEX;
+                    send_to_matrix_context.proxy = proxy;
+                    send_to_matrix_context.rhs_sdag_idx = rhs_sdag_idx;
+                    send_to_matrix_context.vec_idx = vec_idx;
+                    
+                    CkCallback* cb = new CkCallback(CkIndex_vector_impl::send_to_matrix_done(), myIndex, thisArrayID);
+                    hapiAddCallback(exec_space.cuda_stream(), (void*)cb);
                 }} // send to matrix
+
+                when send_to_matrix_done(){
+                    serial{
+                        send_to_matrix_context.proxy.receive_to_matrix(send_to_matrix_context.rhs_sdag_idx, vec_map[send_to_matrix_context.vec_idx].size(), send_to_matrix_context.host_cpy.data());
+                        ++SDAG_INDEX;
+                    }
+                }
 
                 when update_index[SDAG_INDEX](int sdag_idx, int vector_idx) {
                 when update_vector(int len, double* result) {
@@ -185,10 +198,9 @@ module libcharmtyles
                     if (vector_idx == vec_map.size())
                         vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
 
-                    auto host_cpy = Kokkos::create_mirror_view(vec_map[vector_idx]);
-                    std::copy(result, result + len, host_cpy.data());
-                    Kokkos::deep_copy(exec_space, vec_map[vector_idx], host_cpy);
-
+                    Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> vec_h("vec_h", len);
+                    std::copy(result, result + len, vec_h.data());
+                    Kokkos::deep_copy(exec_space, vec_map[vector_idx], vec_h);
 
                     ++SDAG_INDEX;
                 }}} // update index + update vector
@@ -633,6 +645,7 @@ module libcharmtyles
         entry void compute(int, std::vector<std::vector<ct::vec_impl::vec_node>>);
         entry void dot(int, int, int, int);
         entry void send_to_matrix(int, int, int, CProxy_matrix_impl);
+        entry void send_to_matrix_done();
         entry [reductiontarget] void update_vector(int len, double result[len]);
         entry void update_index(int, int);
         entry void reduce_sum(int, int, int);
