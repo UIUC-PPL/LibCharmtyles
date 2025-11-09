@@ -181,6 +181,7 @@ module libcharmtyles
                 when update_vector(int len, double* result) {
                 serial "update vector" {
                     // TODO: use vector back_inserter here!
+                    // ckout<<"update vector called for vector idx "<<vector_idx<<" on chare "<<thisIndex<<endl;
                     if (vector_idx == vec_map.size())
                         vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
 
@@ -711,6 +712,7 @@ module libcharmtyles
 
                 when synchronize[SDAG_INDEX](int sdag_index, CProxy_set_future proxy) {
                 serial "synchronize" {
+                    //ckout<<"sync called for "<<sdag_index<<endl;
                     CkCallback cb(CkReductionTarget(set_future, mark_complete), proxy);
                     contribute(cb);
 
@@ -724,34 +726,58 @@ module libcharmtyles
                 serial "mat_vec_dot" {
                     traceBeginUserBracketEvent(3);
 
-                    // Determine chunk size expected for this tile and validate incoming data
                     std::size_t local_cols = mat_map[mat_idx].extent(1);
                     CkAssert(static_cast<std::size_t>(len) >= local_cols &&
                         "Matrix tile received vector chunk shorter than expected");
 
-                    // Initialize result array
-                    std::vector<double> result(result_size, 0.0);
+                    mat_vec_dot_context.result_size = result_size;
 
-                    // Create view for local result
                     std::size_t num_rows = mat_map[mat_idx].extent(0);
-                    Kokkos::View<double*> local_result(Kokkos::view_alloc("local_result", exec_space), num_rows);
+                    std::size_t num_cols = mat_map[mat_idx].extent(1);
+                    if (mat_vec_dot_context.local_result.size() != num_rows)
+                        mat_vec_dot_context.local_result = Kokkos::View<double*> (Kokkos::view_alloc("local_result", exec_space), num_rows);
                     
-                    // Use public helper method to avoid CUDA lambda visibility issues
-                    mat_vec_dot_impl(mat_idx, data, static_cast<std::size_t>(len), local_result);
+                    //pinned memory for dtoh copy
+                    if (mat_vec_dot_context.local_result_h.size() != num_rows)
+                        mat_vec_dot_context.local_result_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("local_result_host", num_rows);
+
+                    mat_vec_dot_context.result_proxy = result_proxy;
+
+                    //pinned memory for htod copy
+                    if(mat_vec_dot_context.vec_in_h.size() != num_cols)
+                        mat_vec_dot_context.vec_in_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("vec_in_host", num_cols);
+                    std::size_t offset = 0;
+                    if (len > num_cols)
+                    {
+                        std::size_t max_offset = len - num_cols;
+                        offset = std::min<std::size_t>(
+                            static_cast<std::size_t>(thisIndex.x) * col_block_len,
+                            max_offset);
+                    }
+                    for(int i=0; i<num_cols; ++i)
+                        mat_vec_dot_context.vec_in_h(i) = data[offset + i];
                     
-                    // Copy local result to the correct position in the result array
-                    auto host_result = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
-                    for (std::size_t i = 0; i < num_rows; ++i)
-                        result[thisIndex.y * row_block_len + i] = host_result(i);
+                    if(mat_vec_dot_context.vec_in.size() != num_cols)
+                        mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
+                    Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
 
-                    // TODO: Use Section Reduction!
-                    CkCallback cb(CkReductionTarget(vector_impl, update_vector), result_proxy);
-                    contribute(result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
-
-                    ++SDAG_INDEX;
-                    traceEndUserBracketEvent(3);
+                    CkArrayIndex2D myIndex = CkArrayIndex2D(thisIndex.x, thisIndex.y);
+                    CkCallback* cb = new CkCallback(CkIndex_matrix_impl::mat_vec_done(), myIndex, thisArrayID);
+                    mat_vec_dot_impl(mat_idx, static_cast<std::size_t>(len),mat_vec_dot_context.local_result_h,  mat_vec_dot_context.local_result, mat_vec_dot_context.vec_in, (void*)cb);
                 }} // matrix vector dot product
 
+                when mat_vec_done(){
+                    serial{
+                        std::vector<double> result(mat_vec_dot_context.result_size, 0.0);
+                        for (std::size_t i = 0; i < mat_vec_dot_context.local_result_h.size(); ++i)
+                            result[thisIndex.y * row_block_len + i] = mat_vec_dot_context.local_result_h(i);
+                        CkCallback cb(CkReductionTarget(vector_impl, update_vector), mat_vec_dot_context.result_proxy);
+                        contribute(mat_vec_dot_context.result_size * sizeof(double), result.data(), CkReduction::sum_double, cb);
+                        
+                        traceEndUserBracketEvent(3);
+                        ++SDAG_INDEX;
+                }}
+                
                 when vec_mat_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx, int result_sdag_idx,
                     CProxy_vector_impl result_proxy, int result_vec_idx, int result_size) {
@@ -921,6 +947,7 @@ module libcharmtyles
         entry void get_value(int sdag_index, int matrix_id, CProxy_get_mat_future proxy);
         entry void any(int sdag_index, int matrix_id, CProxy_set_future proxy);
         entry void all(int sdag_index, int matrix_id, CProxy_set_future proxy);
+        entry void mat_vec_done();
     }
 
     nodegroup KokkosGroup {

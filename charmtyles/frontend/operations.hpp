@@ -404,8 +404,8 @@ namespace ct {
         ct::vector const& lhs, ct::matrix const& rhs)
     {
         std::size_t lhs_len = lhs.size();
-        std::size_t rhs_cols = rhs.cols();
-        CkAssert(lhs_len == rhs_cols && "Invalid dot product dimensions.");
+        std::size_t rhs_rows = rhs.rows();
+        CkAssert(lhs_len == rhs_rows && "Invalid dot product dimensions.");
 
         return ct::dot_impl::dot_expression{lhs, rhs};
     }
@@ -413,9 +413,9 @@ namespace ct {
     inline ct::dot_impl::dot_expression dot(
         ct::matrix const& lhs, ct::vector const& rhs)
     {
-        std::size_t lhs_rows = lhs.rows();
+        std::size_t lhs_cols = lhs.cols();
         std::size_t rhs_len = rhs.size();
-        CkAssert(rhs_len == lhs_rows && "Invalid dot product dimensions.");
+        CkAssert(rhs_len == lhs_cols && "Invalid dot product dimensions.");
 
         return ct::dot_impl::dot_expression{rhs, lhs, false};
     }

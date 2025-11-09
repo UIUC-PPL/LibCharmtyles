@@ -149,6 +149,7 @@ namespace ct {
                         ++sdag_index;
                         shape_matrix_queue_[i].clear();
                     } else {
+                        ckout<<"sync called for "<<i<<" with sdag idx "<<sdag_index<<endl;
                         dispatch_proxy.synchronize(sdag_index, proxy);
                         ++sdag_index;
                     }

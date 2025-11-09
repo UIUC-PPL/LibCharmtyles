@@ -38,7 +38,7 @@ public:
         Kokkos::initialize();
         hapiCheck(cudaSetDevice(0));//later make RR on gpus
         auto start = CkTimer();
-        hapiCreateStreams();
+        hapiCreateStreams();//we can just wrap it later
         ckout << "Time to create streams " <<CkTimer() - start << endl;
     }
 
@@ -653,8 +653,8 @@ public:
     }
 
     // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
-    void mat_vec_dot_impl(int mat_idx, const double* vec_in_data,
-        std::size_t vec_len, Kokkos::View<double*>& local_result)
+    void mat_vec_dot_impl(int mat_idx,
+        std::size_t vec_len,Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>& local_result_h, Kokkos::View<double*>& local_result, Kokkos::View<double*>& vec_in , void* cb)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
@@ -664,28 +664,7 @@ public:
             "Incoming vector does not have enough entries for this matrix "
             "tile");
 
-        std::size_t offset = 0;
-        if (vec_len > num_cols)
-        {
-            std::size_t max_offset = vec_len - num_cols;
-            offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.x) * col_block_len,
-                max_offset);
-        }
-
-        using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
-            Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        HostConstVector vec_in_host(vec_in_data + offset, num_cols);
-
-        Kokkos::View<double*> vec_in(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
-        Kokkos::deep_copy(vec_in, vec_in_host);
-
-        // Perform matrix-vector multiplication: result = mat * vec
-        // auto start = CkTimer();
         // KokkosBlas::gemv("N",1.0,mat,vec_in,0.0,local_result);
-        // Kokkos::fence();
-        // ckout<<"kk impl "<<CkTimer() - start<<endl;
-        // start = CkTimer();  
         Kokkos::parallel_for(
             "mat_vec_dot", RangePolicy(exec_space, 0, num_rows), KOKKOS_LAMBDA(int i) {
                 double sum = 0.0;
@@ -695,8 +674,8 @@ public:
                 }
                 local_result(i) = sum;
             });
-        // ckout<<"naive impl"<<CkTimer() - start<<endl;
-        exec_space.fence();
+        Kokkos::deep_copy(exec_space, local_result_h, local_result);
+        hapiAddCallback(exec_space.cuda_stream(), cb);
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
@@ -1006,4 +985,13 @@ private:
     int SDAG_INDEX;
     int block;
     ExecSpace exec_space;
+
+    struct mat_vec_dot_ctx_t {
+        size_t result_size;
+        Kokkos::View<double*> local_result;
+        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> local_result_h;
+        Kokkos::View<double*> vec_in;
+        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> vec_in_h;
+        CProxy_vector_impl result_proxy;
+    } mat_vec_dot_context;
 };
