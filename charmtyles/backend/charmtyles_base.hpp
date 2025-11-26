@@ -78,8 +78,8 @@ private:
 public:
     reductionGroup() {
         num_active_chares = 0;
-        chunkProxies.reserve(5);
-        sdag_indexes.reserve(5);
+        chunkProxies.reserve(2);
+        sdag_indexes.reserve(2);
 
         contributeCnt = 0;
         resultSize = 0;
@@ -669,6 +669,8 @@ private:
     int SDAG_INDEX;
     int vec_block_size;
     int dot_counter = 0;
+
+    Kokkos::View<double*> zeroCopyBuffer;
 };
 
 #define CHECK_IF_EXIST_ELSE_ADD_MATRIX(node)                                   \
@@ -1041,4 +1043,6 @@ private:
     int col_block_len;
     int SDAG_INDEX;
     int block;
+
+    Kokkos::View<double**> zeroCopyBuffer;
 };

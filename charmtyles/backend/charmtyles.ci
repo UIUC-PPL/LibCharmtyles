@@ -171,16 +171,20 @@ module libcharmtyles
                 when send_to_matrix[SDAG_INDEX](
                     int sdag_index, int vec_idx, int rhs_sdag_idx, int row_block_len, int col_block_len, int numCharesX, int numCharesY, bool is_vec_mat, CProxy_matrix_impl proxy) {
                 serial "send_to_matrix" {
-                    double* vector_to_send = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]).data();
-
                     if (is_vec_mat) {
                         std::size_t yIndx = (thisIndex * vec_block_size) / row_block_len;
                         std::size_t numChunks = std::ceil(vec_map[vec_idx].size() / (row_block_len * 1.0));
                         for(std::size_t i = 0; i < numChunks; i++) {
                             for(std::size_t j = 0; j < numCharesX; j++) {
-                                proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
-                                (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
-                                ,vector_to_send + i * row_block_len);
+                                #ifdef GPU_BACKEND
+                                    proxy(j, yIndx + i).sendViaZeroCopy(rhs_sdag_idx,
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                    ,CkDeviceBuffer(vec_map[vec_idx].data() + i * row_block_len));
+                                #else
+                                    proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                    ,vec_map[vec_idx].data() + i * row_block_len);
+                                #endif
                             }
                         }
                     } else {
@@ -188,9 +192,15 @@ module libcharmtyles
                         std::size_t numChunks = std::ceil(vec_map[vec_idx].size() / (col_block_len * 1.0));
                         for(std::size_t i = 0; i < numChunks; i++) {
                             for(std::size_t j = 0; j < numCharesY; j++) {
-                                proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
-                                (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
-                                ,vector_to_send + i * col_block_len);
+                                #ifdef GPU_BACKEND
+                                    proxy(xIndx + i, j).sendViaZeroCopy(rhs_sdag_idx,
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                    ,CkDeviceBuffer(vec_map[vec_idx].data() + i * col_block_len));
+                                #else
+                                    proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                    ,vec_map[vec_idx].data() + i * col_block_len);
+                                #endif
                             }
                         }
                     }
@@ -747,6 +757,19 @@ module libcharmtyles
                     contribute(sizeof(data), &data, CkReduction::set, cb);
                 }
 
+                when sendViaZeroCopy[SDAG_INDEX](int sdag_idx, int len, double*& arr, CkDeviceBufferPost* post) {
+                    serial "send_via_zerocopy_init" {
+                        zeroCopyBuffer = Kokkos::View<double*>("zeroCopy", len);
+                        arr = zeroCopyBuffer;
+                    }
+                }
+
+                when sendViaZeroCopy[SDAG_INDEX](int sdag_idx, int len, double* arr) {
+                    serial "send_via_zerocopy" {
+                        receive_to_matrix(sdag_idx, len, arr);
+                    }
+                }
+
                 when mat_vec_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx,
                     CProxy_vector_impl result_proxy, int result_size) {
@@ -908,6 +931,7 @@ module libcharmtyles
         entry void mat_vec_dot(int, int, CProxy_vector_impl, int);
         entry void vec_mat_dot(int, int, CProxy_vector_impl, int);
         entry void receive_to_matrix(int, int len, double data[len]);
+        entry void sendViaZeroCopy(int, int len, nocopydevice double arr[size]);
 
         entry void reduce_sum(int, int, int);
         entry void get_value(int sdag_index, int matrix_id, CProxy_get_mat_future proxy);

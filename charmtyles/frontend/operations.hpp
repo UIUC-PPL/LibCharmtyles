@@ -318,18 +318,17 @@ namespace ct {
         // Dispatch all vector in from the resultant vector's shape
         vec_queue.dispatch(vector_shape_.shape_id);
 
-        std::size_t& lhs_sdag_idx = vec_queue.sdag_idx(lhs_shape.shape_id);
-        std::size_t& rhs_sdag_idx = mat_queue.sdag_idx(rhs_shape.shape_id);
-        std::size_t& result_sdag_idx =
-            vec_queue.sdag_idx(vector_shape_.shape_id);
+        std::size_t& lhs_sdag_idx    = vec_queue.sdag_idx(lhs_shape.shape_id);
+        std::size_t& rhs_sdag_idx    = mat_queue.sdag_idx(rhs_shape.shape_id);
+        std::size_t& result_sdag_idx = vec_queue.sdag_idx(vector_shape_.shape_id);
 
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
-        CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
+        CProxy_vector_impl lhs_proxy      = lhs_shape.proxy;
 
         std::size_t numCharesY = rhs_shape.num_chares_y;
         std::size_t numCharesX = rhs_shape.num_chares_x;
-        std::size_t row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
-        std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
+        std::size_t row_len    = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
+        std::size_t col_len    = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
 
         lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
         reductionMgmt.reset();
@@ -405,8 +404,7 @@ namespace ct {
         return *this;
     }
 
-    inline ct::dot_impl::dot_expression dot(
-        ct::vector const& lhs, ct::matrix const& rhs)
+    inline ct::dot_impl::dot_expression dot(ct::vector const& lhs, ct::matrix const& rhs)
     {
         std::size_t lhs_len = lhs.size();
         std::size_t rhs_cols = rhs.cols();
@@ -415,8 +413,7 @@ namespace ct {
         return ct::dot_impl::dot_expression{lhs, rhs};
     }
 
-    inline ct::dot_impl::dot_expression dot(
-        ct::matrix const& lhs, ct::vector const& rhs)
+    inline ct::dot_impl::dot_expression dot(ct::matrix const& lhs, ct::vector const& rhs)
     {
         std::size_t lhs_rows = lhs.rows();
         std::size_t rhs_len = rhs.size();
