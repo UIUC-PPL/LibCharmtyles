@@ -43,10 +43,16 @@ if(Charm_ENABLE_GPU)
     target_include_directories(binary_include PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR}/include ${CHARM_DIR}/include)
     target_link_libraries(binary_include Kokkos::kokkos Kokkos::kokkoskernels)
 
-    add_custom_command(result ALL
-        COMMAND ${CHARMC} ${GPU_LINK_OPTS} $<TARGET_OBJECTS>:binary_include> -o ${CMAKE_BINARY_DIR}/binary_include.out
+    add_custom_command(
+        OUTPUT "${CMAKE_BINARY_DIR}/binary_include.out"
+        COMMAND ${CHARMC} ${GPU_LINK_OPTS} $<TARGET_OBJECTS:binary_include> -o ${CMAKE_BINARY_DIR}/binary_include.out
         DEPENDS binary_include
-        COMMENT "Linking charm build against kokkos and cuda")
+        COMMENT "Linking charm build against kokkos and cuda"
+    )
+
+    add_custom_target(result ALL
+        DEPENDS "${CMAKE_BINARY_DIR}/binary_include.out"
+    )
 else()
     add_executable(binary_include.out binary_include.cpp ${BASE_DIR}/charmtyles/backend/libcharmtyles.decl.h ${CMAKE_SOURCE_DIR}/base.decl.h)
     target_include_directories(binary_include.out PRIVATE ${BASE_DIR} ${BASE_DIR}/charmtyles/backend ${EIGEN_DIR})

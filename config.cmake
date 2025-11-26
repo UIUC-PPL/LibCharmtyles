@@ -16,7 +16,7 @@ else()
     set(EIGEN_DIR "/usr/include/eigen3")
 endif()
 
-# set(CUDA_DIR  "/path/to/CUDA/directory")
+set(CUDA_DIR  "/path/to/CUDA/directory")
 
 if(DEFINED ENV{KOKKOS_DIR})
     set(KOKKOS_DIR "$ENV{KOKKOS_DIR}")

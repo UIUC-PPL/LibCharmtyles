@@ -20,7 +20,7 @@ else
     # module load cmake/3.27.9
 
     ## The best practice is to let cmake autodetect the architecture, please run on a GPU syster or add a srun
-    srun cmake -DBUILD_SHARED_LIBS=ON .. -DKokkos_ENABLE_CUDA=ON
+    srun cmake -DBUILD_SHARED_LIBS=ON .. -DKokkos_ENABLE_CUDA=ON -DCMAKE_CXX_STANDARD=20
     make -j${nproc}
     cd ..
     mkdir install
