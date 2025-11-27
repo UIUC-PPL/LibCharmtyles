@@ -178,11 +178,11 @@ module libcharmtyles
                             for(std::size_t j = 0; j < numCharesX; j++) {
                                 #ifdef GPU_BACKEND
                                     proxy(j, yIndx + i).sendViaZeroCopy(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * row_block_len)) : row_block_len)
                                     ,CkDeviceBuffer(vec_map[vec_idx].data() + i * row_block_len));
                                 #else
                                     proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * row_block_len)) : row_block_len)
                                     ,vec_map[vec_idx].data() + i * row_block_len);
                                 #endif
                             }
@@ -194,11 +194,11 @@ module libcharmtyles
                             for(std::size_t j = 0; j < numCharesY; j++) {
                                 #ifdef GPU_BACKEND
                                     proxy(xIndx + i, j).sendViaZeroCopy(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * col_block_len)) : col_block_len)
                                     ,CkDeviceBuffer(vec_map[vec_idx].data() + i * col_block_len));
                                 #else
                                     proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * col_block_len)) : col_block_len)
                                     ,vec_map[vec_idx].data() + i * col_block_len);
                                 #endif
                             }
