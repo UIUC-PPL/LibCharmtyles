@@ -326,17 +326,19 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        lhs_proxy.send_to_matrix(
-            lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
+        std::size_t numCharesY = rhs_shape.num_chares_y;
+        std::size_t numCharesX = rhs_shape.num_chares_x;
+        std::size_t row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
+        std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
+
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
+        reductionMgmt.reset();
+        dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -375,16 +377,19 @@ namespace ct {
         CProxy_matrix_impl dispatch_proxy = rhs_shape.proxy;
         CProxy_vector_impl lhs_proxy = lhs_shape.proxy;
 
-        lhs_proxy.send_to_matrix(
-            lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, dispatch_proxy);
+        std::size_t numCharesY = rhs_shape.num_chares_y;
+        std::size_t numCharesX = rhs_shape.num_chares_x;
+        std::size_t row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
+        std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
+
+        lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
+        reductionMgmt.reset();
+        dispatch_proxy.update_active_chares(rhs_sdag_idx);
+
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id,
-                result_sdag_idx, vector_shape_.proxy, vector_shape_.vector_id,
-                size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -404,8 +409,8 @@ namespace ct {
         ct::vector const& lhs, ct::matrix const& rhs)
     {
         std::size_t lhs_len = lhs.size();
-        std::size_t rhs_rows = rhs.rows();
-        CkAssert(lhs_len == rhs_rows && "Invalid dot product dimensions.");
+        std::size_t rhs_cols = rhs.cols();
+        CkAssert(lhs_len == rhs_cols && "Invalid dot product dimensions.");
 
         return ct::dot_impl::dot_expression{lhs, rhs};
     }
@@ -413,9 +418,9 @@ namespace ct {
     inline ct::dot_impl::dot_expression dot(
         ct::matrix const& lhs, ct::vector const& rhs)
     {
-        std::size_t lhs_cols = lhs.cols();
+        std::size_t lhs_rows = lhs.rows();
         std::size_t rhs_len = rhs.size();
-        CkAssert(rhs_len == lhs_cols && "Invalid dot product dimensions.");
+        CkAssert(rhs_len == lhs_rows && "Invalid dot product dimensions.");
 
         return ct::dot_impl::dot_expression{rhs, lhs, false};
     }

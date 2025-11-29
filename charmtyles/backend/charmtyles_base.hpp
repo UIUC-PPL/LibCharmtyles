@@ -67,6 +67,115 @@ public:
 
 CProxy_KokkosGroup kokkosMgmt;
 
+struct reductionMgmtPayload {
+    int process;
+    int sdag_indx;
+    CProxyElement_matrix_impl proxy;
+};
+
+class reductionGroup : public CBase_reductionGroup {
+private:
+    int num_active_chares;
+    std::vector<int> sdag_indexes;
+    std::vector<CProxyElement_matrix_impl> chunkProxies;
+
+    int resultSize;
+    int contributeCnt;
+    std::vector<double> localArr;
+    CProxy_vector_impl result_proxy;
+
+    int resultCnt;
+    std::vector<double> resultArr;
+public:
+    reductionGroup() {
+        num_active_chares = 0;
+        chunkProxies.reserve(5);
+        sdag_indexes.reserve(5);
+
+        contributeCnt = 0;
+        resultSize = 0;
+
+        resultCnt = 0;
+    }
+
+    void accumulate(CProxy_vector_impl _result_proxy, int result_size, int indx, int len, double* data) {
+        contributeCnt++;
+
+        if (localArr.size() != result_size) {
+            localArr.resize(result_size);
+            std::fill(localArr.begin(), localArr.end(), 0.0);
+            resultSize = result_size;
+            result_proxy = _result_proxy;
+        }
+
+        for (int i = 0; i < len; ++i)
+            localArr[indx + i] += data[i];
+
+        if (contributeCnt == num_active_chares) {
+            thisProxy[0].reduce(false, resultSize, localArr.data());
+        }
+    }
+
+    void reduce(bool dummy, int len, double* data) {
+        resultCnt++;
+
+        if (!dummy) {
+            if (resultArr.size() != len) {
+                resultArr.resize(len);
+                std::fill(resultArr.begin(), resultArr.end(), 0.0);
+            }
+    
+            for (int i = 0; i < len; ++i)
+                resultArr[i] += data[i];
+        }
+
+        if(resultCnt == CkNumNodes()) {
+            std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
+            for(int i = 0; ;i++) {
+                if(i * vec_len >= resultSize) break;
+                int length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
+                result_proxy[i].update_vector(length, resultArr.data() + i * vec_len);
+            }
+        }
+    }
+
+    void numActiveChares(CkReductionMsg *msg) {
+        CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
+        while (current != NULL)
+        {
+            reductionMgmtPayload result = *(reductionMgmtPayload*)(&current->data);
+            int process = result.process;
+            if (process == thisIndex) {
+                num_active_chares++;
+                sdag_indexes.emplace_back(result.sdag_indx);
+                chunkProxies.emplace_back(result.proxy);
+            }
+            current = current->next();
+        }
+        
+        for(int i = 0; i < num_active_chares; i++)
+            chunkProxies[i].active_chares_set(sdag_indexes[i]);
+
+        if (num_active_chares == 0)
+            thisProxy[0].reduce(true, 0, nullptr);
+    }
+
+    void reset() {
+        num_active_chares = 0;
+        chunkProxies.clear();
+        sdag_indexes.clear();
+
+        contributeCnt = 0;
+        resultSize = 0;
+        localArr.clear();
+
+        resultCnt = 0;
+        resultArr.clear();
+    }
+};
+
+CProxy_reductionGroup reductionMgmt;
+
 #include "codegen.hpp"
 
 /* readonly */ CProxy_scalar_impl scalar_impl_proxy;
@@ -578,12 +687,17 @@ private:
     int vec_block_size;
     ExecSpace exec_space;
     
-    //context for async callback of send_to_matrix
+    // context for async callback of send_to_matrix
     struct send_to_matrix_ctx_t {
         Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> host_cpy;
         CProxy_matrix_impl proxy;
         int rhs_sdag_idx;
         int vec_idx;
+        int row_block_len;
+        int col_block_len;
+        int numCharesX;
+        int numCharesY;
+        bool is_vec_mat;
     } send_to_matrix_context;
 };
 
@@ -662,28 +776,25 @@ public:
         }
     }
 
-    // Helper method for matrix-vector multiplication - must be public for CUDA lambdas
     void mat_vec_dot_impl(int mat_idx,
-        std::size_t vec_len,Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>& local_result_h, Kokkos::View<double*>& local_result, Kokkos::View<double*>& vec_in , void* cb)
+        std::size_t vec_len,Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>& local_result_h, Kokkos::View<double*>& local_result, const double* vec_in_data , void* cb)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
-        CkAssert(vec_len >= num_cols &&
-            "Incoming vector does not have enough entries for this matrix "
-            "tile");
+        if(mat_vec_dot_context.vec_in_h.size() != num_cols)
+            mat_vec_dot_context.vec_in_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("vec_in_host", num_cols);
 
-        KokkosBlas::gemv(exec_space, "N",1.0,mat,vec_in,0.0,local_result);
-        // Kokkos::parallel_for(
-        //     "mat_vec_dot", RangePolicy(exec_space, 0, num_rows), KOKKOS_LAMBDA(int i) {
-        //         double sum = 0.0;
-        //         for (std::size_t j = 0; j < num_cols; ++j)
-        //         {
-        //             sum += mat(i, j) * vec_in(j);
-        //         }
-        //         local_result(i) = sum;
-        //     });
+        for(int i=0; i<num_cols; ++i)
+            mat_vec_dot_context.vec_in_h(i) = data[i];
+        
+        if(mat_vec_dot_context.vec_in.size() != num_cols)
+            mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
+
+        Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
+
+        KokkosBlas::gemv(exec_space, "N",1.0,mat, vec_in,0.0,local_result);
         Kokkos::deep_copy(exec_space, local_result_h, local_result);
         hapiAddCallback(exec_space.cuda_stream(), cb);
     }
