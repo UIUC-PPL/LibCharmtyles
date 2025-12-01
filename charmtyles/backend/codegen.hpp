@@ -486,11 +486,11 @@ public:
 
         // Arrays used in the kernel
         Kokkos::View<viewType*> kkVecViews(
-            "kkViews", std::get<1>(kernel).size());
+            Kokkos::view_alloc(exec_space, "kkViews"), std::get<1>(kernel).size());
         auto kkVecViews_h = Kokkos::create_mirror_view(kkVecViews);
         for (int i = 0; i < std::get<1>(kernel).size(); i++)
             kkVecViews_h(i) = view_map[std::get<1>(kernel)[i]];
-        Kokkos::deep_copy(kkVecViews, kkVecViews_h);
+        Kokkos::deep_copy(exec_space, kkVecViews, kkVecViews_h);
 
         // Arguments to the custom operations (unop/binop) used in the kernel
         std::vector<double> kkCustomOpsArgs;
@@ -517,27 +517,25 @@ public:
         }
 
         Kokkos::View<double*> kkCustomOpsArgs_d(
-            "kkCustomOpsArgs_d", kkCustomOpsArgs.size());
+            Kokkos::view_alloc(exec_space, "kkCustomOpsArgs_d"), kkCustomOpsArgs.size());
         auto kkCustomOpsArgs_h = Kokkos::create_mirror_view(kkCustomOpsArgs_d);
         for (int i = 0; i < kkCustomOpsArgs.size(); i++)
             kkCustomOpsArgs_h(i) = kkCustomOpsArgs[i];
-        Kokkos::deep_copy(kkCustomOpsArgs_d, kkCustomOpsArgs_h);
+        Kokkos::deep_copy(exec_space, kkCustomOpsArgs_d, kkCustomOpsArgs_h);
 
         // Scalars used in the kernel
         Kokkos::View<double*> kkScalarVals(
-            "kkScalarVals", std::get<3>(kernel).size());
+            Kokkos::view_alloc(exec_space,"kkScalarVals"), std::get<3>(kernel).size());
         auto kkScalarVals_h = Kokkos::create_mirror_view(kkScalarVals);
         for (int i = 0; i < std::get<3>(kernel).size(); i++)
             kkScalarVals_h(i) = std::get<3>(kernel)[i];
-        Kokkos::deep_copy(kkScalarVals, kkScalarVals_h);
+        Kokkos::deep_copy(exec_space, kkScalarVals, kkScalarVals_h);
 
         void* functor =
             kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
         ((kernelType) functor)(std::move(exec_space), std::move(kkVecViews),
             std::move(kkCustomOpsArgs_d), std::move(kkScalarVals),
             std::move(dims));
-        traceEndUserBracketEvent(4);
-
     }
 
     template <typename T, size_t dim>

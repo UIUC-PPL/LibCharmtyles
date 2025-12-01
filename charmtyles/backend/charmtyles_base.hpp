@@ -432,8 +432,8 @@ public:
     // Helper method for vector dot product - must be public for CUDA lambdas
     double vector_dot_impl(int lhs_id, int rhs_id)
     {
-        Kokkos::View<double*> lhs = vec_map[lhs_id];
-        Kokkos::View<double*> rhs = vec_map[rhs_id];
+        auto lhs = vec_map[lhs_id];
+        auto rhs = vec_map[rhs_id];
 
         double result = 0.0;
         Kokkos::parallel_reduce(
@@ -917,6 +917,7 @@ public:
         case ct::util::Operation::logical_not:
         case ct::util::Operation::where:
         {
+            // exec_space.fence();
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
             Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
                 exec_space,
