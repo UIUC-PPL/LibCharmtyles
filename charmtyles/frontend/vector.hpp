@@ -234,8 +234,12 @@ namespace ct {
             if (it == shape_info.end())
             {
                 // Create a new proxy for this shape and assign it to shape_info
+                CProxy_RRMap rrMap = CProxy_RRMap::ckNew();
+                CkArrayOptions opts(num_chares);
+                opts.setMap(rrMap);
+
                 CProxy_vector_impl proxy = CProxy_vector_impl::ckNew(num_chares,
-                    CT_ACCESS_SINGLETON(ct::util::array_block_len), num_chares);
+                    block_len, opts);
                 shape_info.emplace_back(
                     ct::vec_impl::vec_shape_t{0, num_chares, proxy});
                 ct::vec_impl::vec_shape_t vector_shape = shape_info.back();

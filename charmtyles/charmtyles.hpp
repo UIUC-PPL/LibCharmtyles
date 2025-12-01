@@ -15,33 +15,28 @@
 #include <charmtyles/frontend/vector.hpp>
 
 namespace ct {
-    void register_trace_events(){
-        traceRegisterUserEvent("[vector] compile", 1);
-        traceRegisterUserEvent("[matrix] compile", 2);
-        traceRegisterUserEvent("matrix-vector mul", 3);
-        traceRegisterUserEvent("fused kernel launch", 4);
-    }
-    void init()
+
+    void init(std::size_t vec_len_, std::size_t row_len_, std::size_t col_len_)
     {
-        register_trace_events();
         scalar_impl_proxy = CProxy_scalar_impl::ckNew();
 
         std::size_t& vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
-        vec_len = 1 << 26;
+        vec_len = vec_len_;
 
         ckout << "Vector Block Length Set to: " << vec_len << endl;
 
         std::size_t& row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
-        row_len = 1 << 13;
+        row_len = row_len_;
 
         ckout << "Matrix Row Block Length Set to: " << row_len << endl;
 
         std::size_t& col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
-        col_len = 1 << 13;
+        col_len = col_len_;
 
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
 
         kokkosMgmt = CProxy_KokkosGroup::ckNew();
+        reductionMgmt = CProxy_reductionGroup::ckNew();
     }
 
     void finalize()

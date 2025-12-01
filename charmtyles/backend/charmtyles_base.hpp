@@ -16,7 +16,9 @@ class CProxy_matrix_impl;
 class CProxy_scalar_impl;
 class CProxy_get_partial_vec_future;
 class CProxy_KokkosGroup;
+class CProxy_reductionGroup;
 
+#include <charmtyles/util/sizes.hpp>
 #include <charmtyles/backend/libcharmtyles.decl.h>
 
 using ExecSpace = Kokkos::DefaultExecutionSpace;
@@ -154,7 +156,9 @@ public:
         }
         
         for(int i = 0; i < num_active_chares; i++)
+        {
             chunkProxies[i].active_chares_set(sdag_indexes[i]);
+        }
 
         if (num_active_chares == 0)
             thisProxy[0].reduce(true, 0, nullptr);
@@ -462,7 +466,7 @@ public:
             
             unsigned int seed =
                 static_cast<unsigned int>(time(nullptr)) + node_id;
-            Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
+            Kokkos::Random_XorShift64_Pool<> rand_pool(exec_space, seed);
 
             Kokkos::parallel_for(
                 "init_random_" + std::to_string(node_id),
@@ -777,52 +781,45 @@ public:
     }
 
     void mat_vec_dot_impl(int mat_idx,
-        std::size_t vec_len,Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>& local_result_h, Kokkos::View<double*>& local_result, const double* vec_in_data , void* cb)
+        std::size_t vec_len, const double* vec_in_data , CkCallback* cb)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
+        if (mat_vec_dot_context.local_result.size() != num_rows)
+            mat_vec_dot_context.local_result = Kokkos::View<double*>(Kokkos::view_alloc("local_result", exec_space), num_rows);
+
         if(mat_vec_dot_context.vec_in_h.size() != num_cols)
             mat_vec_dot_context.vec_in_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("vec_in_host", num_cols);
 
         for(int i=0; i<num_cols; ++i)
-            mat_vec_dot_context.vec_in_h(i) = data[i];
+            mat_vec_dot_context.vec_in_h(i) = vec_in_data[i];
         
         if(mat_vec_dot_context.vec_in.size() != num_cols)
             mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
 
         Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
 
-        KokkosBlas::gemv(exec_space, "N",1.0,mat, vec_in,0.0,local_result);
-        Kokkos::deep_copy(exec_space, local_result_h, local_result);
-        hapiAddCallback(exec_space.cuda_stream(), cb);
+        KokkosBlas::gemv(exec_space, "N",1.0,mat, mat_vec_dot_context.vec_in,0.0,mat_vec_dot_context.local_result);
+
+        if (mat_vec_dot_context.local_result_h.size() != num_rows)
+            mat_vec_dot_context.local_result_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("local_result_host", num_rows);
+
+        Kokkos::deep_copy(exec_space, mat_vec_dot_context.local_result_h, mat_vec_dot_context.local_result);
+        hapiAddCallback(exec_space.cuda_stream(), (void*)cb);
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
-    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data,
-        std::size_t vec_len, Kokkos::View<double*>& local_result)
+    void vec_mat_dot_impl(int mat_idx, const double* vec_in_data, Kokkos::View<double*>& local_result)
     {
         Kokkos::View<double**> mat = mat_map[mat_idx];
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
-        CkAssert(vec_len >= num_rows &&
-            "Incoming vector does not have enough entries for this matrix "
-            "tile");
-
-        std::size_t offset = 0;
-        if (vec_len > num_rows)
-        {
-            std::size_t max_offset = vec_len - num_rows;
-            offset = std::min<std::size_t>(
-                static_cast<std::size_t>(thisIndex.y) * row_block_len,
-                max_offset);
-        }
-
         using HostConstVector = Kokkos::View<const double*, Kokkos::HostSpace,
             Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        HostConstVector vec_in_host(vec_in_data + offset, num_rows);
+        HostConstVector vec_in_host(vec_in_data, num_rows);
 
         using DeviceVector = Kokkos::View<double*,
             typename Kokkos::DefaultExecutionSpace::memory_space>;
@@ -830,17 +827,7 @@ public:
         Kokkos::deep_copy(vec_in, vec_in_host);
 
         // Perform vector-matrix multiplication: result = vec * mat
-        // KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
-        // TODO: look at what's the bug here for GPUS
-        Kokkos::parallel_for(
-            "vec_mat_dot", num_cols, KOKKOS_LAMBDA(int j) {
-                double sum = 0.0;
-                for (std::size_t i = 0; i < num_rows; ++i)
-                {
-                    sum += vec_in(i) * mat(i, j);
-                }
-                local_result(j) = sum;
-            });
+        KokkosBlas::gemv("T",1.0,mat,vec_in,0.0,local_result);
         Kokkos::fence();
     }
 
@@ -866,7 +853,7 @@ public:
                 Kokkos::view_alloc("mat" + std::to_string(node_id), exec_space), num_rows, num_cols);
             unsigned int seed =
                 static_cast<unsigned int>(time(nullptr)) + node_id;
-            Kokkos::Random_XorShift64_Pool<> rand_pool(seed);
+            Kokkos::Random_XorShift64_Pool<> rand_pool(exec_space, seed);
 
             Kokkos::parallel_for(
                 "init_random_mat_" + std::to_string(node_id),
@@ -1109,6 +1096,7 @@ private:
 
     struct mat_vec_dot_ctx_t {
         size_t result_size;
+        size_t local_result_size;
         Kokkos::View<double*> local_result;
         Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> local_result_h;
         Kokkos::View<double*> vec_in;

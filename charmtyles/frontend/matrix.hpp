@@ -237,7 +237,13 @@ namespace ct {
             if (it == shape_info.end())
             {
                 // Create a new proxy for this shape and assign it to shape_info
-                CProxy_matrix_impl proxy = CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x, row_block_len, col_block_len, num_chares_x, num_chares_y);
+                CProxy_RRMap rrMap = CProxy_RRMap::ckNew();
+                CkArrayOptions opts(num_chares_x, num_chares_y);
+
+                opts.setMap(rrMap);
+
+                CProxy_matrix_impl proxy = CProxy_matrix_impl::ckNew(num_chares_y, num_chares_x, row_block_len, col_block_len, opts);
+
                 shape_info.emplace_back(ct::mat_impl::mat_shape_t{0, num_chares_x, num_chares_y, proxy});
 
                 ct::mat_impl::mat_shape_t matrix_shape = shape_info.back();
