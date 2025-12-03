@@ -13,6 +13,7 @@ class CProxy_get_partial_vec_future;
 class CProxy_KokkosGroup;
 
 #include <charmtyles/backend/libcharmtyles.decl.h>
+#include <charmtyles/util/view.hpp>
 
 class KokkosGroup : public CBase_KokkosGroup
 {
@@ -360,8 +361,13 @@ public:
             std::size_t vec_dim = get_vec_dim(node.vec_len_);
 
             // TODO: Do Random Initialization here
-            Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
-            Kokkos::deep_copy(vec, node.value_);
+            //Kokkos::View<double*> vec("vec" + std::to_string(node_id), vec_dim);
+            subregion<1> vec_region;
+            vec_region.start[0] = thisIndex * vec_block_size;
+            vec_region.stop[0] = vec_region.start[0] + vec_dim;
+            vec_region.step[0] = 1;
+            array_view<1, double> vec("vec" + std::to_string(node_id), vec_region, vec_dim);
+            Kokkos::deep_copy(vec.data, node.value_);
             vec_map.emplace_back(vec);
         }
             return;
@@ -554,7 +560,7 @@ private:
     }
 
     int num_chares;
-    std::vector<Kokkos::View<double*>> vec_map;
+    std::vector<array_view<1, double>> vec_map;
 
     int SDAG_INDEX;
     int vec_block_size;
