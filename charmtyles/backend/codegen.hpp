@@ -171,7 +171,7 @@ private:
         system(std::string("g++ -O3 -march=native -std=c++20 -I" +
             std::string(KOKKOS_DIR) + "/include -shared -fPIC -o " + lib_name +
             " " + file_name + " -L" + std::string(KOKKOS_DIR) +
-            "/lib -lkokkoscore")
+            "/lib64 -lkokkoscore")
                    .c_str());
 #endif
         kernel_cache[hash] = true;

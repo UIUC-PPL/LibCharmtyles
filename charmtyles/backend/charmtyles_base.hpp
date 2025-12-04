@@ -24,6 +24,12 @@ class CProxy_reductionGroup;
 using ExecSpace = Kokkos::DefaultExecutionSpace;
 using RangePolicy = Kokkos::RangePolicy<ExecSpace>;
 using MDRangePolicy = Kokkos::MDRangePolicy<Kokkos::Rank<2>, ExecSpace>;
+#ifdef GPU_BACKEND
+using HostPinnedSpace = Kokkos::CudaHostPinnedSpace;
+#else
+using HostPinnedSpace = Kokkos::HostSpace;
+#endif
+
 
 class KokkosGroup : public CBase_KokkosGroup
 {
@@ -40,10 +46,12 @@ public:
     KokkosGroup()
     {
         Kokkos::initialize();
+        #ifdef GPU_BACKEND
         hapiCheck(cudaSetDevice(CkMyPe()));//later make RR on gpus
         auto start = CkTimer();
         hapiCreateStreams();
         ckout << "Time to create streams " <<CkTimer() - start << endl;
+        #endif
     }
 
     void finalize()
@@ -653,8 +661,12 @@ public:
     {
         vec_map.reserve(1000);
 
+        #ifdef GPU_BACKEND
         auto stream = hapiGetStream();
         exec_space = ExecSpace(stream);
+        #else
+        exec_space = ExecSpace();
+        #endif
 
         thisProxy[thisIndex].main_kernel();
     }
@@ -693,7 +705,7 @@ private:
     
     // context for async callback of send_to_matrix
     struct send_to_matrix_ctx_t {
-        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> host_cpy;
+        Kokkos::View<double*, HostPinnedSpace> host_cpy;
         CProxy_matrix_impl proxy;
         int rhs_sdag_idx;
         int vec_idx;
@@ -787,27 +799,41 @@ public:
         std::size_t num_rows = mat.extent(0);
         std::size_t num_cols = mat.extent(1);
 
-        if (mat_vec_dot_context.local_result.size() != num_rows)
-            mat_vec_dot_context.local_result = Kokkos::View<double*>(Kokkos::view_alloc("local_result", exec_space), num_rows);
-
+        
         if(mat_vec_dot_context.vec_in_h.size() != num_cols)
-            mat_vec_dot_context.vec_in_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("vec_in_host", num_cols);
-
+            mat_vec_dot_context.vec_in_h = Kokkos::View<double*, HostPinnedSpace>("vec_in_host", num_cols);
+    
         for(int i=0; i<num_cols; ++i)
             mat_vec_dot_context.vec_in_h(i) = vec_in_data[i];
-        
+
+        #ifdef GPU_BACKEND
         if(mat_vec_dot_context.vec_in.size() != num_cols)
             mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
 
         Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
-
-        KokkosBlas::gemv(exec_space, "N",1.0,mat, mat_vec_dot_context.vec_in,0.0,mat_vec_dot_context.local_result);
+        #else
+        mat_vec_dot_context.vec_in = mat_vec_dot_context.vec_in_h;
+        #endif
 
         if (mat_vec_dot_context.local_result_h.size() != num_rows)
-            mat_vec_dot_context.local_result_h = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("local_result_host", num_rows);
+            mat_vec_dot_context.local_result_h = Kokkos::View<double*, HostPinnedSpace>("local_result_host", num_rows);
 
+
+        #ifdef GPU_BACKEND
+        if (mat_vec_dot_context.local_result.size() != num_rows)
+            mat_vec_dot_context.local_result = Kokkos::View<double*>(Kokkos::view_alloc("local_result", exec_space), num_rows);
+        #else
+        mat_vec_dot_context.local_result = mat_vec_dot_context.local_result_h;
+        #endif
+        
+        KokkosBlas::gemv(exec_space, "N",1.0,mat, mat_vec_dot_context.vec_in,0.0,mat_vec_dot_context.local_result);
+
+        #ifdef GPU_BACKEND
         Kokkos::deep_copy(exec_space, mat_vec_dot_context.local_result_h, mat_vec_dot_context.local_result);
         hapiAddCallback(exec_space.cuda_stream(), (void*)cb);
+        #else
+        ((CkCallback *)cb)->send();
+        #endif
     }
 
     // Helper method for vector-matrix multiplication - must be public for CUDA lambdas
@@ -1078,8 +1104,12 @@ public:
       , SDAG_INDEX(0)
     {
         mat_map.reserve(1000);
+        #ifdef GPU_BACKEND
         auto stream = hapiGetStream();
         exec_space = ExecSpace(stream);
+        #else
+        exec_space = ExecSpace();
+        #endif
         thisProxy(thisIndex.x, thisIndex.y).main_kernel();
     }
 
@@ -1099,9 +1129,9 @@ private:
         size_t result_size;
         size_t local_result_size;
         Kokkos::View<double*> local_result;
-        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> local_result_h;
+        Kokkos::View<double*, HostPinnedSpace> local_result_h;
         Kokkos::View<double*> vec_in;
-        Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> vec_in_h;
+        Kokkos::View<double*, HostPinnedSpace> vec_in_h;
         CProxy_vector_impl result_proxy;
     } mat_vec_dot_context;
     

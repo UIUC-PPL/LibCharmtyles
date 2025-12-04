@@ -170,9 +170,7 @@ module libcharmtyles
 
                 when send_to_matrix[SDAG_INDEX](int sdag_index, int vec_idx, int rhs_sdag_idx, int row_block_len, int col_block_len, int numCharesX, int numCharesY, bool is_vec_mat, CProxy_matrix_impl proxy) {
                 serial "send_to_matrix" {
-                    if (send_to_matrix_context.host_cpy.size() != vec_map[vec_idx].size())
-                        send_to_matrix_context.host_cpy = Kokkos::View<double*, Kokkos::CudaHostPinnedSpace>("host_cpy", vec_map[vec_idx].size());
-                    Kokkos::deep_copy(exec_space, send_to_matrix_context.host_cpy, vec_map[vec_idx]);
+                    
                     CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex);
 
                     send_to_matrix_context.proxy = proxy;
@@ -184,8 +182,17 @@ module libcharmtyles
                     send_to_matrix_context.numCharesY = numCharesY;
                     send_to_matrix_context.is_vec_mat = is_vec_mat;
                     
+
                     CkCallback* cb = new CkCallback(CkIndex_vector_impl::send_to_matrix_done(), myIndex, thisArrayID);
+                    #ifdef GPU_BACKEND
+                    if (send_to_matrix_context.host_cpy.size() != vec_map[vec_idx].size())
+                        send_to_matrix_context.host_cpy = Kokkos::View<double*, HostPinnedSpace>("host_cpy", vec_map[vec_idx].size());
+                    Kokkos::deep_copy(exec_space, send_to_matrix_context.host_cpy, vec_map[vec_idx]);
                     hapiAddCallback(exec_space.cuda_stream(), (void*)cb);
+                    #else
+                    send_to_matrix_context.host_cpy = vec_map[vec_idx];
+                    cb->send();
+                    #endif
                 }} // send to matrix
 
                 when send_to_matrix_done(){
@@ -206,7 +213,7 @@ module libcharmtyles
                             for(std::size_t i = 0; i < numChunks; i++) {
                                 for(std::size_t j = 0; j < numCharesX; j++) {
                                     proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * row_block_len)) : row_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * row_block_len)) : row_block_len)
                                     ,vector_to_send + i * row_block_len);
                                 }
                             }
@@ -216,12 +223,11 @@ module libcharmtyles
                             for(std::size_t i = 0; i < numChunks; i++) {
                                 for(std::size_t j = 0; j < numCharesY; j++) {
                                     proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
-                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - ((i - 1) * col_block_len)) : col_block_len)
+                                    (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * col_block_len)) : col_block_len)
                                     ,vector_to_send + i * col_block_len);
                                 }
                             }
                         }
-
                         ++SDAG_INDEX;
                     }
                 }
@@ -233,9 +239,13 @@ module libcharmtyles
                     if (vector_idx == vec_map.size())
                         vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
 
-                    Kokkos::View<double*, Kokkos::CudaHostPinnedSpace> vec_h("vec_h", len);
+                    #ifdef GPU_BACKEND
+                    Kokkos::View<double*, HostPinnedSpace> vec_h("vec_h", len);
                     std::copy(result, result + len, vec_h.data());
                     Kokkos::deep_copy(exec_space, vec_map[vector_idx], vec_h);
+                    #else
+                    std::copy(result, result + len, vec_map[vector_idx].data());
+                    #endif
 
                     ++SDAG_INDEX;
                 }}} // update index + update vector
