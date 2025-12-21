@@ -336,9 +336,9 @@ namespace ct {
         dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, vector_shape_.vector_id, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, vector_shape_.vector_id, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(
@@ -387,9 +387,9 @@ namespace ct {
         dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
         if (expr.is_vec_mat)
-            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
+            dispatch_proxy.vec_mat_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, vector_shape_.vector_id, size_);
         else
-            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, size_);
+            dispatch_proxy.mat_vec_dot(rhs_sdag_idx, rhs_shape.matrix_id, vector_shape_.proxy, vector_shape_.vector_id, size_);
 
         if (lhs_shape.shape_id == vector_shape_.shape_id)
             vector_shape_.proxy.update_index(

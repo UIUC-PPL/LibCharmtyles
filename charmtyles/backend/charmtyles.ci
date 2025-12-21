@@ -187,7 +187,7 @@ module libcharmtyles
                     #ifdef GPU_BACKEND
                     if (send_to_matrix_context.host_cpy.size() != vec_map[vec_idx].size())
                         send_to_matrix_context.host_cpy = Kokkos::View<double*, HostPinnedSpace>("host_cpy", vec_map[vec_idx].size());
-                    Kokkos::deep_copy(exec_space, send_to_matrix_context.host_cpy, vec_map[vec_idx]);
+                    //Kokkos::deep_copy(exec_space, send_to_matrix_context.host_cpy, vec_map[vec_idx]);
                     hapiAddCallback(exec_space.cuda_stream(), (void*)cb);
                     #else
                     send_to_matrix_context.host_cpy = vec_map[vec_idx];
@@ -205,7 +205,7 @@ module libcharmtyles
                         auto is_vec_mat = send_to_matrix_context.is_vec_mat;
                         auto proxy = send_to_matrix_context.proxy;
                         auto rhs_sdag_idx = send_to_matrix_context.rhs_sdag_idx;
-                        double* vector_to_send = send_to_matrix_context.host_cpy.data();
+                        double* vector_to_send = vec_map[vec_idx].data();
 
                         if (is_vec_mat) {
                             std::size_t yIndx = (thisIndex * vec_block_size) / row_block_len;
@@ -214,7 +214,8 @@ module libcharmtyles
                                 for(std::size_t j = 0; j < numCharesX; j++) {
                                     proxy(j, yIndx + i).receive_to_matrix(rhs_sdag_idx,
                                     (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * row_block_len)) : row_block_len)
-                                    ,vector_to_send + i * row_block_len);
+                                    ,CkDeviceBuffer(vector_to_send + i * row_block_len, exec_space.cuda_stream()));
+                                    ckout<<"sending buffer length >"<<vec_map[vec_idx].size() - (i * row_block_len)<<endl;
                                 }
                             }
                         } else {
@@ -224,7 +225,8 @@ module libcharmtyles
                                 for(std::size_t j = 0; j < numCharesY; j++) {
                                     proxy(xIndx + i, j).receive_to_matrix(rhs_sdag_idx,
                                     (i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * col_block_len)) : col_block_len)
-                                    ,vector_to_send + i * col_block_len);
+                                    ,CkDeviceBuffer(vector_to_send + i * col_block_len, exec_space.cuda_stream()));
+                                    ckout<<"sending buffer length >"<<((i == (numChunks - 1) ? (vec_map[vec_idx].size() - (i * col_block_len)) : col_block_len))<<endl;
                                 }
                             }
                         }
@@ -233,18 +235,23 @@ module libcharmtyles
                 }
 
                 when update_index[SDAG_INDEX](int sdag_idx, int vector_idx) {
-                when update_vector(int len, double* result) {
+                when update_vector(int vec_idx, int len, nocopydevice double result[len]) {
                 serial "update vector" {
-                    // TODO: use vector back_inserter here!
-                    if (vector_idx == vec_map.size())
-                        vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
+                    ckout<<"vec_idx> "<<vec_idx<<" vector_idx> "<<vector_idx<<endl;
+                    exec_space.fence();
+                    auto vec_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]);
+                    ckout<<"recieved correct values?> "<<endl;
+                    for(int i=0;i<5;i++)
+                        ckout<<vec_h(i)<<" ";
+                    ckout<<endl;
+                    // TODO: use vector back_inserter here!                    
 
                     #ifdef GPU_BACKEND
-                    Kokkos::View<double*, HostPinnedSpace> vec_h("vec_h", len);
-                    std::copy(result, result + len, vec_h.data());
-                    Kokkos::deep_copy(exec_space, vec_map[vector_idx], vec_h);
+                    //Kokkos::View<double*, HostPinnedSpace> vec_h("vec_h", len);
+                    //std::copy(result, result + len, vec_h.data());
+                    //Kokkos::deep_copy(exec_space, vec_map[vector_idx], vec_h);
                     #else
-                    std::copy(result, result + len, vec_map[vector_idx].data());
+                    //std::copy(result, result + len, vec_map[vector_idx].data());
                     #endif
 
                     ++SDAG_INDEX;
@@ -691,7 +698,7 @@ module libcharmtyles
         entry void dot(int, int, int, int);
         entry void send_to_matrix(int, int, int, int, int, int, int, bool, CProxy_matrix_impl);
         entry void send_to_matrix_done();
-        entry [reductiontarget] void update_vector(int len, double result[len]);
+        entry void update_vector(int vec_idx, int len, nocopydevice double result[len]);
         entry void update_index(int, int);
         entry void reduce_sum(int, int, int);
         entry void norm_p(int, int, int, int);
@@ -788,15 +795,16 @@ module libcharmtyles
 
                 when mat_vec_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx,
-                    CProxy_vector_impl result_proxy, int result_size) {
+                    CProxy_vector_impl result_proxy, int result_index, int result_size) {
                     when active_chares_set[SDAG_INDEX](int sdag_idx) {
-                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
+                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, nocopydevice double data[len])
                 serial "mat_vec_dot" {
                     std::size_t local_result_size = mat_map[mat_idx].extent(0);
 
                     mat_vec_dot_context.result_size = result_size;
                     mat_vec_dot_context.local_result_size = local_result_size;
                     mat_vec_dot_context.result_proxy = result_proxy;
+                    mat_vec_dot_context.result_index = result_index;
 
                     CkArrayIndex2D myIndex = CkArrayIndex2D(thisIndex.x, thisIndex.y);
                     CkCallback* cb = new CkCallback(CkIndex_matrix_impl::mat_vec_done(), myIndex, thisArrayID);
@@ -809,16 +817,17 @@ module libcharmtyles
                     auto result_size = mat_vec_dot_context.result_size;
                     auto local_result_host = mat_vec_dot_context.local_result_h;
                     auto local_result_size = mat_vec_dot_context.local_result_size;
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.y * row_block_len, local_result_size, local_result_host.data());
+                    auto result_index = mat_vec_dot_context.result_index;
+                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, result_index, thisIndex.y * row_block_len, local_result_size, mat_vec_dot_context.local_result, exec_space);
                     
                     ++SDAG_INDEX;
                 }}
                 
                 when vec_mat_dot[SDAG_INDEX](
                     int sdag_index, int mat_idx,
-                    CProxy_vector_impl result_proxy, int result_size) {
+                    CProxy_vector_impl result_proxy, int result_index,  int result_size) {
                     when active_chares_set[SDAG_INDEX](int sdag_idx) {
-                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, double* data)
+                    when receive_to_matrix[SDAG_INDEX](int sdag_idx, int len, nocopydevice double data[len])
                 serial "vec_mat_dot" {
                     std::size_t local_result_size = mat_map[mat_idx].extent(1);
                     Kokkos::View<double*> local_result("local_result", local_result_size);
@@ -826,7 +835,7 @@ module libcharmtyles
                     vec_mat_dot_impl(mat_idx, data, local_result);
 
                     auto local_result_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, thisIndex.x * col_block_len, local_result_size, local_result_host.data());
+                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, result_index, thisIndex.x * col_block_len, local_result_size, mat_vec_dot_context.local_result, exec_space);
                     ++SDAG_INDEX;
                 }}} // vector matrix dot product
 
@@ -960,9 +969,9 @@ module libcharmtyles
         
         entry void update_active_chares(int);
         entry void active_chares_set(int);
-        entry void mat_vec_dot(int, int, CProxy_vector_impl, int);
-        entry void vec_mat_dot(int, int, CProxy_vector_impl, int);
-        entry void receive_to_matrix(int, int len, double data[len]);
+        entry void mat_vec_dot(int, int, CProxy_vector_impl ,int , int);
+        entry void vec_mat_dot(int, int, CProxy_vector_impl ,int ,int);
+        entry void receive_to_matrix(int, int len, nocopydevice double data[len]);
 
         entry void reduce_sum(int, int, int);
         entry void get_value(int sdag_index, int matrix_id, CProxy_get_mat_future proxy);
@@ -979,8 +988,7 @@ module libcharmtyles
 
     nodegroup reductionGroup {
         entry reductionGroup();
-        entry void accumulate(CProxy_vector_impl result_proxy, int result_size, int indx, int len, double data[len]);
-        entry void reduce(bool dummy, int len, double data[len]);
+        entry void reduce(bool dummy, int len, nocopydevice double data[len]);
         entry void reset();
         entry [reductiontarget] void numActiveChares(CkReductionMsg *msg);
     }

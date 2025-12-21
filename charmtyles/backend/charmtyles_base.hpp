@@ -91,11 +91,19 @@ private:
 
     int resultSize;
     int contributeCnt;
-    std::vector<double> localArr;
+    int resultIndex;
+    // std::vector<double> localArr;
+    Kokkos::View<double*> localArr;
     CProxy_vector_impl result_proxy;
 
+    ExecSpace exec_space;
+
     int resultCnt;
-    std::vector<double> resultArr;
+    // std::vector<double> resultArr;
+    Kokkos::View<double*> resultArr;
+    std::vector<Kokkos::View<double*>> rootProcBuffers;
+    Kokkos::View<double*> dummyArr;
+    Kokkos::View<double*, Kokkos::HostSpace> resultArr_h;// don't clear between iteration
 public:
     reductionGroup() {
         num_active_chares = 0;
@@ -104,48 +112,96 @@ public:
 
         contributeCnt = 0;
         resultSize = 0;
+        resultIndex = -1;
 
         resultCnt = 0;
+
+        auto stream = hapiGetStream();
+        exec_space = ExecSpace(stream);
+        dummyArr = Kokkos::View<double*> (Kokkos::view_alloc(exec_space, "dummpPtr"),1);
     }
 
-    void accumulate(CProxy_vector_impl _result_proxy, int result_size, int indx, int len, double* data) {
+    void accumulate(CProxy_vector_impl _result_proxy, int result_size, int result_index, int indx, int len, Kokkos::View<double*> data, ExecSpace exec_space) {
         contributeCnt++;
+        // std::ostringstream os;
+        // os << "accumulate (" << std::to_string(CkMyPe()) << ")";
+        // NVTXTracer(os.str(), NVTXColor::WetAsphalt);
 
         if (localArr.size() != result_size) {
-            localArr.resize(result_size);
-            std::fill(localArr.begin(), localArr.end(), 0.0);
-            resultSize = result_size;
-            result_proxy = _result_proxy;
+            localArr = Kokkos::View<double*> (Kokkos::view_alloc(exec_space, "local_arr"), result_size);
+            Kokkos::deep_copy(exec_space, localArr, 0.0);
         }
 
-        for (int i = 0; i < len; ++i)
+        // this will be rewitten with the same value
+        resultSize = result_size;
+        result_proxy = _result_proxy;
+        resultIndex = result_index;
+
+        auto localArr = this->localArr;
+
+        Kokkos::parallel_for("accumulate_local_contibutions", RangePolicy(exec_space, 0, len), 
+        KOKKOS_LAMBDA(int i){
             localArr[indx + i] += data[i];
+        });
 
-        if (contributeCnt == num_active_chares) {
-            thisProxy[0].reduce(false, resultSize, localArr.data());
+        if (contributeCnt == num_active_chares) 
+            thisProxy[0].reduce(false, resultSize, CkDeviceBuffer(localArr.data(), exec_space.cuda_stream()));
+        
+    }
+
+    void reduce(bool dummy, int len, double*& data, CkDeviceBufferPost* postInfo){
+        if(!dummy){
+            Kokkos::View<double*> buffer(Kokkos::view_alloc(exec_space, "rootProcBuffers"), len);
+            rootProcBuffers.push_back(buffer);
+            data = buffer.data();
+        } else {
+            data = dummyArr.data();
         }
+        postInfo[0].hapi_stream = exec_space.cuda_stream();
     }
 
     void reduce(bool dummy, int len, double* data) {
         resultCnt++;
-
         if (!dummy) {
             if (resultArr.size() != len) {
-                resultArr.resize(len);
-                std::fill(resultArr.begin(), resultArr.end(), 0.0);
+                Kokkos::resize(exec_space, resultArr, len);
+                Kokkos::deep_copy(exec_space, resultArr, 0.0);
             }
-    
-            for (int i = 0; i < len; ++i)
-                resultArr[i] += data[i];
         }
 
+        
         if(resultCnt == CkNumNodes()) {
+            Kokkos::View<Kokkos::View<double*>*> rootProcBuffers_d(Kokkos::view_alloc(exec_space, "mew mew"), rootProcBuffers.size());
+            auto rootProcBuffers_h = Kokkos::create_mirror_view(rootProcBuffers_d);
+            for(int i=0;i<rootProcBuffers.size();i++){
+                rootProcBuffers_h(i) = rootProcBuffers[i];
+            }
+            Kokkos::deep_copy(exec_space, rootProcBuffers_d, rootProcBuffers_h);
+            auto resultArr = this->resultArr;
+            Kokkos::parallel_for("rootReduce",
+            RangePolicy(exec_space, 0, len),
+        KOKKOS_LAMBDA(int i){
+            for(int j=0;j<rootProcBuffers_d.size();j++){
+                resultArr[i]+=rootProcBuffers_d[j][i];
+            }
+             });
+             exec_space.fence();
+             auto resultArr_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), resultArr);
+             ckout<<"result_arr >>"<<resultArr.data()<<endl;
+             ckout<<"sending correct values?> "<<endl;
+             for(int i=0;i<5;i++)
+                ckout<<resultArr_h(i)<<" ";
+             ckout<<endl;
             std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
             for(int i = 0; ;i++) {
                 if(i * vec_len >= resultSize) break;
                 int length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
-                result_proxy[i].update_vector(length, resultArr.data() + i * vec_len);
+                ckout<<"i> "<<i<<"lenght>> "<<length<<endl;
+
+                ckout<<"sending ptr>> "<<resultArr.data() + i * vec_len<<endl;
+                result_proxy[i].update_vector(resultIndex, length, CkDeviceBuffer(resultArr.data() + i * vec_len, exec_space.cuda_stream()));
             }
+            reset();
         }
     }
 
@@ -169,7 +225,7 @@ public:
         }
 
         if (num_active_chares == 0)
-            thisProxy[0].reduce(true, 0, nullptr);
+            thisProxy[0].reduce(true, 1, CkDeviceBuffer(dummyArr.data(), exec_space.cuda_stream()));
     }
 
     void reset() {
@@ -179,10 +235,13 @@ public:
 
         contributeCnt = 0;
         resultSize = 0;
-        localArr.clear();
+        resultIndex = -1;
+        Kokkos::deep_copy(exec_space, localArr, 0);
 
         resultCnt = 0;
-        resultArr.clear();
+        // Kokkos::deep_copy(exec_space, resultArr,0.0);
+
+        rootProcBuffers.clear();
     }
 };
 
@@ -654,6 +713,18 @@ public:
 public:
     vector_impl_SDAG_CODE;
 
+    void update_vector(int vec_idx, int len, double*& data, CkDeviceBufferPost* postInfo){
+        if (vec_idx == vec_map.size())
+            vec_map.emplace_back(Kokkos::View<double*>(Kokkos::view_alloc("FIXME_2", exec_space), len));
+
+        exec_space.fence();
+        ckout<<"posting index>> "<<vec_idx<<endl;
+            
+        data = vec_map[vec_idx].data();
+        ckout<<"posting ptr>> "<<(void*)data<<endl;
+        postInfo[0].hapi_stream = exec_space.cuda_stream();
+    }
+
     vector_impl(int num_chares_, int vec_block_size_)
       : num_chares(num_chares_)
       , SDAG_INDEX(0)
@@ -664,6 +735,8 @@ public:
         #ifdef GPU_BACKEND
         auto stream = hapiGetStream();
         exec_space = ExecSpace(stream);
+        stream = hapiGetStream();
+        comm_space = ExecSpace(stream);
         #else
         exec_space = ExecSpace();
         #endif
@@ -702,6 +775,7 @@ private:
     int SDAG_INDEX;
     int vec_block_size;
     ExecSpace exec_space;
+    ExecSpace comm_space;
     
     // context for async callback of send_to_matrix
     struct send_to_matrix_ctx_t {
@@ -800,20 +874,20 @@ public:
         std::size_t num_cols = mat.extent(1);
 
         
-        if(mat_vec_dot_context.vec_in_h.size() != num_cols)
-            mat_vec_dot_context.vec_in_h = Kokkos::View<double*, HostPinnedSpace>("vec_in_host", num_cols);
+        // if(mat_vec_dot_context.vec_in_h.size() != num_cols)
+        //     mat_vec_dot_context.vec_in_h = Kokkos::View<double*, HostPinnedSpace>("vec_in_host", num_cols);
     
-        for(int i=0; i<num_cols; ++i)
-            mat_vec_dot_context.vec_in_h(i) = vec_in_data[i];
+        // for(int i=0; i<num_cols; ++i)
+        //     mat_vec_dot_context.vec_in_h(i) = vec_in_data[i];
 
-        #ifdef GPU_BACKEND
-        if(mat_vec_dot_context.vec_in.size() != num_cols)
-            mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
+        // #ifdef GPU_BACKEND
+        // if(mat_vec_dot_context.vec_in.size() != num_cols)
+        //     mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), num_cols);
 
-        Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
-        #else
-        mat_vec_dot_context.vec_in = mat_vec_dot_context.vec_in_h;
-        #endif
+        // Kokkos::deep_copy(exec_space, mat_vec_dot_context.vec_in, mat_vec_dot_context.vec_in_h);
+        // #else
+        // mat_vec_dot_context.vec_in = mat_vec_dot_context.vec_in_h;
+        // #endif
 
         if (mat_vec_dot_context.local_result_h.size() != num_rows)
             mat_vec_dot_context.local_result_h = Kokkos::View<double*, HostPinnedSpace>("local_result_host", num_rows);
@@ -1095,6 +1169,15 @@ public:
 public:
     matrix_impl_SDAG_CODE;
 
+    void receive_to_matrix(int sdag_indx, int &len, double*& data, CkDeviceBufferPost* postInfo){
+        if(mat_vec_dot_context.vec_in.size()!=len)
+            mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), len);
+        exec_space.fence();
+        ckout<<"posting buffer length >"<<len<<endl;
+        data = mat_vec_dot_context.vec_in.data();
+        postInfo[0].hapi_stream = exec_space.cuda_stream();
+    }
+
     matrix_impl(int num_chares_y_, int num_chares_x_, int row_block_len_,
         int col_block_len_)
       : num_chares_y(num_chares_y_)
@@ -1107,6 +1190,8 @@ public:
         #ifdef GPU_BACKEND
         auto stream = hapiGetStream();
         exec_space = ExecSpace(stream);
+        stream = hapiGetStream();
+        comm_space = ExecSpace(stream);
         #else
         exec_space = ExecSpace();
         #endif
@@ -1124,10 +1209,12 @@ private:
     int SDAG_INDEX;
     int block;
     ExecSpace exec_space;
+    ExecSpace comm_space;
 
     struct mat_vec_dot_ctx_t {
         size_t result_size;
         size_t local_result_size;
+        int result_index;
         Kokkos::View<double*> local_result;
         Kokkos::View<double*, HostPinnedSpace> local_result_h;
         Kokkos::View<double*> vec_in;
