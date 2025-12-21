@@ -169,7 +169,6 @@ private:
                 resultArr[i]+=rootProcBuffers_d[j][i];
             }
              });
-             exec_space.fence();
              auto resultArr_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), resultArr);
             
             for(int i = 0; ;i++) {
@@ -1121,7 +1120,6 @@ public:
     void receive_to_matrix(int sdag_indx, int &len, double*& data, CkDeviceBufferPost* postInfo){
         if(mat_vec_dot_context.vec_in.size()!=len)
             mat_vec_dot_context.vec_in = Kokkos::View<double*>(Kokkos::view_alloc("vec_in_tile", exec_space), len);
-        exec_space.fence();
         data = mat_vec_dot_context.vec_in.data();
         postInfo[0].hapi_stream = exec_space.cuda_stream();
     }
