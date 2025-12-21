@@ -332,7 +332,7 @@ namespace ct {
         std::size_t col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
 
         lhs_proxy.send_to_matrix(lhs_sdag_idx, lhs_shape.vector_id, rhs_sdag_idx, row_len, col_len, numCharesX, numCharesY, expr.is_vec_mat, dispatch_proxy);
-        reductionMgmt.reset();
+        //reductionMgmt.reset();
         dispatch_proxy.update_active_chares(rhs_sdag_idx);
 
         if (expr.is_vec_mat)

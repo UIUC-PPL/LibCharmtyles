@@ -237,13 +237,6 @@ module libcharmtyles
                 when update_index[SDAG_INDEX](int sdag_idx, int vector_idx) {
                 when update_vector(int vec_idx, int len, nocopydevice double result[len]) {
                 serial "update vector" {
-                    //auto vec_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), vec_map[vec_idx]);
-                    //for(int i=0;i<5;i++)
-                    //    ckout<<vec_h(i)<<" ";
-                    //ckout<<endl;
-                    //for(int i=8192;i<8192+5;i++)
-                    //    ckout<<vec_h(i)<<" ";
-                    //ckout<<endl;
                     ++SDAG_INDEX;
                 }}} // update index + update vector
 
@@ -797,11 +790,6 @@ module libcharmtyles
                     mat_vec_dot_context.result_index = result_index;
 
                     auto vec_in_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), mat_vec_dot_context.vec_in);
-                    ckout<<"received on "<<thisIndex.x<<" "<<thisIndex.y<<endl;
-                    for(int i=0;i<5;i++){
-                        ckout<<vec_in_h(i)<<" ";
-                    }
-                    ckout<<endl;
 
                     CkArrayIndex2D myIndex = CkArrayIndex2D(thisIndex.x, thisIndex.y);
                     CkCallback* cb = new CkCallback(CkIndex_matrix_impl::mat_vec_done(), myIndex, thisArrayID);
@@ -816,14 +804,7 @@ module libcharmtyles
                     auto local_result_size = mat_vec_dot_context.local_result_size;
                     auto result_index = mat_vec_dot_context.result_index;
                     
-                    ckout<<"local result "<<thisIndex.x<<" "<<thisIndex.y<<endl;
-                    auto local_result_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), mat_vec_dot_context.local_result);
-                    for(int i=0;i<5;i++){
-                        ckout<<local_result_h(i)<<" ";
-                    }
-                    ckout<<endl;
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, result_index, thisIndex.y * row_block_len, local_result_size, mat_vec_dot_context.local_result, exec_space);
-                    
+                    reductionMgmt[CkMyPe()].accumulate(result_proxy, result_size, result_index, thisIndex.y * row_block_len, local_result_size, (uintptr_t)mat_vec_dot_context.local_result.data());
                     ++SDAG_INDEX;
                 }}
                 
@@ -839,7 +820,7 @@ module libcharmtyles
                     vec_mat_dot_impl(mat_idx, data, local_result);
 
                     auto local_result_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), local_result);
-                    reductionMgmt.ckLocalBranch()->accumulate(result_proxy, result_size, result_index, thisIndex.x * col_block_len, local_result_size, mat_vec_dot_context.local_result, exec_space);
+                    reductionMgmt[CkMyPe()].accumulate(result_proxy, result_size, result_index, thisIndex.x * col_block_len, local_result_size, (uintptr_t)mat_vec_dot_context.local_result.data());
                     ++SDAG_INDEX;
                 }}} // vector matrix dot product
 
@@ -992,8 +973,68 @@ module libcharmtyles
 
     nodegroup reductionGroup {
         entry reductionGroup();
+        entry void start_reduction(){
+            when numActiveChares(CkReductionMsg* msg){
+                serial "num_active_chares" {
+                CkReduction::setElement* current = (CkReduction::setElement*) msg->getData();
+                while (current != NULL)
+                {
+                    reductionMgmtPayload result = *(reductionMgmtPayload*)(&current->data);
+                    int process = result.process;
+                    if (process == thisIndex) {
+                        num_active_chares++;
+                        sdag_indexes.emplace_back(result.sdag_indx);
+                        chunkProxies.emplace_back(result.proxy);
+                    }
+                    current = current->next();
+                }
+                
+                for(int i = 0; i < num_active_chares; i++)
+                {
+                    chunkProxies[i].active_chares_set(sdag_indexes[i]);
+                }
+
+                if (num_active_chares == 0)
+                    {
+                    if(CkMyPe()!=0){
+                        CkCallback cb(CkIndex_reductionGroup::reset(), thisProxy[CkMyPe()]);
+                        thisProxy[0].reduce(true, 1, CkDeviceBuffer(dummyArr.data(),cb, exec_space.cuda_stream()));
+                    } else{
+                        thisProxy[0].reduce(true, 1, CkDeviceBuffer(dummyArr.data(), exec_space.cuda_stream()));
+                    }
+                }
+            }
+            }
+        
+        for(;contributeCnt<num_active_chares;contributeCnt++){
+            when accumulate(CProxy_vector_impl _result_proxy, int result_size, int result_index, int indx, int len, uintptr_t data){
+                serial "accumulate" {
+                    resultSize = result_size;
+                    result_proxy = _result_proxy;
+                    resultIndex = result_index;
+
+                    if (localArr.size() != result_size) {
+                        localArr = Kokkos::View<double*> (Kokkos::view_alloc(exec_space, "local_arr"), result_size);
+                        Kokkos::deep_copy(exec_space, localArr, 0.0);
+                    }
+
+                    accumulate_single((double *)data, len, indx);
+                }
+            }
+        }
+        serial "commence reduce" {
+            if(num_active_chares!=0)
+                if(CkMyPe()!=0){
+                    CkCallback cb(CkIndex_reductionGroup::reset(), thisProxy[CkMyPe()]);
+                    thisProxy[0].reduce(false, resultSize, CkDeviceBuffer(localArr.data(),cb, exec_space.cuda_stream()));
+                } else{
+                    thisProxy[0].reduce(false, resultSize, CkDeviceBuffer(localArr.data(), exec_space.cuda_stream()));
+                }
+        }
+        };
+        entry void accumulate(CProxy_vector_impl result_proxy, int result_index, int result_size, int indx, int len, uintptr_t data);
         entry void reduce(bool dummy, int len, nocopydevice double data[len]);
         entry void reset();
         entry [reductiontarget] void numActiveChares(CkReductionMsg *msg);
-    }
+    };
 }
