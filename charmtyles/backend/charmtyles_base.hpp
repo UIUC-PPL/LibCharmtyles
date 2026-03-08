@@ -47,7 +47,9 @@ public:
     {
         Kokkos::initialize();
         #ifdef GPU_BACKEND
-        hapiCheck(cudaSetDevice(CkMyPe()));//later make RR on gpus
+        int device;
+        hapiCheck(hapiGetDevice(&device));
+        // hapiCheck(cudaSetDevice());//later make RR on gpus
         auto start = CkTimer();
         hapiCreateStreams();
         ckout << "Time to create streams " <<CkTimer() - start << endl;
@@ -156,7 +158,7 @@ private:
         if(resultCnt == CkNumNodes()) {
             Kokkos::View<Kokkos::View<double*>*> rootProcBuffers_d(Kokkos::view_alloc(exec_space, "mew mew"), rootProcBuffers.size());
             std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
-            auto rootProcBuffers_h = Kokkos::create_mirror_view(rootProcBuffers_d);
+            auto rootProcBuffers_h = Kokkos::create_mirror_view(HostPinnedSpace(), rootProcBuffers_d);
             for(int i=0;i<rootProcBuffers.size();i++){
                 rootProcBuffers_h(i) = rootProcBuffers[i];
             }
@@ -169,7 +171,6 @@ private:
                 resultArr[i]+=rootProcBuffers_d[j][i];
             }
              });
-             auto resultArr_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), resultArr);
             
             for(int i = 0; ;i++) {
                 if(i * vec_len >= resultSize) break;
