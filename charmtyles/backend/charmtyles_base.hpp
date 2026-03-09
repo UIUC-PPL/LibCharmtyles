@@ -30,6 +30,54 @@ using HostPinnedSpace = Kokkos::CudaHostPinnedSpace;
 using HostPinnedSpace = Kokkos::HostSpace;
 #endif
 
+template <class ViewType>
+void resize_unmanaged_1d_views(
+    ViewType& view,
+    size_t new_n0,
+    bool copy_old,
+    cudaStream_t stream = 0)
+{
+    static_assert(ViewType::memory_traits::is_unmanaged,
+                  "Requires unmanaged view");
+
+    static_assert(std::is_same_v<
+                    typename ViewType::memory_space,
+                    Kokkos::CudaSpace>,
+                  "Only supports Kokkos::CudaSpace");
+
+    static_assert(ViewType::rank == 1, "Only rank-1 supported");
+
+    using value_type = typename ViewType::value_type;
+
+    value_type* old_ptr = view.data();
+
+    const size_t old_n0 = view.extent(0);
+
+    value_type* new_ptr = nullptr;
+    hapiCheck(cudaMallocAsync(&new_ptr,
+                    new_n0 * sizeof(value_type),
+                    stream));
+
+    const size_t copy_n0 = std::min(old_n0, new_n0);
+    if (copy_n0 > 0 && copy_old) {
+        hapiCheck(cudaMemcpyAsync(
+            new_ptr,
+            old_ptr,
+            copy_n0 * sizeof(value_type),
+            cudaMemcpyDeviceToDevice,
+            stream));
+    }
+
+    if (old_ptr) {
+        hapiCheck(cudaFreeAsync(old_ptr, stream));
+    }
+
+    view = ViewType(new_ptr, new_n0);
+
+    if(stream==0)
+      Kokkos::fence();
+}
+
 
 class KokkosGroup : public CBase_KokkosGroup
 {
@@ -91,8 +139,9 @@ private:
     std::vector<int> sdag_indexes;
     std::vector<CProxyElement_matrix_impl> chunkProxies;
 
-    int resultSize;
+    uint64_t resultSize;
     int contributeCnt;
+    int reduceCnt;
     int resultIndex;
     // std::vector<double> localArr;
     Kokkos::View<double*> localArr;
@@ -101,11 +150,14 @@ private:
     ExecSpace exec_space;
 
     int resultCnt;
-    // std::vector<double> resultArr;
-    Kokkos::View<double*> resultArr;
-    std::vector<Kokkos::View<double*>> rootProcBuffers;
+    using view_buffer_um = typename Kokkos::View<Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged>>*, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    using view_buffer = typename Kokkos::View<Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged>>*>;
+    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged>> resultArr;
+    std::vector<Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged>>> rootProcBuffers;
     Kokkos::View<double*> dummyArr;
-    Kokkos::View<double*, Kokkos::HostSpace> resultArr_h;// don't clear between iteration
+    view_buffer_um rootProcBuffers_d;
+    view_buffer::host_mirror_type rootProcBuffers_h;
+    
 
     public:
     reductionGroup_SDAG_CODE;
@@ -124,6 +176,7 @@ private:
 
         contributeCnt = 0;
         resultSize = 0;
+        reduceCnt = 0;
         resultIndex = -1;
 
         resultCnt = 0;
@@ -131,15 +184,33 @@ private:
         hapiStream_t comm_stream;
         hapiStreamCreateWithPriority(&comm_stream, hapiStreamDefault, -1);
         exec_space = ExecSpace(comm_stream);
-        dummyArr = Kokkos::View<double*> (Kokkos::view_alloc(exec_space, "dummpPtr"),1);//for dummy contributions
+        dummyArr = Kokkos::View<double*> (Kokkos::view_alloc(exec_space, "dummyPtr"),1);//for dummy contributions
         thisProxy[CkMyPe()].start_reduction();
     }
 
+    // all calls to reduce are supposed to be serialized [serical code]
     void reduce(bool dummy, int len, double*& data, CkDeviceBufferPost* postInfo){
         if(!dummy){
-            Kokkos::View<double*> buffer(Kokkos::view_alloc(exec_space, "rootProcBuffers"), len);
-            rootProcBuffers.push_back(buffer);
-            data = buffer.data();
+            if(rootProcBuffers.size() >= reduceCnt + 1)
+            {
+                //check if the sizes are accomodating enough
+                if(rootProcBuffers[reduceCnt].size() >= len)
+                {
+                    data = rootProcBuffers[reduceCnt].data();
+                }
+                else 
+                {
+                    resize_unmanaged_1d_views(rootProcBuffers[reduceCnt], 1.5*len, false, exec_space.cuda_stream());
+                }
+            }
+            else
+            {
+                size_t new_size = std::max((size_t)(reduceCnt + 1), (size_t)(1.5 * rootProcBuffers.size()));
+                rootProcBuffers.resize(new_size);
+                resize_unmanaged_1d_views(rootProcBuffers[reduceCnt], 1.5*len, false, exec_space.cuda_stream());
+            }
+            data = rootProcBuffers[reduceCnt].data();
+            reduceCnt++;
         } else {
             data = dummyArr.data();
         }
@@ -149,32 +220,36 @@ private:
     void reduce(bool dummy, int len, double* data) {
         resultCnt++;
         if (!dummy) {
-            if (resultArr.size() != len) {
-                Kokkos::resize(exec_space, resultArr, len);
-                Kokkos::deep_copy(exec_space, resultArr, 0.0);
+            if (resultArr.size() < len) {
+                resize_unmanaged_1d_views(resultArr, 1.5*len, false, exec_space.cuda_stream());
             }
         }
 
         if(resultCnt == CkNumNodes()) {
-            Kokkos::View<Kokkos::View<double*>*> rootProcBuffers_d(Kokkos::view_alloc(exec_space, "mew mew"), rootProcBuffers.size());
+            if(rootProcBuffers_d.size() < reduceCnt)
+            {
+                resize_unmanaged_1d_views(rootProcBuffers_d, 1.5*reduceCnt, false, exec_space.cuda_stream());
+                rootProcBuffers_h = Kokkos::create_mirror_view(HostPinnedSpace(), rootProcBuffers_d);
+            }
             std::size_t vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
-            auto rootProcBuffers_h = Kokkos::create_mirror_view(HostPinnedSpace(), rootProcBuffers_d);
-            for(int i=0;i<rootProcBuffers.size();i++){
+            for(int i=0;i<reduceCnt;i++){
                 rootProcBuffers_h(i) = rootProcBuffers[i];
             }
             Kokkos::deep_copy(exec_space, rootProcBuffers_d, rootProcBuffers_h);
             auto resultArr = this->resultArr;
+            auto rootProcBuffers_d = this->rootProcBuffers_d;
+            auto reduceCnt = this->reduceCnt;
             Kokkos::parallel_for("rootReduce",
             RangePolicy(exec_space, 0, len),
-        KOKKOS_LAMBDA(int i){
-            for(int j=0;j<rootProcBuffers_d.size();j++){
-                resultArr[i]+=rootProcBuffers_d[j][i];
-            }
-             });
+            KOKKOS_LAMBDA(int i){
+                for(int j=0;j<reduceCnt;j++){
+                    resultArr[i]+=rootProcBuffers_d[j][i];
+                }
+            });
             
             for(int i = 0; ;i++) {
                 if(i * vec_len >= resultSize) break;
-                int length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
+                uint64_t length = (((i + 1) * vec_len) >= resultSize) ? (resultSize - (i * vec_len)) : vec_len;
                 CkCallback cb(CkIndex_reductionGroup::reset(), thisProxy[CkMyPe()]);
                 result_proxy[i].update_vector(resultIndex, length, CkDeviceBuffer(resultArr.data() + i * vec_len, cb, exec_space.cuda_stream()));
             }
@@ -188,13 +263,13 @@ private:
 
         contributeCnt = 0;
         resultSize = 0;
+        reduceCnt = 0;
         resultIndex = -1;
         Kokkos::deep_copy(exec_space, localArr, 0);
 
         resultCnt = 0;
         Kokkos::deep_copy(exec_space, resultArr,0.0);
 
-        rootProcBuffers.clear();
         thisProxy[CkMyPe()].start_reduction();
     }
 };
