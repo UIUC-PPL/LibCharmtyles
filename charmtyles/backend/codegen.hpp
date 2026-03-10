@@ -8,12 +8,25 @@
 #include <sstream>
 #include <string_view>
 #include <tuple>
+#include "hapi_nvtx.h"
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
 #include <charmtyles/util/sizes.hpp>
 
 using ExecSpace = Kokkos::DefaultExecutionSpace;
+using double_view_1d_um = Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using double_view_1d_um_host = double_view_1d_um::host_mirror_type;
+
+template <typename ViewType>
+struct Unmanagedof {
+    using type = Kokkos::View<
+        typename ViewType::data_type,
+        typename ViewType::array_layout,
+        typename ViewType::device_type,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>
+    >;
+};
 
 class Codegen
 {
@@ -127,14 +140,14 @@ private:
         using ExecSpace = Kokkos::DefaultExecutionSpace;
     )" + kkPreamble +
             R"(struct ASTFunctor {
-        Kokkos::View<)" +
-            kkViewType + R"(*> view_map;
-        Kokkos::View<double*> custom_ops_args;
-        Kokkos::View<double*> scalar_vals;
+        )" +
+            kkViewType + R"(* view_map;
+        double* custom_ops_args;
+        double* scalar_vals;
 
-        KOKKOS_INLINE_FUNCTION ASTFunctor(Kokkos::View<)" +
+        KOKKOS_INLINE_FUNCTION ASTFunctor()" +
             kkViewType +
-            R"(*> _view_map, Kokkos::View<double*> custom_ops_args_, Kokkos::View<double*> scalar_vals_)
+            R"(* _view_map, double* custom_ops_args_, double* scalar_vals_)
             : view_map(_view_map), custom_ops_args(custom_ops_args_), scalar_vals(scalar_vals_) {}
 
         KOKKOS_INLINE_FUNCTION
@@ -145,9 +158,9 @@ private:
         }
     };
 
-    extern "C" void run_kernel(ExecSpace exec_space,Kokkos::View<)" +
+    extern "C" void run_kernel(ExecSpace& exec_space,)" +
             kkViewType +
-            R"(*> view_map, Kokkos::View<double*> custom_ops_args, Kokkos::View<double*> scalar_vals, std::vector<std::size_t> dims) {
+            R"(* view_map, double* custom_ops_args, double* scalar_vals, std::vector<std::size_t> dims) {
         ASTFunctor kernel(view_map, custom_ops_args, scalar_vals);
         Kokkos::parallel_for("debug_label", )" +
             kkRangePolicy + R"(, kernel);
@@ -224,7 +237,7 @@ private:
         kkViewType += "Kokkos::View<double";
         for (size_t i = 0; i < dim; i++)
             kkViewType += "*";
-        kkViewType += ">";
+        kkViewType += ", Kokkos::MemoryTraits<Kokkos::Unmanaged>>";
     }
 
     inline void genkkRangePolicy(const size_t dim) noexcept
@@ -474,70 +487,6 @@ public:
         kkPreamble.clear();
     }
 
-    template <typename viewType, typename nodeType, size_t dim>
-    static void execute(ExecSpace exec_space, ct::util::kernelInfo const& kernel,
-        std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
-        std::vector<std::vector<nodeType>> const& region)
-    {
-        traceBeginUserBracketEvent(4);
-        using kernelType =
-            void (*)(ExecSpace, Kokkos::View<viewType*>, Kokkos::View<double*>,
-                Kokkos::View<double*>, std::vector<std::size_t>);
-
-        // Arrays used in the kernel
-        Kokkos::View<viewType*> kkVecViews(
-            Kokkos::view_alloc(exec_space, "kkViews"), std::get<1>(kernel).size());
-        auto kkVecViews_h = Kokkos::create_mirror_view(kkVecViews);
-        for (int i = 0; i < std::get<1>(kernel).size(); i++)
-            kkVecViews_h(i) = view_map[std::get<1>(kernel)[i]];
-        Kokkos::deep_copy(exec_space, kkVecViews, kkVecViews_h);
-
-        // Arguments to the custom operations (unop/binop) used in the kernel
-        std::vector<double> kkCustomOpsArgs;
-        for (const auto& it : std::get<2>(kernel))
-        {
-            if (std::get<2>(it))
-            {
-                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
-                                        .unary_expr_->get_extra_params();
-                if (extra_params.size() == 0)
-                    continue;
-                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
-                    extra_params.begin(), extra_params.end());
-            }
-            else
-            {
-                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
-                                        .binary_expr_->get_extra_params();
-                if (extra_params.size() == 0)
-                    continue;
-                kkCustomOpsArgs.insert(kkCustomOpsArgs.end(),
-                    extra_params.begin(), extra_params.end());
-            }
-        }
-
-        Kokkos::View<double*> kkCustomOpsArgs_d(
-            Kokkos::view_alloc(exec_space, "kkCustomOpsArgs_d"), kkCustomOpsArgs.size());
-        auto kkCustomOpsArgs_h = Kokkos::create_mirror_view(kkCustomOpsArgs_d);
-        for (int i = 0; i < kkCustomOpsArgs.size(); i++)
-            kkCustomOpsArgs_h(i) = kkCustomOpsArgs[i];
-        Kokkos::deep_copy(exec_space, kkCustomOpsArgs_d, kkCustomOpsArgs_h);
-
-        // Scalars used in the kernel
-        Kokkos::View<double*> kkScalarVals(
-            Kokkos::view_alloc(exec_space,"kkScalarVals"), std::get<3>(kernel).size());
-        auto kkScalarVals_h = Kokkos::create_mirror_view(kkScalarVals);
-        for (int i = 0; i < std::get<3>(kernel).size(); i++)
-            kkScalarVals_h(i) = std::get<3>(kernel)[i];
-        Kokkos::deep_copy(exec_space, kkScalarVals, kkScalarVals_h);
-
-        void* functor =
-            kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
-        ((kernelType) functor)(std::move(exec_space), std::move(kkVecViews),
-            std::move(kkCustomOpsArgs_d), std::move(kkScalarVals),
-            std::move(dims));
-    }
-
     template <typename T, size_t dim>
     ct::util::kernelInfo generate_kernel(
         std::vector<std::vector<T>> const& instructions)
@@ -577,5 +526,121 @@ public:
 
         return {compile(), std::move(kkViewsOrder), std::move(kkCustomOpsOrder),
             std::move(kkScalarVals)};
+    }
+};
+
+class codegen_exec {
+    private:
+    void* kkVecViews {};
+    void* kkVecViews_h {};
+    std::size_t kkVecViews_size {};//size in Bytes
+
+    double* kkCustomOpsArgs {};
+    double* kkCustomOpsArgs_h {};
+    std::size_t kkCustomOpsArgs_size {};//size in Bytes
+
+    double* kkScalarVals {};
+    double* kkScalarVals_h {};
+    std::size_t kkScalarVals_size {};//size in Bytes
+
+    void resize_1d_buffers(void*& gpu_buff, void*& cpu_buff, std::size_t new_size, ExecSpace& exec_space)
+    {
+        if(gpu_buff!=nullptr)
+            cudaFreeAsync(gpu_buff, exec_space.cuda_stream());   
+        cudaMallocAsync((void**)&gpu_buff, new_size, exec_space.cuda_stream());
+        if(cpu_buff!=nullptr)
+            cudaFreeHost(cpu_buff);
+        cudaMallocHost((void**)&cpu_buff, new_size);
+    }
+    public:
+        template <typename viewType, typename nodeType, size_t dim>
+    void execute(ExecSpace& exec_space, ct::util::kernelInfo const& kernel,
+        std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
+        std::vector<std::vector<nodeType>> const& region)
+    {
+        // std::ostringstream os;
+        // os << "codegen_exec::execute::begin ";
+        // NVTXTracer(os.str(), NVTXColor::Turquoise);
+
+        using viewType_um = typename Unmanagedof<viewType>::type;
+        using kernelType =
+            void (*)(ExecSpace&, viewType_um*, double*, double*, std::vector<std::size_t>);
+
+        // Arrays used in the kernel
+        std::size_t required_size = std::get<1>(kernel).size()*sizeof(viewType_um);
+        if(kkVecViews_size < required_size)
+        {
+            resize_1d_buffers(kkVecViews, kkVecViews_h, (std::size_t)1.2*required_size, exec_space);
+            kkVecViews_size = (std::size_t)1.2*required_size;
+        }
+        auto kkVecViews_um = (viewType_um*)kkVecViews;
+        auto kkVecView_h_um = (viewType_um*)kkVecViews_h;
+        for (int i = 0; i < std::get<1>(kernel).size(); i++)
+            kkVecView_h_um[i] = viewType_um(view_map[std::get<1>(kernel)[i]]);
+
+        // Kokkos::deep_copy(exec_space, kkVecViews, kkVecViews_h);
+        cudaMemcpyAsync(kkVecViews, kkVecViews_h,  std::get<1>(kernel).size()*sizeof(viewType_um), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+
+        // Arguments to the custom operations (unop/binop) used in the kernel
+        std::vector<double> kkCustomOpsArgs_v;
+        for (const auto& it : std::get<2>(kernel))
+        {
+            if (std::get<2>(it))
+            {
+                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
+                                        .unary_expr_->get_extra_params();
+                if (extra_params.size() == 0)
+                    continue;
+                kkCustomOpsArgs_v.insert(kkCustomOpsArgs_v.end(),
+                    extra_params.begin(), extra_params.end());
+            }
+            else
+            {
+                auto extra_params = region[std::get<0>(it)][std::get<1>(it)]
+                                        .binary_expr_->get_extra_params();
+                if (extra_params.size() == 0)
+                    continue;
+                kkCustomOpsArgs_v.insert(kkCustomOpsArgs_v.end(),
+                    extra_params.begin(), extra_params.end());
+            }
+        }
+
+        required_size = kkCustomOpsArgs_v.size()*sizeof(double);
+        if(kkCustomOpsArgs_size < required_size)
+        {
+            void* gpu_tmp = (void*)this->kkCustomOpsArgs;
+            void* cpu_tmp = (void*)this->kkCustomOpsArgs_h;
+            resize_1d_buffers(gpu_tmp, cpu_tmp, 1.2*required_size, exec_space);
+            this->kkCustomOpsArgs = (double*)gpu_tmp;
+            this->kkCustomOpsArgs_h = (double*)cpu_tmp;
+            kkCustomOpsArgs_size = 1.2*required_size;
+        }
+        for (int i = 0; i < kkCustomOpsArgs_v.size(); i++)
+            kkCustomOpsArgs_h[i] = kkCustomOpsArgs_v[i];
+        cudaMemcpyAsync(kkCustomOpsArgs, kkCustomOpsArgs_h, kkCustomOpsArgs_v.size()*sizeof(double), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+
+        required_size = std::get<3>(kernel).size()*sizeof(double);
+        if(kkScalarVals_size < required_size)
+        {
+            void* gpu_tmp = (void*)this->kkScalarVals;
+            void* cpu_tmp = (void*)this->kkScalarVals_h;
+            resize_1d_buffers(gpu_tmp, cpu_tmp, 1.2*required_size, exec_space);
+            this->kkScalarVals = (double*)gpu_tmp;
+            this->kkScalarVals_h = (double*)cpu_tmp;
+            kkScalarVals_size = 1.2*required_size;
+        }
+        for (int i = 0; i < std::get<3>(kernel).size(); i++)
+            kkScalarVals_h[i] = std::get<3>(kernel)[i];
+        cudaMemcpyAsync(kkScalarVals, kkScalarVals_h, std::get<3>(kernel).size()*sizeof(double), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+
+        void* functor =
+            kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
+        ((kernelType) functor)(exec_space, kkVecViews_um,
+            kkCustomOpsArgs, kkScalarVals,
+            std::move(dims));
+
+        // std::ostringstream os_;
+        // os << "codegen_exec::execute::end ";
+        // NVTXTracer(os.str(), NVTXColor::Turquoise);
     }
 };

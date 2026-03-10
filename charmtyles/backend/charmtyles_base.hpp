@@ -545,6 +545,9 @@ public:
     void execute_instruction(
         std::vector<std::vector<ct::vec_impl::vec_node>> const& region)
     {
+        // std::ostringstream os;
+        // os << "impl::execute_instruction ";
+        // NVTXTracer(os.str(), NVTXColor::WetAsphalt);
         const std::vector<ct::vec_impl::vec_node>& instruction = region[0];
         const ct::vec_impl::vec_node& node = instruction[0];
         std::size_t node_id = node.name_;
@@ -623,7 +626,10 @@ public:
         case ct::util::Operation::where:
         {
             CHECK_IF_EXIST_ELSE_ADD_VECTOR(node);
-            Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node ,1>(
+            // std::ostringstream os_;
+            // os_ << "impl::execute_instruction::execute call ";
+            // NVTXTracer(os_.str(), NVTXColor::WetAsphalt);
+            exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node ,1>(
                 exec_space,
                 instruction[0].kernel, {vec_map[node_id].size()}, vec_map,
                 region);
@@ -635,7 +641,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                // std::ostringstream os_;
+                // os_ << "impl::execute_instruction::execute call ";
+                // NVTXTracer(os_.str(), NVTXColor::WetAsphalt);
+                exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
                     1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
@@ -656,7 +665,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                // std::ostringstream os_;
+                // os_ << "impl::execute_instruction::execute call ";
+                // NVTXTracer(os_.str(), NVTXColor::WetAsphalt);
+                // exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
                     1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
@@ -677,7 +689,10 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                // std::ostringstream os_;
+                // os_ << "impl::execute_instruction::execute call ";
+                // NVTXTracer(os_.str(), NVTXColor::WetAsphalt);
+                exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
                     1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
@@ -800,6 +815,8 @@ private:
     int vec_block_size;
     ExecSpace exec_space;
     ExecSpace comm_space;
+
+    codegen_exec exec;
     
     // context for async callback of send_to_matrix
     struct send_to_matrix_ctx_t {
@@ -1043,7 +1060,7 @@ public:
         {
             // exec_space.fence();
             CHECK_IF_EXIST_ELSE_ADD_MATRIX(node);
-            Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
+            exec.execute<Kokkos::View<double**>, ct::mat_impl::mat_node, 2>(
                 exec_space,
                 instruction[0].kernel,
                 {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
@@ -1056,7 +1073,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                exec.execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
                     2>(exec_space,
                     instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
@@ -1081,7 +1098,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                exec.execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
                     2>(exec_space, instruction[0].kernel,
                     {mat_map[node_id].extent(0), mat_map[node_id].extent(1)},
                     mat_map, region);
@@ -1105,7 +1122,7 @@ public:
             std::size_t copy_id = node.copy_id_;
             if (copy_id == -1)
             {
-                Codegen::execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
+                exec.execute<Kokkos::View<double**>, ct::mat_impl::mat_node,
                     2>(
                     exec_space,    
                     instruction[0].kernel,
@@ -1232,6 +1249,8 @@ private:
     int block;
     ExecSpace exec_space;
     ExecSpace comm_space;
+
+    codegen_exec exec;
 
     struct mat_vec_dot_ctx_t {
         size_t result_size;
