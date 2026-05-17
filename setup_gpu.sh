@@ -1,24 +1,16 @@
 if [ -d "./kokkos/install" ]; then
     echo "Kokkos Found at ${PWD}/kokkos/install"
 else
-    # export KOKKOS_VERSION=4.7.01 # Replace with the actual version
-    # export KOKKOS_DOWNLOAD_URL=https://github.com/kokkos/kokkos/releases/download/${KOKKOS_VERSION}
-    # curl -sLO ${KOKKOS_DOWNLOAD_URL}/kokkos-${KOKKOS_VERSION}.tar.gz
-    # tar -xzvf kokkos-${KOKKOS_VERSION}.tar.gz
-    # rm kokkos-${KOKKOS_VERSION}.tar.gz
-    # mv kokkos-${KOKKOS_VERSION} kokkos
-    git clone https://github.com/kokkos/kokkos.git
+    export KOKKOS_VERSION=4.7.01 # Replace with the actual version
+    export KOKKOS_DOWNLOAD_URL=https://github.com/kokkos/kokkos/releases/download/${KOKKOS_VERSION}
+    curl -sLO ${KOKKOS_DOWNLOAD_URL}/kokkos-${KOKKOS_VERSION}.tar.gz
+    tar -xzvf kokkos-${KOKKOS_VERSION}.tar.gz
+    rm kokkos-${KOKKOS_VERSION}.tar.gz
+    mv kokkos-${KOKKOS_VERSION} kokkos
     cd kokkos
     rm -rf build
     mkdir build
     cd build
-
-    # ensure that you have cmake/3.27.9 cuda/12.4.0 and eigen[for later] loaded
-
-    ## for delta please run these before running the setup script
-    # module load cuda/12.4.0
-    # module load eigen
-    # module load cmake/3.27.9
 
     ## The best practice is to let cmake autodetect the architecture, please run on a GPU system or add a srun
     srun cmake -DBUILD_SHARED_LIBS=ON .. -DKokkos_ENABLE_CUDA=ON -DCMAKE_CXX_STANDARD=20
@@ -32,14 +24,14 @@ fi
 if [ -d "./kokkos-kernels/install" ]; then
     echo "Kokkos Kernels Found at ${PWD}/kokkos_kernels/install"
 else
-    # export KOKKOS_KERNELS_VERSION=4.7.01 # Replace with the actual version
-    # export KOKKOS_DOWNLOAD_URL=https://github.com/kokkos/kokkos-kernels/releases/download/${KOKKOS_VERSION}
-    # curl -sLO ${KOKKOS_DOWNLOAD_URL}/kokkos-kernels-${KOKKOS_VERSION}.tar.gz
-    # tar -xzvf kokkos-kernels-${KOKKOS_VERSION}.tar.gz
-    # rm kokkos-kernels-${KOKKOS_VERSION}.tar.gz
-    # mv kokkos-kernels-${KOKKOS_VERSION} kokkos-kernels
-    git clone https://github.com/kokkos/kokkos-kernels.git
+    export KOKKOS_KERNELS_VERSION=4.7.01 # Replace with the actual version
+    export KOKKOS_DOWNLOAD_URL=https://github.com/kokkos/kokkos-kernels/releases/download/${KOKKOS_KERNELS_VERSION}
+    curl -sLO ${KOKKOS_DOWNLOAD_URL}/kokkos-kernels-${KOKKOS_KERNELS_VERSION}.tar.gz
+    tar -xzvf kokkos-kernels-${KOKKOS_KERNELS_VERSION}.tar.gz
+    rm kokkos-kernels-${KOKKOS_KERNELS_VERSION}.tar.gz
+    mv kokkos-kernels-${KOKKOS_KERNELS_VERSION} kokkos-kernels
     cd kokkos-kernels
+    rm -rf build
     mkdir build
     cd build
     cmake .. -DCMAKE_CXX_COMPILER=g++ -DCMAKE_INSTALL_PREFIX=${PWD}/../install -DKokkos_ROOT=${PWD}/../../kokkos/install -DBUILD_SHARED_LIBS=ON

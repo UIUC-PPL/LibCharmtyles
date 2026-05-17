@@ -93,14 +93,18 @@ private:
 public:
     KokkosGroup()
     {
-        Kokkos::initialize();
         #ifdef GPU_BACKEND
         int device;
         hapiCheck(hapiGetDevice(&device));
-        // hapiCheck(cudaSetDevice());//later make RR on gpus
+        Kokkos::InitializationSettings settings;
+        settings.set_device_id(device);
+        Kokkos::initialize(settings);
+        printf("group %d has device %d\n", CkMyPe(), device);
         auto start = CkTimer();
         hapiCreateStreams();
         ckout << "Time to create streams " <<CkTimer() - start << endl;
+        #else
+        Kokkos::initialize();
         #endif
     }
 
@@ -668,7 +672,7 @@ public:
                 // std::ostringstream os_;
                 // os_ << "impl::execute_instruction::execute call ";
                 // NVTXTracer(os_.str(), NVTXColor::WetAsphalt);
-                // exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
+                exec.execute<Kokkos::View<double*>, ct::vec_impl::vec_node,
                     1>(exec_space, node.kernel, {vec_map[node_id].size()}, vec_map, region);
             }
             else
