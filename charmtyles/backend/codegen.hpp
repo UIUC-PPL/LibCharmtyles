@@ -531,8 +531,8 @@ public:
 
 class codegen_exec {
     private:
-    void* kkVecViews {};
-    void* kkVecViews_h {};
+    char* kkVecViews {};
+    char* kkVecViews_h {};
     std::size_t kkVecViews_size {};//size in Bytes
 
     double* kkCustomOpsArgs {};
@@ -543,14 +543,21 @@ class codegen_exec {
     double* kkScalarVals_h {};
     std::size_t kkScalarVals_size {};//size in Bytes
 
-    void resize_1d_buffers(void*& gpu_buff, void*& cpu_buff, std::size_t new_size, ExecSpace& exec_space)
+    void resize_1d_buffers(char*& gpu_buff, char*& cpu_buff, std::size_t new_size, ExecSpace& exec_space)
     {
+        #ifdef KOKKOS_ENABLE_CUDA
         if(gpu_buff!=nullptr)
             cudaFreeAsync(gpu_buff, exec_space.cuda_stream());   
         cudaMallocAsync((void**)&gpu_buff, new_size, exec_space.cuda_stream());
         if(cpu_buff!=nullptr)
             cudaFreeHost(cpu_buff);
         cudaMallocHost((void**)&cpu_buff, new_size);
+        #else
+        // GPU buff points to cpu_buff only for cpu build
+        if(cpu_buff!=nullptr)
+            free(cpu_buff);
+        cpu_buff = (char*) malloc(new_size);
+        #endif
     }
     public:
         template <typename viewType, typename nodeType, size_t dim>
@@ -558,10 +565,6 @@ class codegen_exec {
         std::vector<std::size_t> dims, std::vector<viewType> const& view_map,
         std::vector<std::vector<nodeType>> const& region)
     {
-        // std::ostringstream os;
-        // os << "codegen_exec::execute::begin ";
-        // NVTXTracer(os.str(), NVTXColor::Turquoise);
-
         using viewType_um = typename Unmanagedof<viewType>::type;
         using kernelType =
             void (*)(ExecSpace&, viewType_um*, double*, double*, std::vector<std::size_t>);
@@ -570,8 +573,8 @@ class codegen_exec {
         std::size_t required_size = std::get<1>(kernel).size()*sizeof(viewType_um);
         if(kkVecViews_size < required_size)
         {
-            resize_1d_buffers(kkVecViews, kkVecViews_h, (std::size_t)1.2*required_size, exec_space);
-            kkVecViews_size = (std::size_t)1.2*required_size;
+            resize_1d_buffers(kkVecViews, kkVecViews_h, (std::size_t)(1.2*required_size), exec_space);
+            kkVecViews_size = (std::size_t)(1.2*required_size);
         }
         auto kkVecViews_um = (viewType_um*)kkVecViews;
         auto kkVecView_h_um = (viewType_um*)kkVecViews_h;
@@ -579,7 +582,11 @@ class codegen_exec {
             kkVecView_h_um[i] = viewType_um(view_map[std::get<1>(kernel)[i]]);
 
         // Kokkos::deep_copy(exec_space, kkVecViews, kkVecViews_h);
+        #ifdef KOKKOS_ENABLE_CUDA
         cudaMemcpyAsync(kkVecViews, kkVecViews_h,  std::get<1>(kernel).size()*sizeof(viewType_um), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+        #else
+        kkVecViews = kkVecViews_h;
+        #endif
 
         // Arguments to the custom operations (unop/binop) used in the kernel
         std::vector<double> kkCustomOpsArgs_v;
@@ -608,30 +615,39 @@ class codegen_exec {
         required_size = kkCustomOpsArgs_v.size()*sizeof(double);
         if(kkCustomOpsArgs_size < required_size)
         {
-            void* gpu_tmp = (void*)this->kkCustomOpsArgs;
-            void* cpu_tmp = (void*)this->kkCustomOpsArgs_h;
-            resize_1d_buffers(gpu_tmp, cpu_tmp, 1.2*required_size, exec_space);
+            char* gpu_tmp = (char*)this->kkCustomOpsArgs;
+            char* cpu_tmp = (char*)this->kkCustomOpsArgs_h;
+            resize_1d_buffers(gpu_tmp, cpu_tmp, (std::size_t)(1.2*required_size), exec_space);
             this->kkCustomOpsArgs = (double*)gpu_tmp;
             this->kkCustomOpsArgs_h = (double*)cpu_tmp;
-            kkCustomOpsArgs_size = 1.2*required_size;
+            kkCustomOpsArgs_size = (std::size_t)(1.2*required_size);
         }
         for (int i = 0; i < kkCustomOpsArgs_v.size(); i++)
             kkCustomOpsArgs_h[i] = kkCustomOpsArgs_v[i];
+
+        #ifdef KOKKOS_ENABLE_CUDA
         cudaMemcpyAsync(kkCustomOpsArgs, kkCustomOpsArgs_h, kkCustomOpsArgs_v.size()*sizeof(double), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+        #else
+        kkCustomOpsArgs = kkCustomOpsArgs_h;
+        #endif
 
         required_size = std::get<3>(kernel).size()*sizeof(double);
         if(kkScalarVals_size < required_size)
         {
-            void* gpu_tmp = (void*)this->kkScalarVals;
-            void* cpu_tmp = (void*)this->kkScalarVals_h;
-            resize_1d_buffers(gpu_tmp, cpu_tmp, 1.2*required_size, exec_space);
+            char* gpu_tmp = (char*)this->kkScalarVals;
+            char* cpu_tmp = (char*)this->kkScalarVals_h;
+            resize_1d_buffers(gpu_tmp, cpu_tmp, (std::size_t)(1.2*required_size), exec_space);
             this->kkScalarVals = (double*)gpu_tmp;
             this->kkScalarVals_h = (double*)cpu_tmp;
-            kkScalarVals_size = 1.2*required_size;
+            kkScalarVals_size = (std::size_t)(1.2*required_size);
         }
         for (int i = 0; i < std::get<3>(kernel).size(); i++)
             kkScalarVals_h[i] = std::get<3>(kernel)[i];
+        #ifdef KOKKOS_ENABLE_CUDA
         cudaMemcpyAsync(kkScalarVals, kkScalarVals_h, std::get<3>(kernel).size()*sizeof(double), cudaMemcpyHostToDevice, exec_space.cuda_stream());
+        #else
+        kkScalarVals = kkScalarVals_h;
+        #endif
 
         void* functor =
             kokkosMgmt.ckLocalBranch()->getHandle(std::get<0>(kernel));
