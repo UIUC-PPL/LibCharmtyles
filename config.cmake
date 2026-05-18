@@ -1,0 +1,33 @@
+if(DEFINED ENV{CHARM_DIR})
+    set(CHARM_DIR "$ENV{CHARM_DIR}")
+else()
+    set(CHARM_DIR "/home/shogo/master/Kale/charm/netlrts-linux-x86_64")
+endif()
+
+if(DEFINED ENV{BASE_DIR})
+    set(BASE_DIR "$ENV{BASE_DIR}")
+else()
+    get_filename_component(BASE_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
+endif()
+
+if(DEFINED ENV{EIGEN_DIR})
+    set(EIGEN_DIR "$ENV{EIGEN_DIR}")
+else()
+    set(EIGEN_DIR "/usr/include/eigen3")
+endif()
+
+# set(CUDA_DIR  "/path/to/CUDA/directory")
+
+if(DEFINED ENV{KOKKOS_DIR})
+    set(KOKKOS_DIR "$ENV{KOKKOS_DIR}")
+else()
+    set(KOKKOS_DIR "/home/shogo/master/Kale/LibCharmtyles/kokkos/install")
+endif()
+set(KOKKOS_KERNELS_DIR "${BASE_DIR}/kokkos-kernels/install")
+
+set(CHARMC "${CHARM_DIR}/bin/charmc")
+set(CPU_OPTS "-c++-option -std=c++20 -O3 -march=native -DNDEBUG")
+set(GPU_OPTS "-std=c++20 -O3 -march=native -DNDEBUG")
+set(GPU_LINK_OPTS -O3 -language charm++ -L${KOKKOS_DIR}/lib64 -L${KOKKOS_KERNELS_DIR}/lib64 -lkokkoskernels -lkokkoscore -lkokkoscontainers -L${CUDA_DIR} -lcuda -lcudart -lcusparse -lcublas)
+set(LD_OPTS "")
+set(INCS "-I${BASE_DIR}")

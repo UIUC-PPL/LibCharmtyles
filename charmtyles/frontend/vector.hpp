@@ -20,6 +20,11 @@ namespace ct {
             return curr_id;
         }
 
+        /**
+         * NOTE:
+         *      shape_id  is the number of vector shapes that exist
+         *      vector_id is the number of vectors of that particular shape that exist
+         */
         struct vec_shape_t
         {
             std::size_t shape_id;
@@ -76,18 +81,35 @@ namespace ct {
             std::size_t dispatch_size() const
             {
                 std::size_t dispatch_count = 0;
-                for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
-                {
-                    // Dispatch all non-empty vectors!
-                    if (shape_vector_queue_[i].size() != 0)
-                    {
-                        ++dispatch_count;
-                    }
-                }
+                // for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
+                // {
+                //     // Dispatch all non-empty vectors!
+                //     if (shape_vector_queue_[i].size() != 0)
+                //     {
+                //         ++dispatch_count;
+                //     }
+                // }
+                dispatch_count = shape_vector_queue_.size();
 
                 return dispatch_count;
             }
 
+            void codegen(instr_t& instructions) {
+                traceBeginUserBracketEvent(1);
+                for (size_t i = 0; i < instructions.size();) {
+                    instr_t region = ct::util::carveRegion<vec_node>(instructions, i);
+
+                    if (!region.empty()) {
+                        cgen.reset();
+                        instructions[i][0].kernel = cgen.generate_kernel<vec_node, 1>(region);
+                        kokkosMgmt.dkload(std::get<0>(instructions[i][0].kernel));
+                        i += region.size();
+                    } else {
+                        ++i;
+                    }
+                }
+                traceEndUserBracketEvent(1);
+            }
             void print_instructions() const
             {
                 ckout << "Printing Instructions:" << endl;
@@ -109,36 +131,42 @@ namespace ct {
 
             void dispatch(ck::future<bool> is_done, CProxy_set_future proxy)
             {
-                bool is_dispatched = false;
+                if(shape_vector_queue_.size()==0){
+                    is_done.set(true);
+                    return;
+                }
+                
                 for (std::size_t i = 0; i != shape_vector_queue_.size(); ++i)
                 {
+                    std::size_t& sdag_index = sdag_index_[i];
+                    CProxy_vector_impl dispatch_proxy =
+                        CT_ACCESS_SINGLETON(vec_shape_info)[i].proxy;
+                    
                     // Dispatch all non-empty vectors!
                     if (shape_vector_queue_[i].size() != 0)
                     {
-                        is_dispatched = true;
-
-                        std::size_t& sdag_index = sdag_index_[i];
-
-                        CProxy_vector_impl dispatch_proxy =
-                            CT_ACCESS_SINGLETON(vec_shape_info)[i].proxy;
+                        codegen(shape_vector_queue_[i]);
 
                         dispatch_proxy.compute(
                             sdag_index, shape_vector_queue_[i], proxy);
 
                         ++sdag_index;
                         shape_vector_queue_[i].clear();
+                    } else {
+                        // if canned operations remain, they also need to sync
+                        dispatch_proxy.synchronize(sdag_index, proxy);
+                        ++sdag_index;
                     }
                 }
-
-                if (!is_dispatched)
-                    is_done.set(true);
             }
 
             void dispatch(std::size_t shape_id)
             {
+                // print_instructions();
                 // Send instructions for execution
                 if (shape_vector_queue_[shape_id].size() != 0)
                 {
+                    codegen(shape_vector_queue_[shape_id]);
                     std::size_t& sdag_index = sdag_index_[shape_id];
 
                     CProxy_vector_impl dispatch_proxy =
@@ -179,6 +207,8 @@ namespace ct {
             // Shape -> Instructions -> AST (per instruction)
             std::vector<instr_t> shape_vector_queue_;
             std::vector<std::size_t> sdag_index_;
+
+            Codegen cgen;
         };
         CT_GENERATE_SINGLETON(vec_instr_queue_t, vec_instr_queue);
 
@@ -204,8 +234,12 @@ namespace ct {
             if (it == shape_info.end())
             {
                 // Create a new proxy for this shape and assign it to shape_info
+                CProxy_RRMap rrMap = CProxy_RRMap::ckNew();
+                CkArrayOptions opts(num_chares);
+                opts.setMap(rrMap);
+
                 CProxy_vector_impl proxy = CProxy_vector_impl::ckNew(num_chares,
-                    CT_ACCESS_SINGLETON(ct::util::array_block_len), num_chares);
+                    block_len, opts);
                 shape_info.emplace_back(
                     ct::vec_impl::vec_shape_t{0, num_chares, proxy});
                 ct::vec_impl::vec_shape_t vector_shape = shape_info.back();
@@ -365,23 +399,22 @@ namespace ct {
                 std::copy(left.begin(), left.end(), std::back_inserter(ast));
 
                 if (op != ct::util::Operation::unary_expr)
-                    std::copy(
-                        right.begin(), right.end(), std::back_inserter(ast));
+                    std::copy(right.begin(), right.end(), std::back_inserter(ast));
 
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1;
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1;
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1;
                     }
@@ -389,17 +422,17 @@ namespace ct {
 
                 for (int i = 1 + left.size(); i != ast.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size();
                     }
@@ -465,17 +498,17 @@ namespace ct {
                 // Update left and right neighbors
                 for (int i = 1; i != left.size(); ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1;
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1;
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1;
                     }
@@ -484,17 +517,17 @@ namespace ct {
                 for (int i = 1 + left.size(); i != left.size() + right.size();
                     ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size();
                     }
@@ -503,17 +536,17 @@ namespace ct {
                 for (int i = 1 + left.size() + right.size(); i != ast.size();
                     ++i)
                 {
-                    if (ast[i].left_ != static_cast<std::size_t>(-1))
+                    if (ast[i].left_ != -1)
                     {
                         ast[i].left_ += 1 + left.size() + right.size();
                     }
 
-                    if (ast[i].right_ != static_cast<std::size_t>(-1))
+                    if (ast[i].right_ != -1)
                     {
                         ast[i].right_ += 1 + left.size() + right.size();
                     }
 
-                    if (ast[i].ter_ != static_cast<std::size_t>(-1))
+                    if (ast[i].ter_ != -1)
                     {
                         ast[i].ter_ += 1 + left.size() + right.size();
                     }
@@ -539,10 +572,6 @@ namespace ct {
 
     namespace dot_impl {
         class dot_expression;
-    }
-
-    namespace blas_impl {
-        class vec_axpy_expr;
     }
 
     class vector
@@ -626,14 +655,11 @@ namespace ct {
             return *this;
         }
 
-        // TODO: Figure out why this is necessary!
         vector(vector&& other)
           : size_(other.size_)
           , vector_shape_(other.vector_shape_)
           , node_(other.node_)
-        {
-            // ckout << "Move constructor called!" << endl;
-        }
+        {}
 
         template <typename LHS, typename RHS>
         vector(ct::vec_impl::vec_expression<LHS, RHS> const& e)
@@ -649,6 +675,20 @@ namespace ct {
 
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+
+            queue.insert(instr, vector_shape_.shape_id);
+        }
+
+        vector(std::vector<ct::vec_impl::vec_node>& instr) {
+            ct::vec_impl::vec_node& root = instr.front();
+            size_ = root.vec_len_;
+
+            vector_shape_ = ct::vec_impl::get_vector_shape(size_);
+
+            root.name_ = vector_shape_.vector_id;
+            node_ = ct::vec_impl::vec_node{root};
+
+            ct::vec_impl::vec_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
 
             queue.insert(instr, vector_shape_.shape_id);
         }
@@ -671,9 +711,6 @@ namespace ct {
 
         vector(dot_impl::dot_expression const&);
         vector& operator=(dot_impl::dot_expression const&);
-
-        vector(blas_impl::vec_axpy_expr const&);
-        vector& operator=(blas_impl::vec_axpy_expr const&);
 
         template <typename LHS, typename RHS, typename THS>
         vector(ct::vec_impl::ter_vec_expression<LHS, RHS, THS> const& e)
@@ -746,14 +783,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_add, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
@@ -767,14 +804,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_sub, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
@@ -788,14 +825,14 @@ namespace ct {
             auto instr = e();
             instr.front().name_ = vector_shape_.vector_id;
             ct::vec_impl::vec_node root{ct::util::Operation::inplace_divide, size_};
-            root.left_ = static_cast<std::size_t>(-1);
+            root.left_ = -1;
             root.right_ = 1;
             root.name_ = vector_shape_.vector_id;
             instr.insert(instr.begin(), root);
             for (std::size_t i = 1; i < instr.size(); ++i)
             {
-                if (instr[i].left_  != static_cast<std::size_t>(-1)) instr[i].left_ += 1;
-                if (instr[i].right_ != static_cast<std::size_t>(-1)) instr[i].right_ += 1;
+                if (instr[i].left_  != -1) instr[i].left_ += 1;
+                if (instr[i].right_ != -1) instr[i].right_ += 1;
             }
             ct::vec_impl::vec_instr_queue_t& queue =
                 CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
@@ -804,7 +841,6 @@ namespace ct {
         }
 
         // Helper functions
-    public:
         const ct::vec_impl::vec_shape_t vector_shape() const
         {
             return vector_shape_;
@@ -893,7 +929,6 @@ namespace ct {
             return fval.get();
         }
 
-    private:
         std::vector<ct::vec_impl::vec_node> operator()() const
         {
             ct::vec_impl::vec_node new_node{node_};
@@ -902,24 +937,14 @@ namespace ct {
             return std::vector<ct::vec_impl::vec_node>{new_node};
         }
 
+        ~vector() {
+            ct::vec_impl::vec_node delNode(vector_shape_.vector_id, ct::util::Operation::dealloc, size_);
+            ct::vec_impl::vec_instr_queue_t& queue = CT_ACCESS_SINGLETON(ct::vec_impl::vec_instr_queue);
+            queue.insert(delNode, vector_shape_.shape_id);
+        }
+    private:
         std::size_t size_;
         ct::vec_impl::vec_shape_t vector_shape_;
         ct::vec_impl::vec_node node_;
     };
-
-    namespace traits {
-        template <typename T>
-        struct is_vec_type_impl
-        {
-            constexpr static bool value = false;
-        };
-
-        template <>
-        struct is_vec_type_impl<ct::vector>
-        {
-            constexpr static bool value = true;
-        };
-
-    }    // namespace traits
-
 }    // namespace ct

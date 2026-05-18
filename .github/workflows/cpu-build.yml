@@ -1,0 +1,84 @@
+name: CPU Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DEPS_DIR: ${{ github.workspace }}/.deps
+      KOKKOS_INSTALL: ${{ github.workspace }}/.deps/kokkos/install
+      CHARM_ROOT: ${{ github.workspace }}/.deps/charm-src/netlrts-linux-x86_64
+      CHARM_DIR: ${{ github.workspace }}/.deps/charm-src/netlrts-linux-x86_64
+      KOKKOS_DIR: ${{ github.workspace }}/.deps/kokkos/install
+      BASE_DIR: ${{ github.workspace }}
+      EIGEN_DIR: /usr/include/eigen3
+      COMPREHENSIVE_BUILD_DIR: ${{ github.workspace }}/tests/comprehensive/build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libeigen3-dev python3
+
+      - name: Prepare dependency directories
+        run: mkdir -p "${DEPS_DIR}"
+
+      - name: Cache Kokkos install
+        id: cache-kokkos
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.KOKKOS_INSTALL }}
+          key: ${{ runner.os }}-kokkos-4.5.01
+
+      - name: Build Kokkos
+        if: steps.cache-kokkos.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          export nproc="$(nproc)"
+          git clone https://github.com/kokkos/kokkos.git "${DEPS_DIR}/kokkos"
+          pushd "${DEPS_DIR}/kokkos"
+          git checkout 4.5.01
+          mkdir build
+          cd build
+          cmake -DBUILD_SHARED_LIBS=ON ..
+          make -j"${nproc}"
+          cd ..
+          mkdir install
+          cmake --install build --prefix install
+          popd
+
+      - name: Cache Charm++ build
+        id: cache-charm
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CHARM_ROOT }}
+          key: ${{ runner.os }}-charm-default
+
+      - name: Build Charm++
+        if: steps.cache-charm.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 https://github.com/UIUC-PPL/charm.git "${DEPS_DIR}/charm-src"
+          pushd "${DEPS_DIR}/charm-src"
+          ./build charm++ netlrts-linux-x86_64 --with-production -j"$(nproc)"
+          popd
+
+      - name: Reset comprehensive build directory
+        run: rm -rf "${COMPREHENSIVE_BUILD_DIR}"
+
+      - name: Configure comprehensive test suite
+        run: cmake -S tests/comprehensive -B "${COMPREHENSIVE_BUILD_DIR}" -DCharm_ENABLE_GPU=OFF
+
+      - name: Build comprehensive test suite
+        run: cmake --build "${COMPREHENSIVE_BUILD_DIR}" --target comprehensive_tests.out -- -j"$(nproc)"
+
+      - name: Run comprehensive test suite
+        working-directory: ${{ env.COMPREHENSIVE_BUILD_DIR }}
+        run: |
+          "${CHARM_DIR}/bin/charmrun" +p2 ./comprehensive_tests.out ++local

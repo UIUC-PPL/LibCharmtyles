@@ -11,7 +11,7 @@ base: base.ci
 	$(CHARMC) -E base.ci
 
 vector: vector.cpp base
-	$(CHARMC) $< -L$(LIBS_DIR)/charmtyles -lcharmtyles -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend -o $@.out $(OPTS)
+	$(CHARMC) $< -I$(BASE_DIR) -I$(BASE_DIR)/charmtyles/backend -o $@.out $(OPTS)
 
 clean:
 	rm *.decl.h *.def.h *.out charmrun

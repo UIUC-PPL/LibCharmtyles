@@ -4,37 +4,44 @@
 
 #include <charmtyles/util/AST.hpp>
 #include <charmtyles/util/generator.hpp>
-#include <charmtyles/util/matrix_view.hpp>
 #include <charmtyles/util/singleton.hpp>
 #include <charmtyles/util/sizes.hpp>
 
+#include <charmtyles/frontend/basic_binary_operators.hpp>
+#include <charmtyles/frontend/basic_unary_operators.hpp>
 #include <charmtyles/frontend/matrix.hpp>
 #include <charmtyles/frontend/operations.hpp>
 #include <charmtyles/frontend/scalar.hpp>
 #include <charmtyles/frontend/vector.hpp>
-#include <charmtyles/frontend/basic_unary_operators.hpp>
-#include <charmtyles/frontend/basic_binary_operators.hpp>
 
 namespace ct {
 
-    void init()
+    void init(std::size_t vec_len_, std::size_t row_len_, std::size_t col_len_)
     {
         scalar_impl_proxy = CProxy_scalar_impl::ckNew();
 
         std::size_t& vec_len = CT_ACCESS_SINGLETON(ct::util::array_block_len);
-        vec_len = 1 << 20;
+        vec_len = vec_len_;
 
         ckout << "Vector Block Length Set to: " << vec_len << endl;
 
         std::size_t& row_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_rows);
-        row_len = 1 << 10;
+        row_len = row_len_;
 
         ckout << "Matrix Row Block Length Set to: " << row_len << endl;
 
         std::size_t& col_len = CT_ACCESS_SINGLETON(ct::util::matrix_block_cols);
-        col_len = 1 << 10;
+        col_len = col_len_;
 
         ckout << "Matrix Col Block Length Set to: " << col_len << endl;
+
+        kokkosMgmt = CProxy_KokkosGroup::ckNew();
+        reductionMgmt = CProxy_reductionGroup::ckNew();
+    }
+
+    void finalize()
+    {
+        kokkosMgmt.finalize();
     }
 
     void sync(ct::mat_impl::mat_shape_t const& matrix_shape)

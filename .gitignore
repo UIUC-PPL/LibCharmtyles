@@ -38,6 +38,14 @@
 # libcharmtyles
 libcharmtyles
 
+# kokkos
+kokkos
+kokkos-kernels
+
+# laboratory
+playground
+pg
+
 # charmrun
 charmrun
 

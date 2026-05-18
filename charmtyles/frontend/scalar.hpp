@@ -52,20 +52,24 @@ namespace ct {
             return scalar_id_;
         }
 
-        double get() const
+        double get()
         {
+            if (evaluated) return most_recent_value_;
             ck::future<double> fval;
             std::size_t& sdag_idx =
                 CT_ACCESS_SINGLETON(ct::scal_impl::scalar_sdag_idx);
             proxy.get_value(sdag_idx, scalar_id_, fval);
 
             ++sdag_idx;
-            return fval.get();
+            most_recent_value_ = fval.get();
+            evaluated = true;
+            return most_recent_value_;
         }
 
     private:
         std::size_t scalar_id_;
         double most_recent_value_;
+        bool evaluated = false;
         mutable CProxy_scalar_impl proxy = scalar_impl_proxy;
     };
 }    // namespace ct
